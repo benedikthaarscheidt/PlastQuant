@@ -1,0 +1,39 @@
+Package: PlastQuant
+Type: Package
+Title: Tools for simulating reaction norms and quantifying phenotypic plasticity
+Version: 0.1.0
+Authors@R: 
+    c(
+      person(
+        "Benedikt", "Haarscheidt",
+        email = "benedikt.haarscheidt@uni-potsdam.de",
+        role = c("aut", "cre")
+      )
+    )
+Description: Provides functions to simulate synthetic reaction norm data and to quantify phenotypic plasticity.
+    Simulation utilities generate linear and nonlinear (Gaussian, sinusoidal, wave) reaction norms for
+    multiple genotypes and replicates, with configurable variance–covariance structure, outlier injection,
+    and flexible plotting options. Analysis tools implement a suite of commonly used plasticity metrics
+    (e.g., CVt, reaction norm slope, D slope, response coefficient, CVm, CVmd, grand plasticity, PPF,
+    Pi, PImd, PILSM, RTR, PIR), transforming trait-by-environment data into interpretable indices. All
+    functions are thoroughly documented, include example code, and reference relevant literature for full
+    reproducibility.
+License: MIT + file LICENSE
+Encoding: UTF-8
+LazyData: true
+Imports:
+    MASS,
+    ggplot2,
+    dplyr,
+    purrr,
+    emmeans,
+    gridExtra,
+    reshape2
+Suggests:
+    roxygen2,
+    testthat (>= 3.0.0),
+    knitr,
+    rmarkdown,
+    VIM
+RoxygenNote: 7.3.2
+Config/testthat/edition: 3
