@@ -7,37 +7,40 @@
 calculate_RPI(trait_values, env_values = NULL, env1 = NULL, env2 = NULL)
 }
 \arguments{
-\item{trait_values}{Numeric vector of trait measurements.}
+\item{trait_values}{A numeric vector of trait measurements.}
 
-\item{env_values}{Optional vector of the same length as trait_values giving the
-environment label or value for each observation. If NULL (default), environments
-are assumed equidistant 1:length(trait_values).}
+\item{env_values}{(Optional) A vector of the same length as \code{trait_values} giving the environment
+label or value for each observation. If \code{NULL} (default), environments are assumed
+equidistant (1, 2, …, length(trait_values)).}
 
-\item{env1}{Optional single environment label or value. Must appear in env_values.}
+\item{env1}{(Optional) A single environment label or value. Must appear in \code{env_values}.
+If provided together with \code{env2}, RPI is computed only for that pair.}
 
-\item{env2}{Optional single environment label or value. Must appear in env_values.
-If both env1 and env2 are provided, RPI is computed only for that pair.}
+\item{env2}{(Optional) A single environment label or value. Must appear in \code{env_values}.
+If provided together with \code{env1}, RPI is computed only for that pair.}
 }
 \value{
-A single numeric:
-- If env1 and env2 are provided, the mean of |x_i1 - x_i2|/(x_i1 + x_i2)
-  over i = 1..m (where m is the smaller group size).
-- Otherwise, the grand mean of RPI across all unique environment pairs.
-Returns NA if fewer than two unique environments are present.
+A single numeric value:
+\itemize{
+  \item If \code{env1} and \code{env2} are provided, returns the mean
+    of \eqn{|x_{i,env1} - x_{i,env2}| / (x_{i,env1} + x_{i,env2})} over paired observations.
+  \item Otherwise, returns the grand mean of RPI across all unique environment pairs.
+}
+Returns \code{NA} (with a warning) if fewer than two unique environments are present.
 }
 \description{
 Computes the Relative Plasticity Index (RPI) of a trait across environments.
-For two environments, RPI is defined as the mean of
-|x1 - x2| / (x1 + x2) over paired observations.
-When no specific pair is given, RPI is averaged over all unique environment pairs.
+For two environments, RPI is defined as the mean of \eqn{|x_{i,1} - x_{i,2}| / (x_{i,1} + x_{i,2})}
+over paired observations. When no specific pair is given, RPI is averaged over all unique
+environment pairs.
 }
 \details{
-1. Validates that trait_values is numeric and that env_values length matches.
-2. If only one unique environment is present, returns NA with a warning.
-3. When env1/env2 are specified, pairs up observations in those environments
-   up to the smaller group size, then computes RPI for that pair.
-4. Otherwise, iterates over every combination of two distinct environments,
-   computes pairwise RPI, and returns the average.
+1. Validates that \code{trait_values} is numeric and that \code{env_values} length matches.
+2. If fewer than two unique environments exist, returns \code{NA}.
+3. If \code{env1} and \code{env2} are specified, pairs up observations (up to the smaller group size)
+   and computes RPI for that pair.
+4. Otherwise, iterates over every combination of two distinct environments, computes pairwise RPI,
+   and returns the average.
 }
 \examples{
 # Two-environment example
@@ -46,11 +49,11 @@ env   <- rep(c("A", "B"), each = 3)
 calculate_RPI(trait, env, env1 = "A", env2 = "B")
 
 # Multi-environment example: averaged over all pairs
-trait <- c(2,4,6,8,10,12)
+trait <- c(2, 4, 6, 8, 10, 12)
 env   <- rep(1:3, each = 2)
 calculate_RPI(trait, env)
 
 # Equidistant environments assumed if env_values = NULL
-calculate_RPI(c(1,2,3,4))
+calculate_RPI(c(1, 2, 3, 4))
 
 }

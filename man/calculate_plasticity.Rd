@@ -2,7 +2,7 @@
 % Please edit documentation in R/5.R
 \name{calculate_plasticity}
 \alias{calculate_plasticity}
-\title{Calculate the Plasticity Score from a Polynomial Reaction Norm}
+\title{Calculate Plasticity Score from a Polynomial Reaction Norm}
 \usage{
 calculate_plasticity(
   trait_values,
@@ -12,42 +12,44 @@ calculate_plasticity(
 )
 }
 \arguments{
-\item{trait_values}{A numeric vector representing phenotype values.}
+\item{trait_values}{A numeric vector of phenotype values measured across environments.}
 
-\item{env_values}{(Optional) A numeric vector representing environmental values.
-If NULL, equidistant values will be generated.}
+\item{env_values}{(Optional) A numeric vector of environmental values corresponding to \code{trait_values}.
+If \code{NULL} (default), environments are assumed equidistant and set to \code{1:length(trait_values)}.}
 
-\item{max_degree}{The maximum polynomial degree to consider (default is 3).}
+\item{max_degree}{Integer ≥ 1. The maximum polynomial degree to consider in model fitting. Default is 3.}
 
-\item{criterion}{Selection criterion for model complexity. Options are "AIC" (default) or "BIC".}
+\item{criterion}{A character string, either \code{"AIC"} or \code{"BIC"}, indicating which information criterion
+to use for model selection. Default is \code{"BIC"}.}
 }
 \value{
-A list containing:
-  - `best_degree`: The best-fitting polynomial degree.
-  - `plasticity_score`: The sum of absolute values of the polynomial coefficients.
-  - `coefficients`: The estimated polynomial coefficients for the best model.
+A named list with components:
+\describe{
+  \item{\code{best_degree}}{The degree of the selected polynomial model.}
+  \item{\code{plasticity_score}}{The sum of absolute values of the polynomial coefficients (excluding intercept).}
+  \item{\code{coefficients}}{A numeric vector of the estimated polynomial coefficients (excluding intercept).}
+}
 }
 \description{
-This function fits polynomial regression models of varying degrees to describe
-the relationship between a phenotype and an environmental gradient.
-The best-fitting polynomial is selected using both AIC and BIC criteria, with
-a preference for lower-degree models when performance differences are small.
-}
-\details{
-The plasticity score is calculated as the sum of the absolute values of the polynomial coefficients.
+Fits polynomial regression models of degrees 1 through \code{max_degree} to describe the relationship
+between a phenotype and an environmental gradient. The best-fitting model is selected based on the
+specified information criterion (\code{"AIC"} or \code{"BIC"}), with preference for lower-degree models
+when criterion differences are small. The plasticity score is then computed as the sum of the absolute
+values of the estimated polynomial coefficients (excluding the intercept).
 }
 \examples{
-trait_values = c(100, 110, 120, 105, 115, 125)
-env_values = c(1, 2, 3, 1, 2, 3)
+trait_values <- c(100, 110, 120, 105, 115, 125)
+env_values   <- c(1, 2, 3, 1, 2, 3)
 
-# Calculate Plasticity Score with given environmental values
-plasticity_result = calculate_plasticity(trait_values, env_values)
-print(plasticity_result)
+# Default: BIC-based selection
+result1 <- calculate_plasticity(trait_values, env_values)
+print(result1)
 
-# Calculate Plasticity Score assuming equidistant environments
-plasticity_result_no_env = calculate_plasticity(trait_values)
-print(plasticity_result_no_env)
+# AIC-based selection, equidistant environments
+result2 <- calculate_plasticity(trait_values, max_degree = 4, criterion = "AIC")
+print(result2)
+
 }
 \references{
-GENETICS AND EVOLUTION OF PHENOTYPIC PLASTICITY - Samuel M. Scheiner
+Scheiner, S. M. (1993). Genetics and Evolution of Phenotypic Plasticity. Annual Review of Ecology and Systematics, 24, 35–68.
 }

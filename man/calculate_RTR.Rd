@@ -2,31 +2,41 @@
 % Please edit documentation in R/1.R
 \name{calculate_RTR}
 \alias{calculate_RTR}
-\title{Calculate the Relative Trait Response (RTR) for One or Multiple Traits}
+\title{Relative Trait Response (RTR)}
 \usage{
 calculate_RTR(trait_values, env_values, env_low = 0.2, env_high = 0.2)
 }
 \arguments{
-\item{trait_values}{A numeric vector containing the trait measurements.}
+\item{trait_values}{Numeric vector of trait measurements.}
 
-\item{env_values}{A numeric vector representing the environmental gradient corresponding to `trait_values`.}
+\item{env_values}{Numeric vector of the same length as `trait_values` giving the environmental values.}
 
-\item{env_low}{Either a specific value or a fraction (e.g., 0.2 for the bottom 20%) representing the low end of the environmental gradient.}
+\item{env_low}{A fraction (0 < frac < 1) specifying the low‐end cutoff.
+Defaults to 0.2 (the 20th percentile).}
 
-\item{env_high}{Either a specific value or a fraction (e.g., 0.2 for the top 20%) representing the high end of the environmental gradient.}
+\item{env_high}{A fraction (0 < frac < 1) specifying the high‐end cutoff.
+Defaults to 0.2 (the 80th percentile).}
 }
 \value{
-A numeric value representing the RTR score for the trait.
+A single numeric value: the Relative Trait Response.
 }
 \description{
-This function calculates the Relative Trait Response (RTR) score, defined as the
-difference between the mean trait value at one end of an environmental gradient
-and the mean trait value at the opposite end, divided by the absolute maximum value of the trait.
+Computes the Relative Trait Response (RTR) for a trait measured along an environmental gradient.
+RTR is defined as the difference between the mean trait value at the high end of the gradient
+and the mean trait value at the low end, normalized by the absolute maximum trait value:
+\deqn{\mathrm{RTR} = \frac{\bar{z}_{\mathrm{high}} - \bar{z}_{\mathrm{low}}}{\max|z|}}.
 }
 \examples{
-trait_values = c(10, 12, 11, 13, 14, 15, 13, 14, 12, 13,
-                 20, 22, 21, 23, 24, 25, 23, 24, 22, 23)
-env_values = seq(1, 10, length.out = 20)
-RTR_value = calculate_RTR(trait_values, env_values, env_low = 0.3, env_high = 0.3)
-print(RTR_value)
+trait_values <- c(
+  10,12,11,13,14,15,13,14,12,13,
+  20,22,21,23,24,25,23,24,22,23
+)
+env_values <- seq(1, 10, length.out = 20)
+
+# Using 20\% tails
+calculate_RTR(trait_values, env_values)
+
+# Using explicit thresholds
+calculate_RTR(trait_values, env_values, env_low = 2, env_high = 9)
+
 }

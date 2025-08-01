@@ -7,31 +7,36 @@
 calculate_PSI(trait_values, env_values = NULL)
 }
 \arguments{
-\item{trait_values}{A numeric vector representing the trait values.}
+\item{trait_values}{Numeric vector of trait measurements. Length must be ≥ 2.}
 
-\item{env_values}{(Optional) A numeric vector representing the environmental values. If NULL, equidistant values will be generated.}
+\item{env_values}{(Optional) Numeric vector of environmental values corresponding to `trait_values`.
+If `NULL` (default), environments are assumed equidistant: `1, 2, …, length(trait_values)`.}
 }
 \value{
-The PSI value for the given trait.
+A single numeric PSI value:
+  \deqn{\mathrm{PSI} = \frac{1}{1 + |\beta|},}
+  where \(\beta\) is the regression coefficient from \(\mathrm{trait\_values} \sim \mathrm{env\_values}\).
 }
 \description{
-This function calculates the Phenotypic Stability Index (PSI) for a given trait across different environments.
-The PSI is derived from the regression coefficient obtained by regressing the trait values against the environmental factor.
-A lower regression coefficient indicates higher phenotypic stability.
+Computes the Phenotypic Stability Index (PSI) for a trait measured across environments.
+PSI is defined as \(1 / (1 + |β|)\), where \(β\) is the slope from regressing trait values
+on environmental values. A smaller absolute slope (i.e., more stable trait) yields a PSI closer to 1.
 }
 \details{
-The environmental values should be provided as a numeric vector. If they are not given, they will be assumed to be equidistant.
+If `env_values` has near-zero variance, a warning is issued since the regression slope
+(and hence PSI) may be unstable.
 }
 \examples{
-trait_values = c(100, 110, 120, 105, 115, 125)
-env_values = c(1, 2, 3, 1, 2, 3)
+# Example trait in three environments, two replicates each
+trait_values <- c(100, 110, 120, 105, 115, 125)
+env_values   <- c(1, 2, 3,   1,   2,   3)
 
-# Calculate PSI with given environmental values
-PSI_result = calculate_PSI(trait_values, env_values)
+# Calculate PSI with explicit env_values
+PSI_result <- calculate_PSI(trait_values, env_values)
 print(PSI_result)
 
 # Calculate PSI assuming equidistant environments
-PSI_result_no_env = calculate_PSI(trait_values)
-print(PSI_result_no_env)
+PSI_no_env <- calculate_PSI(trait_values)
+print(PSI_no_env)
 
 }

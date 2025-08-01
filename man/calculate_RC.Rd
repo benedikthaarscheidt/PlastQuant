@@ -2,34 +2,38 @@
 % Please edit documentation in R/1.R
 \name{calculate_RC}
 \alias{calculate_RC}
-\title{Calculate the Response Coefficient (RC) for Trait Values}
+\title{Calculate the Response Coefficient (RC)}
 \usage{
 calculate_RC(trait_values, lower_fraction = 0.5, upper_fraction = 0.5)
 }
 \arguments{
-\item{trait_values}{A numeric vector of trait values.}
+\item{trait_values}{Numeric vector of trait measurements.
+Must be length ≥ 2 and non‐missing.}
 
-\item{lower_fraction}{A numeric value (0 < lower_fraction < 1) specifying the fraction of the data
-to consider as the "low" group. Defaults to 0.5 (the first 50% of sorted values).}
+\item{lower_fraction}{Numeric scalar in (0, 1). Fraction of observations to include in the “low” group.
+Defaults to 0.5 (the lowest 50 %).}
 
-\item{upper_fraction}{A numeric value (0 < upper_fraction <= 1) specifying the fraction of the data
-to consider as the "high" group. Defaults to 0.5 (the last 50% of sorted values).}
+\item{upper_fraction}{Numeric scalar in (0, 1]. Fraction of observations to include in the “high” group.
+Defaults to 0.5 (the highest 50 %).}
 }
 \value{
-A numeric value representing the Response Coefficient (RC), calculated as the ratio of the
-mean of the "high" group to the mean of the "low" group.
+A single numeric value:
+\deqn{\mathrm{RC} = \frac{\bar{x}_{\mathrm{high}}}{\bar{x}_{\mathrm{low}}}}
+where \(\bar{x}_{\mathrm{high}}\) and \(\bar{x}_{\mathrm{low}}\) are the means of the top and
+bottom fractions of the sorted trait vector, respectively.
 }
 \description{
-This function calculates the Response Coefficient (RC), which is the ratio of the mean trait values
-between the highest and lowest fractions of a sorted trait value vector.
+Computes the Response Coefficient (RC), defined as the ratio of the mean of the highest‐value
+fraction of a sorted trait vector to the mean of the lowest‐value fraction. This metric
+quantifies the proportional change between high and low trait values.
 }
 \examples{
-# Example trait values
-trait_values = c(10, 12, 20, 22, 25, 28, 30, 32, 35, 40)
+trait_values <- c(10, 12, 20, 22, 25, 28, 30, 32, 35, 40)
 
-# Calculate RC with 50\% lower and 50\% upper fractions
-calculate_RC(trait_values, lower_fraction = 0.5, upper_fraction = 0.5)
+# Default (50\% low vs. 50\% high)
+calculate_RC(trait_values)
 
-# Calculate RC with 20\% lower and 20\% upper fractions
-calculate_RC(trait_values, lower_fraction = 0.2, upper_fraction = 0.8)
+# 20\% low vs. 20\% high
+calculate_RC(trait_values, lower_fraction = 0.2, upper_fraction = 0.2)
+
 }

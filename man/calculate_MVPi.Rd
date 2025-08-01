@@ -7,27 +7,22 @@
 calculate_MVPi(trait_data, env = NULL, n_axes = 1)
 }
 \arguments{
-\item{trait_data}{A data structure (e.g., data frame, matrix, or numeric vector) containing phenotypic trait values.
-Rows correspond to samples.}
+\item{trait_data}{A data frame, matrix, or numeric vector of phenotypic trait values (rows = samples).}
 
-\item{env}{Optional vector of environments (numeric, character, or factor) corresponding to each sample.
-If not provided, the function assumes equidistant environments using \code{seq_len(nrow)}.}
+\item{env}{(Optional) A vector (numeric, character, or factor) of length equal to the number of rows
+in `trait_data` indicating each sample's environment. If `NULL`, equidistant environments
+(`1:nrow(trait_data)`) are assumed.}
 
-\item{n_axes}{Integer specifying the number of PCA axes to retain.}
+\item{n_axes}{Integer ≥ 1 giving the number of principal component axes to retain from the PCA.}
 }
 \value{
-A numeric value representing the Multivariate Plasticity Index (MVPi).
+A single numeric value: the mean Euclidean distance between all pairs of environment centroids
+in the first `n_axes` PCA dimensions. Returns `NA` (with a warning) if fewer than two environments.
 }
 \description{
-This function calculates the Multivariate Plasticity Index (MVPi) for a set of phenotypic traits,
-quantifying plasticity across environments by computing the average Euclidean distance between
-the centroids of environments in a reduced-dimensional space. Dimensionality is reduced using PCA
-via \code{prcomp}, retaining the first \code{n_axes} axes.
-}
-\details{
-The formula is based on the average Euclidean distance between environment centroids:
-
-\deqn{MVPi = \text{mean}\Big\{ \sqrt{\sum_{k=1}^{n\_axes} \big(c_{ik} - c_{jk}\big)^2} \Big\}_{i < j}}
+Computes the Multivariate Plasticity Index (MVPi) for a set of phenotypic traits by
+performing PCA and measuring the average Euclidean distance between environment centroids
+in the reduced-dimensional space. This quantifies overall plasticity across environments.
 }
 \examples{
 # Example with explicit environments:
@@ -39,8 +34,8 @@ env <- factor(c(1, 1, 2, 2, 3, 3))
 mvpi_value <- calculate_MVPi(trait_data, env, n_axes = 2)
 print(mvpi_value)
 
-# Example without providing an environment vector (assumes equidistant environments):
-mvpi_value <- calculate_MVPi(trait_data, n_axes = 2)
-print(mvpi_value)
+# Example with no env vector (equidistant environments assumed):
+mvpi_value2 <- calculate_MVPi(trait_data, n_axes = 2)
+print(mvpi_value2)
 
 }

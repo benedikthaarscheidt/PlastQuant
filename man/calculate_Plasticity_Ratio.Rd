@@ -7,36 +7,41 @@
 calculate_Plasticity_Ratio(data, env_col, trait_cols, pop_col)
 }
 \arguments{
-\item{data}{A data frame containing the input data.}
+\item{data}{A data frame containing the trait measurements, environment labels, and population labels.}
 
-\item{env_col}{A string or numeric value indicating the column in `data` that contains the environment labels, or an external vector specifying environment belonging.}
+\item{env_col}{Either the name or index of the column in `data` that holds environment labels,
+or an external vector of length `nrow(data)` specifying environment membership.}
 
-\item{trait_cols}{A vector of strings or numeric values indicating the columns in the dataset containing the trait values.}
+\item{trait_cols}{A vector of column names or indices in `data` corresponding to the traits
+for which to compute the plasticity ratio.}
 
-\item{pop_col}{A string or numeric value indicating the column in the dataset containing the population labels, or an external vector specifying population belonging.}
+\item{pop_col}{Either the name or index of the column in `data` that holds population labels,
+or an external vector of length `nrow(data)` specifying population membership.}
 }
 \value{
-A named numeric vector representing the SSpop/SStotal Plasticity Ratio for each trait.
+A named numeric vector, one entry per trait in `trait_cols`, giving
+\eqn{SSpop / SStotal} for that trait.
 }
 \description{
-This function calculates the Plasticity Ratio, which quantifies the relative contribution
-of population differences to the overall phenotypic variability across environments,
-for multiple trait columns. It is calculated as the ratio of the sum of squares between populations (SSpop)
-to the total sum of squares (SStotal) from a one-way ANOVA.
-}
-\details{
-The formula used is:
-\deqn{Plasticity Ratio = \frac{SSpop}{SStotal}}
+Computes the plasticity ratio for each specified trait, defined as the
+proportion of variance attributable to population differences (SSpop)
+relative to the total phenotypic variance (SStotal) across environments.
+Internally, a two‐factor ANOVA (population + environment) is fitted and
+the ratio of the population sum of squares to the total sum of squares is returned.
 }
 \examples{
-# Example usage with synthetic data
-synthetic_data = data.frame(
-  Trait_1 = c(10, 12, 15, 18, 11, 17),
-  Trait_2 = c(20, 22, 25, 28, 21, 27),
+synthetic_data <- data.frame(
+  Trait_1    = c(10, 12, 15, 18, 11, 17),
+  Trait_2    = c(20, 22, 25, 28, 21, 27),
   Environment = factor(c(1, 1, 2, 2, 3, 3)),
-  Population = factor(c("A", "A", "B", "B", "C", "C"))
+  Population  = factor(c("A", "A", "B", "B", "C", "C"))
 )
-plasticity_ratios = calculate_Plasticity_Ratio(synthetic_data, env_col = "Environment", trait_cols = c("Trait_1", "Trait_2"), pop_col = "Population")
+plasticity_ratios <- calculate_Plasticity_Ratio(
+  data       = synthetic_data,
+  env_col    = "Environment",
+  trait_cols = c("Trait_1", "Trait_2"),
+  pop_col    = "Population"
+)
 print(plasticity_ratios)
 
 }

@@ -7,30 +7,30 @@
 calculate_PFI(trait_values, baseline_values = NULL)
 }
 \arguments{
-\item{trait_values}{A numeric vector of trait measurements.}
+\item{trait_values}{Numeric vector of trait measurements.}
 
-\item{baseline_values}{Optional numeric vector of baseline values of the same length as `trait_values`.
-If not provided, the overall mean of `trait_values` is used as the baseline for every sample.}
+\item{baseline_values}{Optional numeric vector of baseline values (same length as `trait_values`).
+If \code{NULL}, uses \code{mean(trait_values)} for all samples.}
 }
 \value{
-A numeric value representing the Phenotypic Flexibility Index (PFI).
+A single numeric value: the PFI, i.e.
+\deqn{\max_i \frac{|x_i - b_i|}{b_i},}
+where \(x_i\) are the trait values and \(b_i\) the corresponding baselines.
+Returns \code{NA} (with a warning) if the baseline for the sample with maximum deviation is zero.
 }
 \description{
-This function calculates the Phenotypic Flexibility Index (PFI) for a single trait by finding
-the sample with the maximum absolute deviation from its baseline value, then dividing this deviation
-by that sample's baseline value. If a baseline is provided, it is used; otherwise, the overall mean
-of the trait values is used as the baseline for all samples.
+Computes the Phenotypic Flexibility Index (PFI) for a single trait. PFI is defined as the
+maximum absolute deviation of any sample from its baseline value, divided by that baseline.
+If no `baseline_values` are provided, the overall mean of `trait_values` is used as the baseline.
 }
 \examples{
-# Example with a provided baseline:
-trait_values <- c(18, 22, 25, 20, 19)
+# Provided baseline:
+trait_values    <- c(18, 22, 25, 20, 19)
 baseline_values <- c(20, 20, 20, 20, 20)
-pfi <- calculate_PFI(trait_values, baseline_values)
-print(pfi)
+calculate_PFI(trait_values, baseline_values)
 
-# Example without a provided baseline (using the mean as baseline):
+# No baseline provided (uses overall mean):
 trait_values <- c(18, 22, 25, 20, 19)
-pfi <- calculate_PFI(trait_values)
-print(pfi)
+calculate_PFI(trait_values)
 
 }

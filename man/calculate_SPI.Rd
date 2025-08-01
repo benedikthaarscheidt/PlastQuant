@@ -7,37 +7,45 @@
 calculate_SPI(data, env_col, trait_cols, env1, env2, reference_env)
 }
 \arguments{
-\item{data}{A data frame containing the input data.}
+\item{data}{A data frame containing the observations.}
 
-\item{env_col}{A string, numeric, or vector indicating the column in `data` that contains the environment labels, or an external vector specifying environment belonging.}
+\item{env_col}{Either a column name or index in \code{data} that holds the environment labels, or an external
+vector of length \code{nrow(data)} specifying the environment for each row.}
 
-\item{trait_cols}{A vector of strings or numeric values indicating the columns in the dataset containing the trait values.}
+\item{trait_cols}{A character or numeric vector indicating which columns in \code{data} contain the trait measurements.}
 
-\item{reference_env}{A numeric or string value representing the identifier for the reference environment in `env_col`.}
+\item{env1}{The label (value) of the first environment in \code{env_col} to compare.}
 
-\item{trait_env1}{A numeric or string value representing the identifier for environment 1 in `env_col`.}
+\item{env2}{The label (value) of the second environment in \code{env_col} to compare.}
 
-\item{trait_env2}{A numeric or string value representing the identifier for environment 2 in `env_col`.}
+\item{reference_env}{The label (value) of the reference environment in \code{env_col} whose standard deviation is used for scaling.}
 }
 \value{
-A named vector containing the SPI for each trait.
+A named numeric vector of SPI values, one entry for each trait in \code{trait_cols}.
 }
 \description{
-This function calculates the Standardized Plasticity Index (SPI) for multiple traits by comparing trait values
-across environments relative to a reference environment.
-}
-\details{
-The formula used is:
-\deqn{SPI = \frac{Trait Value Env2 - Trait Value Env1}{Standard Deviation of Reference Trait Values}}
+Computes the Standardized Plasticity Index (SPI) for one or more traits by comparing trait
+values between two environments and scaling the difference by the variability in a reference environment.
+
+The index is defined as:
+\deqn{SPI = \frac{\bar{x}_{env2} - \bar{x}_{env1}}{\mathrm{sd}(\,x_{ref}\,)},}
+where \(\bar{x}_{env1}\) and \(\bar{x}_{env2}\) are the mean trait values in the two focal environments,
+and \(\mathrm{sd}(x_{ref})\) is the standard deviation of trait values in the reference environment.
 }
 \examples{
-# Example usage with synthetic data
-synthetic_data = data.frame(
-  Trait1_Values = c(10, 12, 15, 18),
-  Trait2_Values = c(5, 6, 7, 8),
-  Environment = factor(c(1, 1, 2, 2))  # Env1 = 1, Env2 = 2, Reference = 1
+df <- data.frame(
+  Height = c(10, 12, 15, 18),
+  Weight = c(5,  6,  7,  8),
+  Env    = factor(c("A", "A", "B", "B"))
 )
-spi_values = calculate_SPI(synthetic_data, env_col = "Environment", trait_cols = c("Trait1_Values", "Trait2_Values"), trait_env1 = 1, trait_env2 = 2, reference_env = 1)
-print(spi_values)
+# Compute SPI comparing B vs. A, with A as the reference
+calculate_SPI(
+  data          = df,
+  env_col       = "Env",
+  trait_cols    = c("Height", "Weight"),
+  env1          = "A",
+  env2          = "B",
+  reference_env = "A"
+)
 
 }

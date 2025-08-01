@@ -2,39 +2,35 @@
 % Please edit documentation in R/4.R
 \name{calculate_RSI}
 \alias{calculate_RSI}
-\title{Calculate Relative Stability Index (RSI) for a Single Trait}
+\title{Relative Stability Index (RSI) for a Single Trait}
 \usage{
 calculate_RSI(trait_values, env = NULL)
 }
 \arguments{
 \item{trait_values}{A numeric vector of trait measurements.}
 
-\item{env}{Optional vector of environments (numeric, character, or factor) corresponding to each measurement.
-If not provided, the function assumes equidistant environments.}
+\item{env}{(Optional) A vector (numeric, character, or factor) of the same length as `trait_values`
+indicating the environment for each measurement. If `NULL`, environments are assumed
+to be equidistant (`1:length(trait_values)`).}
 }
 \value{
-A numeric value representing the Relative Stability Index (RSI).
+A single numeric value: the Relative Stability Index (RSI). Returns `NA` (with a warning)
+if the overall mean of environment means is zero.
 }
 \description{
-This function calculates the Relative Stability Index (RSI) for a single trait, measuring the relative
-stability of trait expression across different environments. It groups the trait measurements by the provided
-environment vector, computes the mean trait value for each environment, and then calculates RSI as:
-}
-\details{
-\deqn{RSI = 1 - \frac{SD(\text{Environment Means})}{Mean(\text{Environment Means})}}
-
-If no environment vector is provided, the function assumes equidistant environments using \code{seq_along(trait_values)}.
+Computes the Relative Stability Index (RSI), quantifying the relative stability of a trait
+across environments. RSI is defined as:
+\deqn{RSI = 1 - \frac{\mathrm{SD}(\bar{x}_e)}{\mathrm{Mean}(\bar{x}_e)},}
+where \(\bar{x}_e\) are the mean trait values in each environment.
 }
 \examples{
-# Example with explicit environments:
+# Explicit environments:
 trait_values <- c(10, 12, 15, 20)
-env <- c(1, 2, 3, 4)
-rsi_value <- calculate_RSI(trait_values, env)
-print(rsi_value)
+env          <- c(1, 2, 3, 4)
+calculate_RSI(trait_values, env)
 
-# Example without providing env (assumes equidistant environments):
+# Equidistant environments assumed:
 trait_values <- c(10, 12, 15, 20)
-rsi_value <- calculate_RSI(trait_values)
-print(rsi_value)
+calculate_RSI(trait_values)
 
 }

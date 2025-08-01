@@ -4,7 +4,11 @@
 \alias{calculate_reaction_norm_non_linear}
 \title{Nonlinear Reaction Norm Nonlinearity Score}
 \usage{
-calculate_reaction_norm_non_linear(trait_values, degree = 2)
+calculate_reaction_norm_non_linear(
+  trait_values,
+  degree = 2,
+  environments = NULL
+)
 }
 \arguments{
 \item{trait_values}{A numeric vector of trait measurements for one genotype
@@ -12,10 +16,13 @@ across environments. Must have at least `degree + 1` values and contain no `NA`.
 
 \item{degree}{An integer ≥ 1 specifying the degree of the polynomial model
 to fit (default: 2).}
+
+\item{environments}{Optional numeric vector of the same length as `trait_values`,
+giving the environmental values. If `NULL`, uses sequential indices.}
 }
 \value{
 A single numeric nonlinearity score (sum of absolute non‐intercept
-  coefficients), or `NA` if there are insufficient data to fit the model.
+  coefficients), or `NA` if there are insufficient data or model fails.
 }
 \description{
 Fits a raw‐polynomial regression of trait values on an environmental gradient
@@ -24,14 +31,10 @@ values of all polynomial coefficients beyond the intercept. This provides an
 index of how much the reaction norm deviates from linearity.
 }
 \examples{
-# With three data points you can only fit degree 2:
 vals <- c(10, 12, 15, 20, 25)
 calculate_reaction_norm_non_linear(vals)
-
-# Fit a cubic model instead of default quadratic:
-calculate_reaction_norm_non_linear(vals, degree = 3)
-
-# Too few points for degree-4:
+env <- c(0, 5, 10, 15, 20)
+calculate_reaction_norm_non_linear(vals, degree = 3, environments = env)
 calculate_reaction_norm_non_linear(vals, degree = 4)
 
 }

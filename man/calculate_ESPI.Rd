@@ -2,47 +2,35 @@
 % Please edit documentation in R/2.R
 \name{calculate_ESPI}
 \alias{calculate_ESPI}
-\title{Calculate Environmental Sensitivity Performance Index (ESPI)}
+\title{Environmental Sensitivity Performance Index (ESPI)}
 \usage{
 calculate_ESPI(trait_values, env_values = NULL)
 }
 \arguments{
-\item{trait_values}{A numeric vector for a single trait or a data frame with one column per trait.}
+\item{trait_values}{Numeric vector of trait measurements. At least two observations are required.}
 
-\item{env_values}{(Optional) A numeric vector of environmental values corresponding to `trait_values`.
-If `NULL`, equidistant environments are generated automatically.}
+\item{env_values}{Optional numeric, factor, or character vector of environmental values corresponding to `trait_values`.
+If `NULL`, environments are assumed equidistant (1, 2, …, length(trait_values)).}
 }
 \value{
-A numeric value for a single trait or a named numeric vector for multiple traits, with the ESPI
-value for each trait.
+Numeric scalar: ESPI value. Returns `NA` with a warning if ESPI cannot be calculated (e.g., zero range or missing data).
 }
 \description{
-This function calculates the Environmental Sensitivity Performance Index (ESPI)
-for one or more traits across different environmental conditions. ESPI is calculated
-as:
-\deqn{ESPI = \frac{(\text{Maximum mean} - \text{Minimum mean})}{\text{Absolute distance between environmental values}}}
-}
-\details{
-The ESPI measures how sensitive a trait is to changes in environmental conditions. It is based on the
-maximum and minimum mean trait values across different environments, normalized by the absolute range
-of the environmental values.
+Calculates the Environmental Sensitivity Performance Index (ESPI) for a single trait
+across environmental conditions. ESPI quantifies the sensitivity of a trait by
+comparing the difference between its maximum and minimum mean values to the range of the
+environmental gradient.
+
+ESPI is defined as:
+\deqn{ESPI = \frac{\max(\bar{z}_e) - \min(\bar{z}_e)}{\lvert \max(e) - \min(e)\rvert},}
+where \(\bar{z}_e\) is the mean trait value in environment \(e\) and \(e\) is the environmental value.
 }
 \examples{
-# Example 1: Single Trait
-trait_values = c(10, 15, 20, 25, 30)
-env_values = c(1, 2, 3, 4, 5)
-calculate_ESPI(trait_values, env_values)
+trait <- c(10, 15, 20, 25, 30)
+env   <- c(1, 2, 3, 4, 5)
+calculate_ESPI(trait, env)
 
-# Example 2: Multiple Traits
-trait_values = data.frame(
-  Height = c(10, 15, 20, 25, 30),
-  Weight = c(5, 7, 9, 11, 13)
-)
-env_values = c(1, 2, 3, 4, 5)
-calculate_ESPI(trait_values, env_values)
-
-# Example 3: Without env_values
-trait_values = c(10, 15, 20, 25, 30)
-calculate_ESPI(trait_values)
+# Without specifying env_values (assumes equidistant)
+calculate_ESPI(trait)
 
 }

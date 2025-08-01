@@ -2,33 +2,38 @@
 % Please edit documentation in R/4.R
 \name{calculate_CEV}
 \alias{calculate_CEV}
-\title{Calculate Coefficient of Environmental Variation (CEV) for a Single Trait}
+\title{Calculate Coefficient of Environmental Variation (CEV)}
 \usage{
 calculate_CEV(trait_values)
 }
 \arguments{
-\item{trait_values}{A numeric vector of trait values for a single trait (each value measured in an
-environment, assumed equidistant).}
+\item{trait_values}{A numeric vector of trait values measured across environments.}
 }
 \value{
-A list containing:
-  - `CEV`: The calculated Coefficient of Environmental Variation.
-  - `Mean`: The mean of the trait values.
-  - `SD`: The standard deviation of the trait values.
-  - `Valid`: Logical indicating whether the calculation was successful.
+A single numeric value giving the CEV (in percent). Returns \code{NA} if:
+\itemize{
+  \item fewer than two non‐missing values are supplied,
+  \item or the mean of \code{trait_values} is zero.
+}
 }
 \description{
-This function calculates the Coefficient of Environmental Variation (CEV) for a single trait,
-given a numeric vector of trait values measured across environments. If the environmental values
-are not provided, they are assumed to be equidistant.
-}
-\details{
-The formula used is:
-\deqn{CEV = \frac{Standard\ Deviation}{Mean} \times 100}
+Computes the Coefficient of Environmental Variation (CEV) for a single trait,
+defined as the standard deviation of the trait measurements across environments
+divided by their mean, then multiplied by 100 to express as a percentage:
+\deqn{\mathrm{CEV} = \frac{\mathrm{sd}(x)}{\mathrm{mean}(x)} \times 100.}
+If fewer than two non‐missing values are provided, or if the mean is zero,
+the function returns \code{NA}.
 }
 \examples{
-trait_values = c(10, 15, 20, 25, 30)
-result = calculate_CEV(trait_values)
-print(result)
+# A simple example with equidistant environments
+trait_values <- c(10, 15, 20, 25, 30)
+calculate_CEV(trait_values)
+
+# With missing values
+trait_values2 <- c(5, NA, 15, 20)
+calculate_CEV(trait_values2)
+
+# Too few values returns NA
+calculate_CEV(c(42))
 
 }

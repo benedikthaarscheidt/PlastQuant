@@ -9,32 +9,28 @@ calculate_EVS(trait_values, env = NULL)
 \arguments{
 \item{trait_values}{A numeric vector of trait measurements.}
 
-\item{env}{Optional vector of environments (numeric, character, or factor) corresponding to each measurement.
-If not provided, equidistant environments are assumed.}
+\item{env}{(Optional) A vector (numeric, character, or factor) of the same length as `trait_values`
+indicating the environment for each measurement. If `NULL`, environments are assumed
+to be equidistant (`1:length(trait_values)`).}
 }
 \value{
-A numeric value representing the Environmental Variance Sensitivity (EVS).
+A single numeric value: the Environmental Variance Sensitivity (EVS). Returns `NA`
+(with a warning) if the variance of the environmental values is zero.
 }
 \description{
-This function calculates the Environmental Variance Sensitivity (EVS) for a single trait,
-quantifying how sensitive the trait is to changes in the environment. EVS is computed as:
-}
-\details{
-\deqn{EVS = \frac{Var(Trait\ Values)}{Var(Environment)}}
-
-If no environment vector is provided, the function assumes equidistant environments using
-\code{seq_along(trait_values)}.
+Computes the Environmental Variance Sensitivity (EVS), which quantifies how sensitive
+a trait is to changes in the environment. EVS is defined as the ratio of the variance
+in the trait values to the variance in the environmental values:
+\deqn{EVS = \frac{\mathrm{Var}(\text{trait values})}{\mathrm{Var}(\text{environment})}.}
 }
 \examples{
-# Example with explicit environments:
+# Explicit environments:
 trait_values <- c(10, 12, 15, 18)
-env <- c(1, 2, 3, 4)
-evs_value <- calculate_EVS(trait_values, env)
-print(evs_value)
+env          <- c(1, 2, 3, 4)
+calculate_EVS(trait_values, env)
 
-# Example without providing env (assumes equidistant environments):
+# Equidistant environments assumed:
 trait_values <- c(10, 12, 15, 18)
-evs_value <- calculate_EVS(trait_values)
-print(evs_value)
+calculate_EVS(trait_values)
 
 }

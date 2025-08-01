@@ -12,33 +12,23 @@ calculate_PPF(
 )
 }
 \arguments{
-\item{trait_values}{A numeric vector containing the trait values.}
+\item{trait_values}{Numeric vector of trait measurements.}
 
-\item{env_groups}{A vector (numeric, character, or factor) representing the environmental groups corresponding to `trait_values`.}
+\item{env_groups}{Vector (factor/character) of environment labels for each measurement.}
 
-\item{covariate_values}{(Optional) A numeric vector (for one covariate) or a data frame (for multiple covariates) corresponding to `trait_values`.}
+\item{covariate_values}{Optional numeric vector or data.frame of covariates.}
 
-\item{env_pairs}{(Optional) A list of environment pairs to calculate the PPF for. Each pair should be a vector of two elements.
-If `NULL`, the function calculates the PPF for all possible combinations of environments.}
+\item{env_pairs}{Optional list of length-2 character vectors. Defaults to all pairs.}
 }
 \value{
-A named numeric vector where each element represents the PPF value for a specific environment pair.
+Numeric scalar: mean PPF across all specified pairs (percent).
 }
 \description{
-This function calculates the Phenotypic Plasticity Factor (PPF) for one or multiple traits across environments.
-PPF is defined as the proportional difference between least square means (LSMs) of a trait across two environments.
-Covariates can be included to adjust for additional factors. The function dynamically handles single or multiple covariates.
+Calculates the Phenotypic Plasticity Factor (PPF) for a single genotype
+across specified environment pairs or all combinations. Models trait ~ env (+ covariates)
+via linear regression and extracts least-square means using emmeans.
 }
 \examples{
-trait_values = c(10, 12, 14, 16, 11, 13, 15, 17, 20, 22)
-env_groups = rep(c("Env1", "Env2"), each = 5)
-covariate_values = data.frame(Covariate1 = c(5, 5.1, 5.2, 5.3, 5.4, 6, 6.1, 6.2, 6.3, 6.4))
-
-# Calculate PPF for all pairs
-PPF_all = calculate_PPF(trait_values, env_groups, covariate_values)
-print(PPF_all)
-
-# Calculate PPF for specific pairs
-PPF_specific = calculate_PPF(trait_values, env_groups, covariate_values, env_pairs = list(c("Env1", "Env2")))
-print(PPF_specific)
+tv <- c(rnorm(5,10), rnorm(5,12)); env <- rep(c("A","B"), each=5)
+calculate_PPF(tv, env)
 }

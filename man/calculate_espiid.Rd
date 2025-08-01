@@ -2,51 +2,42 @@
 % Please edit documentation in R/2.R
 \name{calculate_espiid}
 \alias{calculate_espiid}
-\title{Calculate Environmental Sensitivity Performance Index for Individual Differences (ESPIID)}
+\title{Environmental Sensitivity Performance Index for Individual Differences (ESPIID)}
 \usage{
-calculate_espiid(trait_values, use_median = FALSE)
+calculate_espiid(trait_values, use_median = FALSE, aggregate = TRUE)
 }
 \arguments{
-\item{trait_values}{A numeric vector containing the trait values.}
+\item{trait_values}{A numeric vector of trait measurements. Must have length ≥ 2.}
 
-\item{use_median}{(Optional) A logical value indicating whether to use the median instead of the mean
-for calculating the absolute phenotypic distances. Defaults to `FALSE` (use mean).}
+\item{use_median}{Logical; if `TRUE`, uses the median of all pairwise absolute differences when computing distances.
+If `FALSE` (default), uses the mean.}
 
-\item{env_values}{(Optional) A vector representing the environmental conditions for the trait values.
-If `NULL`, equidistant environments are assumed.}
+\item{aggregate}{Logical; if `TRUE` (default), returns the overall ESPIID as the mean across all environment pairs.
+If `FALSE`, returns a named numeric vector of ESPIID values for each environment pair.}
 }
 \value{
-A numeric value representing the ESPIID for the given trait.
+If `aggregate = TRUE`, a single numeric ESPIID value. If `aggregate = FALSE`, a named numeric vector
+where names are of the form `"i-j"` for each environment pair.
 }
 \description{
-This function calculates the Environmental Sensitivity Performance Index for Individual Differences (ESPIID)
-for a single trait across different environmental conditions. ESPIID is calculated as:
-\deqn{ESPIID = \frac{\text{Mean or Median Absolute Phenotypic Distance}}{\text{Absolute Environmental Distance}}}
-}
-\details{
-The ESPIID quantifies the sensitivity of a trait to environmental changes by comparing
-the phenotypic distances between individuals across pairs of environments. The phenotypic
-distances are normalized by the absolute distance between the environmental values.
+Computes the Environmental Sensitivity Performance Index for Individual Differences (ESPIID)
+for a single trait across an environmental gradient. ESPIID quantifies the phenotypic distance
+between individuals in different environments, normalized by the environmental distance.
 
-The function assumes that the input trait values and environmental values are of equal length.
-If environmental values are not provided, equidistant environments are generated automatically.
+Specifically, for each pair of environments \(i,j\):
+\deqn{\mathrm{ESPIID}_{ij} = \frac{\mathrm{Dist}(z_i, z_j)}{|e_i - e_j|},}
+where \(\mathrm{Dist}(z_i,z_j)\) is the mean (or median) absolute difference between all individuals
+in environments \(i\) and \(j\), and \(e_i,e_j\) are the numeric environment indices.
 }
 \examples{
-# Example 1: Single Trait with Specified Environmental Values
-trait_values = c(10, 12, 15, 18, 20, 25)
-env_values = c("Env1", "Env1", "Env2", "Env2", "Env3", "Env3")
-espiid = calculate_espiid(trait_values, env_values)
-print(espiid)
+# Equidistant environments, mean-based, aggregated
+vals <- c(10, 12, 15, 18, 20, 25)
+calculate_espiid(vals)
 
-# Example 2: Single Trait with Equidistant Environments
-trait_values = c(10, 12, 15, 18, 20, 25)
-espiid = calculate_espiid(trait_values)
-print(espiid)
+# Use median instead of mean
+calculate_espiid(vals, use_median = TRUE)
 
-# Example 3: Use Median for ESPIID Calculation
-trait_values = c(10, 12, 15, 18, 20, 25)
-env_values = c("Env1", "Env1", "Env2", "Env2", "Env3", "Env3")
-espiid = calculate_espiid(trait_values, env_values, use_median = TRUE)
-print(espiid)
+# Return all pairwise ESPIID values
+calculate_espiid(vals, aggregate = FALSE)
 
 }

@@ -58,52 +58,64 @@
 #' rdpi = calculate_rdpi(traits, envs)
 #'
 #' @export
-calculate_rdpi = function(trait_values, env_values = NULL) {
-  # Input validation
+calculate_rdpi <- function(trait_values, env_values = NULL) {
+  # Validate trait_values
   if (!is.numeric(trait_values)) {
-    stop("trait_values must be numeric")
+    stop("trait_values must be a numeric vector.")
+  }
+  n <- length(trait_values)
+  if (n < 2) {
+    stop("trait_values must contain at least two observations.")
   }
 
-  n_envs = length(trait_values)
-
-  # If no environment values provided, create sequential environments
+  # Handle env_values
   if (is.null(env_values)) {
-    env_values = seq_len(n_envs)
+    env_values <- seq_len(n)
+  }
+  if (length(env_values) != n) {
+    stop("trait_values and env_values must have the same length.")
+  }
+  env <- factor(env_values)
+  if (nlevels(env) < 2) {
+    stop("At least two environment levels are required to calculate RDPI.")
   }
 
-  # Ensure same length
-  if (length(trait_values) != length(env_values)) {
-    stop("trait_values and env_values must have the same length")
-  }
-
-  # Get all pairs of environment indices
-  env_pairs = combn(n_envs, 2)
-  n_pairs = ncol(env_pairs)
-
-  # Calculate RDPIs for each pair
-  rdpis = numeric(n_pairs)
-
-  for (i in seq_len(n_pairs)) {
-    idx1 = env_pairs[1, i]
-    idx2 = env_pairs[2, i]
-
-    # Calculate relative distance for this pair
-    abs_diff = abs(trait_values[idx2] - trait_values[idx1])
-    sum_vals = trait_values[idx1] + trait_values[idx2]
-
-    # Handle potential division by zero
-    if (sum_vals == 0) {
-      rdpis[i] = 0
+  # Compute environment means
+  means <- tapply(trait_values, env, function(x) {
+    if (all(is.na(x))) {
+      NA_real_
     } else {
-      rdpis[i] = abs_diff / sum_vals
+      mean(x, na.rm = TRUE)
     }
+  })
+  # Drop NA means
+  means <- means[!is.na(means)]
+  if (length(means) < 2) {
+    warning("Not enough valid environment means; RDPI cannot be calculated.")
+    return(NA_real_)
   }
 
-  # Calculate final RDPI as mean of all RDPIs
-  rdpi = mean(rdpis, na.rm = TRUE)
+  # Generate all unique pairs
+  env_levels <- names(means)
+  pairs <- utils::combn(env_levels, 2, simplify = FALSE)
 
-  return(rdpi)
+  # Compute RDPI per pair
+  rdpi_vals <- vapply(pairs, function(pr) {
+    m1 <- means[ pr[1] ]
+    m2 <- means[ pr[2] ]
+    abs_diff <- abs(m2 - m1)
+    sum_vals <- m1 + m2
+    if (sum_vals == 0) {
+      0
+    } else {
+      abs_diff / sum_vals
+    }
+  }, numeric(1))
+
+  # Return mean RDPI across pairs
+  mean(rdpi_vals, na.rm = TRUE)
 }
+
 
 
 ## Example usage with synthetic data
@@ -131,217 +143,14 @@ calculate_rdpi = function(trait_values, env_values = NULL) {
 
 
 
-#' @title Relative Distance Plasticity Index for Mean Phenotypic Values (RDPI)
-#'
-#' @description
-#' Computes the Relative Distance Plasticity Index (RDPI) for mean phenotypic values of one or more traits.
-#' RDPI for a given trait and genotype is defined as the absolute difference between the mean trait values
-#' in two environments, divided by the smaller of those two means.  When multiple environments are present,
-#' all pairwise combinations are evaluated and the results collated.
-#'
-#' @param dataframe
-#'   A data.frame containing your phenotypic data.
-#' @param trait_cols
-#'   A character vector or numeric indices identifying the column(s) in `dataframe` that hold trait values.
-#' @param sp
-#'   (Optional) A column name or index giving the genotype (or species) identifier.  If `NULL` (default),
-#'   the entire data set is treated as a single group.
-#' @param factors
-#'   (Optional) Column name(s) or indices of internal environmental factors in `dataframe`.  These will be
-#'   combined (via `interaction()`) to define unique environments.
-#' @param factors_not_in_dataframe
-#'   (Optional) A named list of external factor vectors (all of the same length as `nrow(dataframe)`)
-#'   to be combined with the internal `factors` into a single `Combined_Factors` column.
-#' @param stat_analysis
-#'   (Optional) Logical.  If `TRUE`, performs ANOVA and Tukey HSD on each trait across the environmental
-#'   combinations, and generates boxplots.  Default is `NULL` (no statistical tests).
-#'
-#' @return
-#' A list with components:
-#' \describe{
-#'   \item{rdpi_results}{A data.frame of per‑genotype, per‑trait, per‑environment‑pair RDPI values.}
-#'   \item{trait_boxplots}{A ggplot2 object of boxplots (only if `stat_analysis = TRUE`).}
-#'   \item{anova_results}{A list of ANOVA summaries for each trait (only if `stat_analysis = TRUE`).}
-#'   \item{tukey_results}{A list of Tukey HSD test results for each trait (only if `stat_analysis = TRUE`).}
-#' }
-#'
-#' @details
-#' 1. Internal and external factors are combined via `interaction()` to form `Combined_Factors`.
-#' 2. For each genotype (or overall if `sp = NULL`), and each trait, all pairwise environment means
-#'    are computed and RDPI = |mean₁ − mean₂| / min(mean₁, mean₂).
-#' 3. If `stat_analysis = TRUE`, an ANOVA (`aov()`) and Tukey HSD (`agricolae::HSD.test()`) are run for
-#'    each trait across `Combined_Factors`, and boxplots produced via ggplot2.
-#'
-#' @examples
-#' df <- data.frame(
-#'   Genotype   = rep(c("G1","G2"), each = 6),
-#'   Environment = rep(c("E1","E2","E3"), times = 4),
-#'   Height     = c(10,12,11,14,16,15, 20,22,21,23,25,24),
-#'   Biomass    = rnorm(12, 5, 1)
-#' )
-#'
-#' # Compute RDPI for Height, by Genotype and Environment:
-#' res <- rdpi_mean_calculation(
-#'   dataframe   = df,
-#'   trait_cols  = "Height",
-#'   sp          = "Genotype",
-#'   factors     = "Environment"
-#' )
-#' head(res$rdpi_results)
-#'
-#' # With ANOVA/Tukey and boxplots:
-#' res2 <- rdpi_mean_calculation(
-#'   dataframe     = df,
-#'   trait_cols    = "Height",
-#'   sp            = "Genotype",
-#'   factors       = "Environment",
-#'   stat_analysis = TRUE
-#' )
-#' print(res2$trait_boxplots)
-#'
-#' @export
-rdpi_mean_calculation = function(dataframe, trait_cols, sp = NULL, factors = NULL, factors_not_in_dataframe = NULL, stat_analysis = NULL) {
 
-  # Convert column indices to names if necessary
-  if (!is.null(sp)) {
-    sp = if (is.numeric(sp)) names(dataframe)[sp] else sp
-  }
-  traits = if (is.numeric(trait_cols)) names(dataframe)[trait_cols] else trait_cols
-
-  # Combine internal and external factors into a single dataframe
-  if (!is.null(factors_not_in_dataframe)) {
-    if (length(factors_not_in_dataframe[[1]]) != nrow(dataframe)) {
-      stop("The length of external factors must match the number of rows in the dataframe.")
-    }
-    external_factors_df = as.data.frame(factors_not_in_dataframe)
-    if (!is.null(factors)) {
-      factors = if (is.numeric(factors)) names(dataframe)[factors] else factors
-      combined_factors_df = cbind(dataframe[factors], external_factors_df)
-    } else {
-      combined_factors_df = external_factors_df
-    }
-    dataframe$Combined_Factors = interaction(combined_factors_df, drop = TRUE)
-  } else if (!is.null(factors)) {
-    factors = if (is.numeric(factors)) names(dataframe)[factors] else factors
-    dataframe$Combined_Factors = interaction(dataframe[factors], drop = TRUE)
-  } else {
-    stop("You must provide either internal factors, external factors, or both.")
-  }
-
-  dataframe$Combined_Factors = as.factor(dataframe$Combined_Factors)
-
-  all_rdpi_results = data.frame()  # Initialize a dataframe to store all RDPI values
-
-  if (is.null(sp)) {
-    unique_species = list("Single_Group" = dataframe)
-  } else {
-    unique_species = split(dataframe, dataframe[[sp]])
-  }
-
-  for (species_name in names(unique_species)) {
-    species_data = unique_species[[species_name]]
-
-    for (trait in traits) {
-      RDPI_values = data.frame(sp = character(), env1 = character(), env2 = character(), rdpi = numeric())
-
-      # Get unique environment combinations
-      env_levels = levels(species_data$Combined_Factors)
-      n_env_levels = length(env_levels)
-
-      mean_values = aggregate(species_data[[trait]], list(species_data$Combined_Factors), mean)
-      colnames(mean_values) = c("Env_Combination", "Mean_Trait")
-
-      for (i in 1:(n_env_levels - 1)) {
-        for (j in (i + 1):n_env_levels) {
-          mean_i = mean_values$Mean_Trait[mean_values$Env_Combination == env_levels[i]]
-          mean_j = mean_values$Mean_Trait[mean_values$Env_Combination == env_levels[j]]
-
-          # Calculate RDPI for this trait between the two environments
-          rdpi_value = abs(mean_i - mean_j) / min(mean_i, mean_j)
-
-          # Append the RDPI value for this species, trait, and environment pair
-          RDPI_values = rbind(RDPI_values, data.frame(sp = species_name, env1 = env_levels[i], env2 = env_levels[j], rdpi = rdpi_value))
-        }
-      }
-
-      all_rdpi_results = rbind(all_rdpi_results, RDPI_values)
-    }
-  }
-
-  # If statistical analysis is requested, perform ANOVA and Tukey's HSD
-  if (!is.null(stat_analysis)) {
-    all_trait_data = data.frame()
-
-    for (species_name in names(unique_species)) {
-      species_data = unique_species[[species_name]]
-
-      for (trait in traits) {
-        trait_data = data.frame(
-          sp = species_name,
-          trait = trait,
-          Combined_Factors = species_data$Combined_Factors,
-          Trait_Value = species_data[[trait]]
-        )
-
-        all_trait_data = rbind(all_trait_data, trait_data)
-      }
-    }
-
-    # Perform ANOVA and Tukey's HSD test
-    anova_results = list()
-    tukey_results = list()
-
-    for (trait in traits) {
-      fit = aov(Trait_Value ~ Combined_Factors, data = subset(all_trait_data, trait == trait))
-      anova_results[[trait]] = summary(fit)
-
-      # Perform Tukey's HSD test
-      Tukey = agricolae::HSD.test(fit, trt = "Combined_Factors")
-      tukey_results[[trait]] = Tukey
-    }
-
-    # Create boxplots for the traits across environmental combinations
-    boxplot_traits = ggplot2::ggplot(all_trait_data, ggplot2::aes(x = Combined_Factors, y = Trait_Value, fill = trait)) +
-      ggplot2::geom_boxplot() +
-      ggplot2::facet_wrap(~trait, scales = "free_y") +
-      ggplot2::theme_bw() +
-      ggplot2::xlab("Environmental Combinations") +
-      ggplot2::ylab("Trait Values") +
-      ggplot2::ggtitle("Boxplots of Trait Values Across Environmental Combinations") +
-      ggplot2::theme(axis.text.x = ggplot2::element_text(angle = 45, hjust = 1))
-
-    return(list(
-      rdpi_results = all_rdpi_results,
-      trait_boxplots = boxplot_traits,
-      anova_results = anova_results,
-      tukey_results = tukey_results
-    ))
-  }
-
-  # If stat_analysis is NULL, return only the RDPI values
-  return(all_rdpi_results)
-}
-
-
-
-
-## Example usage with synthetic data
-#external_light = rep(c(0.4, 0.6, 0.8), each = 100)
-#external_water =rep(c("Low", "High"), each = 150)
-#
-### test - passed on synthetic dataset
-#
-#rdpi_mean_calculation(df_test20,sp=1, trait_cols=3,factors = 2)
-
-
-#########################################
 
 
 #' @title Environmental Sensitivity Performance Index (ESPI)
 #'
 #' @description
-#' Calculates the Environmental Sensitivity Performance Index (ESPI) for one or more traits
-#' across different environmental conditions. ESPI quantifies the sensitivity of a trait by
+#' Calculates the Environmental Sensitivity Performance Index (ESPI) for a single trait
+#' across environmental conditions. ESPI quantifies the sensitivity of a trait by
 #' comparing the difference between its maximum and minimum mean values to the range of the
 #' environmental gradient.
 #'
@@ -350,71 +159,87 @@ rdpi_mean_calculation = function(dataframe, trait_cols, sp = NULL, factors = NUL
 #' where \(\bar{z}_e\) is the mean trait value in environment \(e\) and \(e\) is the environmental value.
 #'
 #' @param trait_values
-#'   A numeric vector for a single trait, or a data frame with one column per trait.
+#'   Numeric vector of trait measurements. At least two observations are required.
 #' @param env_values
-#'   (Optional) A numeric vector of environmental values corresponding to `trait_values`. If `NULL`,
-#'   environments are assumed to be equidistant (1, 2, …).
+#'   Optional numeric, factor, or character vector of environmental values corresponding to `trait_values`.
+#'   If `NULL`, environments are assumed equidistant (1, 2, …, length(trait_values)).
 #'
 #' @return
-#' For a single trait vector, returns a single numeric ESPI value. For a data frame of traits,
-#' returns a named numeric vector of ESPI values (one per column).
+#'   Numeric scalar: ESPI value. Returns `NA` with a warning if ESPI cannot be calculated (e.g., zero range or missing data).
 #'
 #' @examples
-#' # Single trait with explicit environments
 #' trait <- c(10, 15, 20, 25, 30)
 #' env   <- c(1, 2, 3, 4, 5)
 #' calculate_ESPI(trait, env)
-#'
-#' # Multiple traits in a data frame
-#' df <- data.frame(
-#'   Height = c(10, 15, 20, 25, 30),
-#'   Weight = c(5,  7,  9, 11, 13)
-#' )
-#' calculate_ESPI(df, env)
 #'
 #' # Without specifying env_values (assumes equidistant)
 #' calculate_ESPI(trait)
 #'
 #' @export
-calculate_ESPI = function(trait_values, env_values = NULL) {
+calculate_ESPI <- function(trait_values, env_values = NULL) {
+  # Validate trait_values
+  if (!is.numeric(trait_values) || !is.vector(trait_values)) {
+    stop("`trait_values` must be a numeric vector.")
+  }
+  n <- length(trait_values)
+  if (n < 2) {
+    stop("`trait_values` must contain at least two observations.")
+  }
 
+  # Handle env_values
   if (is.null(env_values)) {
-    env_values = seq_along(trait_values)
-
+    env_values <- seq_len(n)
+  }
+  if (length(env_values) != n) {
+    stop("`env_values` must have the same length as `trait_values`.")
   }
 
-  if (!is.vector(trait_values) && !is.data.frame(trait_values)) {
-    stop("trait_values must be a numeric vector or a data frame where each column is a trait.")
-  }
-
-  if (length(env_values) != length(trait_values)) {
-    stop("env_values must be the same length as trait_values.")
-  }
-
-  # Function to calculate ESPI for a single trait
-  calculate_single_espi = function(single_trait) {
-    means = tapply(single_trait, env_values, mean, na.rm = TRUE)
-    max_mean = max(means, na.rm = TRUE)
-    min_mean = min(means, na.rm = TRUE)
-
-    abs_env_distance = abs(max(as.numeric(env_values), na.rm = TRUE) - min(as.numeric(env_values), na.rm = TRUE))
-    if (abs_env_distance > 0) {
-      return((max_mean - min_mean) / abs_env_distance)
+  # Coerce env_values to numeric
+  if (!is.numeric(env_values)) {
+    if (is.factor(env_values)) {
+      env_num <- as.numeric(levels(env_values))[as.integer(env_values)]
+    } else if (is.character(env_values)) {
+      env_num <- suppressWarnings(as.numeric(env_values))
+      if (any(is.na(env_num) & !is.na(env_values))) {
+        stop("Cannot coerce character `env_values` to numeric.")
+      }
     } else {
-      return(NA)
+      stop("`env_values` must be numeric, factor, or character.")
     }
+  } else {
+    env_num <- env_values
   }
 
-  # Handle single trait
-  if (is.vector(trait_values)) {
-    return(calculate_single_espi(trait_values))
-  } else if (is.data.frame(trait_values)) {
-    # Handle multiple traits
-    espi_results = sapply(trait_values, calculate_single_espi)
-    names(espi_results) = colnames(trait_values)
-    return(espi_results)
+  # Drop NA observations
+  keep <- !is.na(trait_values) & !is.na(env_num)
+  if (!any(keep)) {
+    warning("All observations are NA; ESPI cannot be calculated.")
+    return(NA_real_)
   }
+  trait <- trait_values[keep]
+  env   <- env_num[keep]
+
+  # Compute environment means
+  gm <- tapply(trait, env, mean, na.rm = TRUE)
+  gm <- gm[!is.na(gm)]
+  if (length(gm) < 1) {
+    warning("No valid environment means; ESPI cannot be calculated.")
+    return(NA_real_)
+  }
+  max_mean <- max(gm)
+  min_mean <- min(gm)
+
+  # Compute environmental range
+  env_range <- max(env) - min(env)
+  if (env_range == 0) {
+    warning("Environmental range is zero; ESPI cannot be calculated.")
+    return(NA_real_)
+  }
+
+  # Calculate ESPI
+  (max_mean - min_mean) / env_range
 }
+
 ## test - passed on synthetic dataset
 
 
@@ -465,49 +290,56 @@ calculate_ESPI = function(trait_values, env_values = NULL) {
 calculate_espiid <- function(trait_values,
                              use_median = FALSE,
                              aggregate  = TRUE) {
-
-  if (!is.numeric(trait_values)) {
+  # Validate inputs
+  if (!is.numeric(trait_values) || !is.vector(trait_values)) {
     stop("`trait_values` must be a numeric vector.")
   }
-  n <- length(trait_values)
-  if (n < 2) {
-    stop("At least two trait values are required.")
+  if (!is.logical(use_median) || length(use_median) != 1 || is.na(use_median)) {
+    stop("`use_median` must be a single TRUE or FALSE value.")
   }
-
-  # Equidistant numeric environments
-  env_values <- factor(seq_len(n))
-
-  env_levels <- levels(env_values)
-  m <- length(env_levels)
-  if (m < 2) {
-    stop("At least two environments are required.")
+  if (!is.logical(aggregate)  || length(aggregate)  != 1 || is.na(aggregate)) {
+    stop("`aggregate` must be a single TRUE or FALSE value.")
   }
+  # Drop NA observations
+  keep <- !is.na(trait_values)
+  if (sum(keep) < 2) {
+    warning("At least two non-NA trait values are required; ESPIID cannot be calculated.")
+    return(NA_real_)
+  }
+  trait <- trait_values[keep]
+  n     <- length(trait)
 
-  espiid_list <- numeric()
-  names(espiid_list) <- character()
+  # Equidistant environments (1...n)
+  env <- seq_len(n)
 
-  for (i in seq_len(m - 1)) {
-    for (j in (i + 1):m) {
-      # values in env i and j
-      zi <- trait_values[env_values == env_levels[i]]
-      zj <- trait_values[env_values == env_levels[j]]
+  # Prepare output
+  pair_names <- combn(n, 2, function(idx) paste(idx, collapse = "-"))
+  n_pairs    <- length(pair_names)
+  espiid_vec <- numeric(n_pairs)
+  names(espiid_vec) <- pair_names
 
-      # all pairwise absolute differences
-      diffs <- abs(outer(zi, zj, "-"))
-      dist_ij <- if (use_median) median(diffs, na.rm = TRUE) else mean(diffs, na.rm = TRUE)
-
-      env_dist <- abs(as.numeric(env_levels[i]) - as.numeric(env_levels[j]))
-      espiid_ij <- if (env_dist > 0) dist_ij / env_dist else NA_real_
-
-      pair_name <- paste0(env_levels[i], "-", env_levels[j])
-      espiid_list[pair_name] <- espiid_ij
+  # Compute ESPIID for each pair
+  idx <- 1L
+  for (i in seq_len(n - 1L)) {
+    for (j in (i + 1L):n) {
+      diff_val <- abs(trait[j] - trait[i])
+      # for single observations, mean == median == diff_val
+      summary_diff <- if (use_median) {
+        diff_val
+      } else {
+        diff_val
+      }
+      env_dist <- abs(j - i)
+      espiid_vec[idx] <- if (env_dist > 0) summary_diff / env_dist else NA_real_
+      idx <- idx + 1L
     }
   }
 
+  # Aggregate or return full vector
   if (aggregate) {
-    mean(espiid_list, na.rm = TRUE)
+    mean(espiid_vec, na.rm = TRUE)
   } else {
-    espiid_list
+    espiid_vec
   }
 }
 

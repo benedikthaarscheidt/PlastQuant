@@ -83,41 +83,59 @@
 #'
 #' @export
 calculate_PSI <- function(trait_values, env_values = NULL) {
-  # Input validation
-  if (!is.numeric(trait_values)) {
+  # Validate trait_values
+  if (!is.numeric(trait_values) || !is.vector(trait_values)) {
     stop("`trait_values` must be a numeric vector.")
   }
-
-  n_values <- length(trait_values)
-  if (n_values < 2) {
-    stop("At least two trait values are required to compute PSI.")
+  # Drop NA trait observations
+  keep <- !is.na(trait_values)
+  if (sum(keep) < 2) {
+    stop("At least two non-NA trait values are required to compute PSI.")
   }
+  trait <- trait_values[keep]
+  n     <- length(trait)
 
-  # Default equidistant environments
+  # Handle env_values
   if (is.null(env_values)) {
-    env_values <- seq_len(n_values)
+    env <- seq_len(n)
+  } else {
+    if (!is.numeric(env_values)) {
+      if (is.factor(env_values)) {
+        env_vals <- as.numeric(levels(env_values))[as.integer(env_values)]
+      } else if (is.character(env_values)) {
+        env_vals <- suppressWarnings(as.numeric(env_values))
+        if (any(is.na(env_vals) & !is.na(env_values))) {
+          stop("Cannot coerce character `env_values` to numeric.")
+        }
+      } else {
+        stop("`env_values` must be numeric, factor, or character.")
+      }
+      env <- env_vals[keep]
+    } else {
+      if (length(env_values) != length(trait_values)) {
+        stop("`env_values` must have the same length as `trait_values`.")
+      }
+      env <- env_values[keep]
+    }
   }
 
-  if (!is.numeric(env_values)) {
-    stop("`env_values` must be numeric.")
-  }
-  if (length(env_values) != n_values) {
-    stop("`trait_values` and `env_values` must have the same length.")
-  }
-
-  # Warn if env_values have near-zero variance
-  if (sd(env_values) < .Machine$double.eps) {
-    warning("Environmental values have near-zero variance; PSI may be unreliable.")
+  # Check environmental range
+  if (abs(diff(range(env, na.rm = TRUE))) < .Machine$double.eps) {
+    warning("Environmental values have zero or near-zero range; PSI cannot be calculated.")
+    return(NA_real_)
   }
 
-  # Fit linear model and extract slope
-  beta <- unname(coef(lm(trait_values ~ env_values))[2])
+  # Fit linear model: trait ~ env
+  fit <- lm(trait ~ env)
+  coef_env <- unname(coef(fit)[ "env" ])
+  if (is.na(coef_env)) {
+    warning("Model slope is NA; PSI cannot be calculated.")
+    return(NA_real_)
+  }
 
-  # Compute stability index
-  stability_score <- 1 / (1 + abs(beta))
-  return(stability_score)
+  # Compute stability score
+  1 / (1 + abs(coef_env))
 }
-
 
 
 
@@ -182,127 +200,73 @@ calculate_PSI <- function(trait_values, env_values = NULL) {
 #' calculate_RPI(c(1, 2, 3, 4))
 #'
 #' @export
-calculate_RPI = function(trait_values, env_values = NULL, env1 = NULL, env2 = NULL) {
-  # Ensure trait_values is numeric
-  if (!is.numeric(trait_values)) stop("trait_values must be a numeric vector.")
+calculate_RPI <- function(trait_values, env_values = NULL, env1 = NULL, env2 = NULL) {
+  # Validate inputs
+  if (!is.numeric(trait_values) || !is.vector(trait_values)) {
+    stop("`trait_values` must be a numeric vector.")
+  }
+  if (!is.null(env_values) && length(env_values) != length(trait_values)) {
+    stop("`env_values` must have the same length as `trait_values`.")
+  }
 
-  n = length(trait_values)
-
-  # Assume equidistant environments if not provided
+  # Drop NA pairs
   if (is.null(env_values)) {
-    env_values = seq_len(n)
+    keep <- !is.na(trait_values)
+  } else {
+    keep <- !is.na(trait_values) & !is.na(env_values)
+    env_values <- env_values[keep]
+  }
+  trait_values <- trait_values[keep]
+  n <- length(trait_values)
+  if (n < 2) {
+    warning("Not enough non-NA observations; RPI cannot be calculated.")
+    return(NA_real_)
   }
 
-  # Ensure env_values has correct length
-  if (length(env_values) != n) stop("env_values must have the same length as trait_values.")
-
-  unique_envs = unique(env_values)
-
-  # If only one environment is present, return NA
-  if (length(unique_envs) < 2) {
-    warning("Only one unique environment present. RPI cannot be calculated.")
-    return(NA)
-  }
-
-  # If specific environments are given, calculate RPI for that pair
-  if (!is.null(env1) && !is.null(env2)) {
-    if (!(env1 %in% unique_envs) || !(env2 %in% unique_envs)) stop("env1 and env2 must be in env_values.")
-
-    idx1 = which(env_values == env1)
-    idx2 = which(env_values == env2)
-
-    # Ensure equal sample size
-    min_len = min(length(idx1), length(idx2))
-    idx1 = idx1[seq_len(min_len)]
-    idx2 = idx2[seq_len(min_len)]
-
-    RPI_values = abs(trait_values[idx1] - trait_values[idx2]) / (trait_values[idx1] + trait_values[idx2])
-    return(mean(RPI_values, na.rm = TRUE))
-  }
-
-  # Otherwise, compute RPI for all pairs
-  env_combinations = combn(unique_envs, 2, simplify = TRUE)
-  RPI_results = numeric(ncol(env_combinations))
-
-  for (i in seq_len(ncol(env_combinations))) {
-    env1_current = env_combinations[1, i]
-    env2_current = env_combinations[2, i]
-
-    idx1 = which(env_values == env1_current)
-    idx2 = which(env_values == env2_current)
-
-    min_len = min(length(idx1), length(idx2))
-    idx1 = idx1[seq_len(min_len)]
-    idx2 = idx2[seq_len(min_len)]
-
-    RPI_values = abs(trait_values[idx1] - trait_values[idx2]) / (trait_values[idx1] + trait_values[idx2])
-    RPI_results[i] = mean(RPI_values, na.rm = TRUE)
-  }
-  RPI_grand = sum(RPI_results) / length(RPI_results)
-  names(RPI_results) = apply(env_combinations, 2, paste, collapse = "-")
-  return(RPI_grand)
-}
-calculate_RPI = function(trait_values, env_values = NULL, env1 = NULL, env2 = NULL) {
-  # Ensure trait_values is numeric
-  if (!is.numeric(trait_values)) stop("trait_values must be a numeric vector.")
-
-  n = length(trait_values)
-
-  # Assume equidistant environments if not provided
+  # Prepare environment factor
   if (is.null(env_values)) {
-    env_values = seq_len(n)
+    env_f <- factor(seq_len(n))
+  } else {
+    if (!(is.numeric(env_values) || is.factor(env_values) || is.character(env_values))) {
+      stop("`env_values` must be numeric, factor, or character.")
+    }
+    env_f <- factor(env_values)
+  }
+  levels_env <- levels(env_f)
+  if (length(levels_env) < 2) {
+    warning("Less than two unique environments; RPI cannot be calculated.")
+    return(NA_real_)
   }
 
-  # Ensure env_values has correct length
-  if (length(env_values) != n) stop("env_values must have the same length as trait_values.")
-
-  unique_envs = unique(env_values)
-
-  # If only one environment is present, return NA
-  if (length(unique_envs) < 2) {
-    warning("Only one unique environment present. RPI cannot be calculated.")
-    return(NA)
+  # Helper to compute RPI for one pair
+  pair_rpi <- function(e1, e2) {
+    idx1 <- which(env_f == e1)
+    idx2 <- which(env_f == e2)
+    min_len <- min(length(idx1), length(idx2))
+    if (min_len == 0) stop("No observations found for specified environments.")
+    idx1 <- idx1[seq_len(min_len)]
+    idx2 <- idx2[seq_len(min_len)]
+    denom <- trait_values[idx1] + trait_values[idx2]
+    r <- ifelse(denom == 0, NA_real_, abs(trait_values[idx1] - trait_values[idx2]) / denom)
+    mean(r, na.rm = TRUE)
   }
 
-  # If specific environments are given, calculate RPI for that pair
-  if (!is.null(env1) && !is.null(env2)) {
-    if (!(env1 %in% unique_envs) || !(env2 %in% unique_envs)) stop("env1 and env2 must be in env_values.")
-
-    idx1 = which(env_values == env1)
-    idx2 = which(env_values == env2)
-
-    # Ensure equal sample size
-    min_len = min(length(idx1), length(idx2))
-    idx1 = idx1[seq_len(min_len)]
-    idx2 = idx2[seq_len(min_len)]
-
-    RPI_values = abs(trait_values[idx1] - trait_values[idx2]) / (trait_values[idx1] + trait_values[idx2])
-    return(mean(RPI_values, na.rm = TRUE))
+  # Specific pair
+  if (!is.null(env1) || !is.null(env2)) {
+    if (is.null(env1) || is.null(env2)) {
+      stop("Both `env1` and `env2` must be provided together.")
+    }
+    if (!(env1 %in% levels_env) || !(env2 %in% levels_env)) {
+      stop("`env1` and `env2` must exist in `env_values`.")
+    }
+    return(pair_rpi(env1, env2))
   }
 
-  # Otherwise, compute RPI for all pairs
-  env_combinations = combn(unique_envs, 2, simplify = TRUE)
-  RPI_results = numeric(ncol(env_combinations))
-
-  for (i in seq_len(ncol(env_combinations))) {
-    env1_current = env_combinations[1, i]
-    env2_current = env_combinations[2, i]
-
-    idx1 = which(env_values == env1_current)
-    idx2 = which(env_values == env2_current)
-
-    min_len = min(length(idx1), length(idx2))
-    idx1 = idx1[seq_len(min_len)]
-    idx2 = idx2[seq_len(min_len)]
-
-    RPI_values = abs(trait_values[idx1] - trait_values[idx2]) / (trait_values[idx1] + trait_values[idx2])
-    RPI_results[i] = mean(RPI_values, na.rm = TRUE)
-  }
-  RPI_grand=sum(RPI_results)/length(RPI_results)
-  names(RPI_results) = apply(env_combinations, 2, paste, collapse = "-")
-  return(RPI_grand)
+  # All pairs
+  combos <- combn(levels_env, 2, simplify = FALSE)
+  rpi_vals <- vapply(combos, function(pr) pair_rpi(pr[1], pr[2]), numeric(1))
+  mean(rpi_vals, na.rm = TRUE)
 }
-
 
 
 ## test - passed on synthetic dataset
@@ -347,37 +311,48 @@ calculate_RPI = function(trait_values, env_values = NULL, env1 = NULL, env2 = NU
 #' calculate_PQ(trait_values, env_values)
 #'
 #' @export
-calculate_PQ = function(trait_values, env_values = NULL) {
-  # Ensure trait_values is numeric
-  if (!is.numeric(trait_values)) stop("trait_values must be a numeric vector.")
+calculate_PQ <- function(trait_values, env_values = NULL) {
+  # Validate trait_values
+  if (!is.numeric(trait_values) || !is.vector(trait_values)) {
+    stop("`trait_values` must be a numeric vector.")
+  }
+  # Drop NA trait observations
+  keep <- !is.na(trait_values)
+  if (sum(keep) < 2) {
+    stop("At least two non-NA trait values are required to compute PQ.")
+  }
+  trait <- trait_values[keep]
 
-  n = length(trait_values)
-
-  # If no explicit env_values are given, assume equidistant environments
+  n <- length(trait)
+  # Handle env_values
   if (is.null(env_values)) {
-    env_values = seq_len(n)
+    env <- seq_len(n)
+  } else {
+    if (! (is.numeric(env_values) || is.factor(env_values) || is.character(env_values))) {
+      stop("`env_values` must be numeric, factor, or character.")
+    }
+    if (length(env_values) != length(trait_values)) {
+      stop("`env_values` must have the same length as `trait_values`.")
+    }
+    # drop corresponding env NA
+    env_raw <- env_values[keep]
+    if (is.factor(env_raw)) {
+      env <- as.numeric(levels(env_raw))[as.integer(env_raw)]
+    } else if (is.character(env_raw)) {
+      env <- suppressWarnings(as.numeric(env_raw))
+      if (any(is.na(env) & !is.na(env_raw))) stop("Cannot coerce character `env_values` to numeric.")
+    } else {
+      env <- env_raw
+    }
   }
-
-  # Ensure env_values is numeric and of correct length
-  if (!is.numeric(env_values)) stop("env_values must be a numeric vector.")
-  if (length(env_values) != n) stop("trait_values and env_values must have the same length.")
-
-  # Compute the range of trait values
-  range_trait = abs(max(trait_values) - min(trait_values))
-
-  # Compute the range of environment values (used for standardization)
-  range_env = abs(max(env_values) - min(env_values))
-
-  # Ensure env range is non-zero to avoid division errors
-  if (range_env == 0) {
-    warning("Environment range is zero. PQ calculation is not meaningful.")
-    return(NA)
+  # Compute trait range and env range
+  trait_range <- max(trait, na.rm=TRUE) - min(trait, na.rm=TRUE)
+  env_range   <- max(env, na.rm=TRUE) - min(env, na.rm=TRUE)
+  if (env_range == 0) {
+    warning("Environmental range is zero; PQ cannot be calculated.")
+    return(NA_real_)
   }
-
-  # Compute the Plasticity Quotient (PQ)
-  PQ_value = range_trait / range_env
-
-  return(PQ_value)
+  trait_range / env_range
 }
 
 
@@ -420,38 +395,70 @@ calculate_PQ = function(trait_values, env_values = NULL) {
 #' calculate_PR(trait_values, env_values, across = TRUE)
 #'
 #' @export
-calculate_PR = function(trait_values, env_values = NULL, across = TRUE) {
-  # Ensure trait_values is numeric
-  if (!is.numeric(trait_values)) stop("trait_values must be a numeric vector.")
+calculate_PR <- function(trait_values, env_values = NULL, across = TRUE) {
+  # Coerce logical trait_values to numeric
+  if (!is.numeric(trait_values)) {
+    if (is.logical(trait_values)) {
+      trait_values <- as.numeric(trait_values)
+    } else {
+      stop("`trait_values` must be a numeric vector.")
+    }
+  }
+  if (!is.vector(trait_values)) {
+    stop("`trait_values` must be a numeric vector.")
+  }
+  # Validate across
+  if (!is.logical(across) || length(across) != 1 || is.na(across)) {
+    stop("`across` must be a single TRUE or FALSE value.")
+  }
 
-  n = length(trait_values)
+  # Validate env_values length
+  n <- length(trait_values)
+  if (!is.null(env_values) && length(env_values) != n) {
+    stop("`env_values` must have the same length as `trait_values`.")
+  }
 
-  # If no explicit env_values are given, assume equidistant environments
+  # Drop NA observations
   if (is.null(env_values)) {
-    env_values = seq_len(n)
+    keep <- !is.na(trait_values)
+  } else {
+    keep <- !is.na(trait_values) & !is.na(env_values)
+    env_values <- env_values[keep]
+  }
+  trait <- trait_values[keep]
+  if (length(trait) < 2) {
+    warning("Not enough non-NA observations; PR cannot be calculated.")
+    return(NA_real_)
   }
 
-  # Ensure env_values is numeric and matches trait_values in length
-  if (!is.numeric(env_values)) stop("env_values must be a numeric vector.")
-  if (length(env_values) != n) stop("trait_values and env_values must have the same length.")
-
-  # If across = TRUE, compute PR across all environments
+  # Global range branch
   if (across) {
-    PR_value = max(trait_values, na.rm = TRUE) - min(trait_values, na.rm = TRUE)
-    return(PR_value)
+    return(max(trait, na.rm=TRUE) - min(trait, na.rm=TRUE))
   }
 
-  # Compute PR within each environment
-  unique_envs = unique(env_values)
-  PR_values = numeric(length(unique_envs))
-
-  for (i in seq_along(unique_envs)) {
-    env_mask = env_values == unique_envs[i]
-    env_trait_values = trait_values[env_mask]
-    PR_values[i] = max(env_trait_values, na.rm = TRUE) - min(env_trait_values, na.rm = TRUE)
+  # Within-environment branch
+  # Build environment factor
+  if (is.null(env_values)) {
+    env_f <- factor(seq_along(trait))
+  } else if (is.factor(env_values) || is.numeric(env_values) || is.character(env_values)) {
+    env_f <- factor(env_values)
+  } else {
+    stop("`env_values` must be numeric, factor, or character.")
+  }
+  levels_env <- levels(env_f)
+  if (length(levels_env) == 0) {
+    warning("No valid environments; PR cannot be calculated.")
+    return(NA_real_)
   }
 
-  return(PR_values)
+  # Compute PR per environment
+  pr_vals <- vapply(levels_env, function(e) {
+    vals <- trait[env_f == e]
+    if (length(vals) < 1) return(NA_real_)
+    max(vals, na.rm=TRUE) - min(vals, na.rm=TRUE)
+  }, numeric(1))
+  names(pr_vals) <- levels_env
+  pr_vals
 }
 
 
@@ -494,38 +501,90 @@ calculate_PR = function(trait_values, env_values = NULL, across = TRUE) {
 #' calculate_NRW(trait_values, env_values)
 #'
 #' @export
-calculate_NRW = function(trait_values, env_values = NULL, group_values = NULL, across = FALSE) {
-  if (!is.numeric(trait_values)) stop("trait_values must be numeric.")
-
-  # Assume equidistant environments if not provided
-  if (is.null(env_values)) env_values = seq_along(trait_values)
-  if (length(env_values) != length(trait_values)) stop("trait_values and env_values must be the same length.")
-
-  # Compute NRW across all environments
-  if (across) {
-    return(max(trait_values, na.rm = TRUE) - min(trait_values, na.rm = TRUE))
+calculate_NRW <- function(trait_values, env_values = NULL, group_values = NULL, across = FALSE) {
+  # Validate trait_values
+  if (missing(trait_values) || !is.numeric(trait_values)) {
+    stop("'trait_values' must be a numeric vector.")
   }
+  n <- length(trait_values)
+  if (n < 1) stop("'trait_values' must have at least one element.")
 
-  # Compute NRW per group (e.g., genotype)
-  if (!is.null(group_values)) {
-    unique_groups = unique(group_values)
-    NRW_values = setNames(numeric(length(unique_groups)), unique_groups)
-
-    for (g in unique_groups) {
-      mask = group_values == g
-      mean_per_env = tapply(trait_values[mask], env_values[mask], mean, na.rm = TRUE)
-      NRW_values[g] = max(mean_per_env, na.rm = TRUE) - min(mean_per_env, na.rm = TRUE)
+  # Validate env_values or assign default
+  if (is.null(env_values)) {
+    env_values <- seq_len(n)
+  } else {
+    if (!(is.numeric(env_values) || is.factor(env_values) || is.character(env_values))) {
+      stop("'env_values' must be numeric, factor, or character.")
     }
-
-    return(NRW_values)
+    if (length(env_values) != n) {
+      stop("'env_values' and 'trait_values' must be the same length.")
+    }
   }
 
-  # Default: Calculate NRW across environments
-  mean_per_env = tapply(trait_values, env_values, mean, na.rm = TRUE)
-  NRW_value = max(mean_per_env, na.rm = TRUE) - min(mean_per_env, na.rm = TRUE)
+  # Validate across flag
+  if (!is.logical(across) || length(across) != 1 || is.na(across)) {
+    stop("'across' must be a single TRUE or FALSE.")
+  }
 
-  return(NRW_value)
+  # Validate group_values
+  if (!is.null(group_values)) {
+    if (length(group_values) != n) {
+      stop("'group_values' must be the same length as 'trait_values'.")
+    }
+  }
+
+  # Filter out entries where trait or env is NA
+  valid_idx <- !is.na(trait_values) & !is.na(env_values)
+  if (!any(valid_idx)) {
+    warning("No valid data points after removing NAs; returning NA.")
+    return(NA_real_)
+  }
+  trait <- trait_values[valid_idx]
+  env   <- env_values[valid_idx]
+  grp   <- if (!is.null(group_values)) group_values[valid_idx] else NULL
+
+  # Global range across all values
+  if (across) {
+    if (all(is.na(trait))) {
+      warning("All trait_values are NA; returning NA.")
+      return(NA_real_)
+    }
+    return(max(trait, na.rm = TRUE) - min(trait, na.rm = TRUE))
+  }
+
+  # Range per group if provided
+  if (!is.null(grp)) {
+    groups <- unique(grp)
+    result <- setNames(numeric(length(groups)), groups)
+    for (g in groups) {
+      mask <- grp == g
+      traits_g <- trait[mask]
+      envs_g   <- env[mask]
+      if (all(is.na(traits_g))) {
+        warning(sprintf("All trait_values are NA for group %s; returning NA for this group.", g))
+        result[g] <- NA_real_
+        next
+      }
+      means <- tapply(traits_g, envs_g, mean, na.rm = TRUE)
+      if (length(means) < 1 || all(is.na(means))) {
+        warning(sprintf("No valid means for group %s; returning NA.", g))
+        result[g] <- NA_real_
+        next
+      }
+      result[g] <- max(means, na.rm = TRUE) - min(means, na.rm = TRUE)
+    }
+    return(result)
+  }
+
+  # Default: per-environment range
+  means <- tapply(trait, env, mean, na.rm = TRUE)
+  if (all(is.na(means))) {
+    warning("No valid means per environment; returning NA.")
+    return(NA_real_)
+  }
+  max(means, na.rm = TRUE) - min(means, na.rm = TRUE)
 }
+
 
 
 ## test - passed on synthetic dataset
@@ -558,33 +617,81 @@ calculate_NRW = function(trait_values, env_values = NULL, group_values = NULL, a
 #' calculate_ESP(trait_values, env_values)
 #'
 #' @export
-calculate_ESP = function(trait_values, env_values = NULL, env_subset = NULL) {
-  if (!is.numeric(trait_values)) stop("trait_values must be numeric.")
+calculate_ESP <- function(trait_values, env_values = NULL, env_subset = NULL) {
+  # Validate trait_values
+  if (missing(trait_values) || !is.numeric(trait_values)) {
+    stop("'trait_values' must be a numeric vector.")
+  }
+  n <- length(trait_values)
+  if (n < 1) stop("'trait_values' must have at least one element.")
 
-  # Assume equidistant environments if not provided
-  if (is.null(env_values)) env_values = seq_along(trait_values)
-  if (length(env_values) != length(trait_values)) stop("trait_values and env_values must be the same length.")
-
-  # Use all unique environments unless specific ones are given
-  unique_envs = unique(env_values)
-  if (!is.null(env_subset)) unique_envs = unique_envs[unique_envs %in% env_subset]
-
-  # Compute mean trait value across all environments
-  mean_trait_all = mean(trait_values, na.rm = TRUE)
-
-  # Compute ESP per environment
-  ESP_values = setNames(numeric(length(unique_envs)), unique_envs)
-
-  for (e in unique_envs) {
-    mean_trait_env = mean(trait_values[env_values == e], na.rm = TRUE)
-    ESP_values[as.character(e)] = (mean_trait_env - mean_trait_all) / mean_trait_all
+  # Validate env_values or assign default
+  if (is.null(env_values)) {
+    env_values <- seq_len(n)
+  } else {
+    if (!(is.numeric(env_values) || is.factor(env_values) || is.character(env_values))) {
+      stop("'env_values' must be numeric, factor, or character.")
+    }
+    if (length(env_values) != n) {
+      stop("'env_values' and 'trait_values' must be the same length.")
+    }
   }
 
-  y=abs(ESP_values)
-  ESP_grand=sum(y)
+  # Filter out entries where trait or env is NA
+  valid_idx <- !is.na(trait_values) & !is.na(env_values)
+  if (!any(valid_idx)) {
+    warning("No valid data points after removing NAs; returning NA.")
+    return(NA_real_)
+  }
+  trait <- trait_values[valid_idx]
+  env   <- env_values[valid_idx]
+
+  # Determine environments to use
+  unique_envs <- unique(env)
+  if (!is.null(env_subset)) {
+    if (!(is.numeric(env_subset) || is.factor(env_subset) || is.character(env_subset))) {
+      stop("'env_subset' must be numeric, factor, or character.")
+    }
+    selected <- unique_envs %in% env_subset
+    if (!any(selected)) {
+      warning("None of the 'env_subset' values match 'env_values'; returning NA.")
+      return(NA_real_)
+    }
+    unique_envs <- unique_envs[selected]
+  }
+
+  # Compute overall mean
+  if (all(is.na(trait))) {
+    warning("All 'trait_values' are NA; returning NA.")
+    return(NA_real_)
+  }
+  mean_all <- mean(trait, na.rm = TRUE)
+
+  # Compute ESP per environment
+  ESP_values <- setNames(numeric(length(unique_envs)), unique_envs)
+  for (e in unique_envs) {
+    subset_vals <- trait[env == e]
+    if (all(is.na(subset_vals))) {
+      warning(sprintf("All 'trait_values' are NA for environment %s; assigning NA.", e))
+      ESP_values[as.character(e)] <- NA_real_
+    } else {
+      mean_env <- mean(subset_vals, na.rm = TRUE)
+      ESP_values[as.character(e)] <- (mean_env - mean_all) / mean_all
+    }
+  }
+
+  # Aggregate
+  abs_vals <- abs(ESP_values)
+  if (all(is.na(abs_vals))) {
+    warning("No valid ESP values; returning NA.")
+    return(NA_real_)
+  }
+  if (any(is.na(abs_vals))) {
+    warning("Some environments had NA ESP and were excluded from the sum.")
+  }
+  ESP_grand <- sum(abs_vals, na.rm = TRUE)
   return(ESP_grand)
 }
-
 
 
 ## test - passed on synthetic dataset
@@ -624,87 +731,111 @@ calculate_ESP = function(trait_values, env_values = NULL, env_subset = NULL) {
 #' calculate_general_PD(trait_values, method = "variability")
 #'
 #' @export
-calculate_general_PD = function(trait_values, env_values = NULL, control_stress_vector = NULL, method = "pairwise") {
-  if (!is.numeric(trait_values)) stop("trait_values must be numeric.")
+calculate_general_PD <- function(
+    trait_values,
+    env_values = NULL,
+    control_stress_vector = NULL,
+    method = "pairwise"
+) {
+  # Validate trait_values
+  if (!is.numeric(trait_values)) {
+    stop("'trait_values' must be numeric.")
+  }
+  n <- length(trait_values)
+  if (n < 2) {
+    stop("At least two trait values are required.")
+  }
 
-  num_values = length(trait_values)
-  if (num_values < 2) stop("At least two trait values are required.")
-
-  # If no env_values are provided, assume equidistant environments
+  # Setup env_values (default equidistant sequence)
   if (is.null(env_values)) {
-    env_values = seq_len(num_values)
+    env_values <- seq_len(n)
+  }
+  if (length(env_values) != n) {
+    stop("'env_values' must be the same length as 'trait_values'.")
+  }
+  env <- as.factor(env_values)
+
+  # Validate control_stress_vector length
+  if (!is.null(control_stress_vector) && length(control_stress_vector) != n) {
+    stop("'control_stress_vector' must be the same length as 'trait_values'.")
   }
 
-  if (length(env_values) != num_values) stop("trait_values and env_values must have the same length.")
+  # Filter NAs
+  valid <- !is.na(trait_values) & !is.na(env)
+  if (sum(valid) < 2) {
+    warning("Not enough valid data points; returning NA.")
+    return(NA_real_)
+  }
+  trait <- trait_values[valid]
+  env   <- as.factor(env_values[valid])
 
-  unique_envs = unique(env_values)
-  num_envs = length(unique_envs)
-
-  if (num_envs < 2) stop("At least two distinct environments are required.")
-
-  # If a control vs. stress vector is provided, use it directly
+  # Control vs Stress method
   if (!is.null(control_stress_vector)) {
-    if (length(control_stress_vector) != num_values) {
-      stop("control_stress_vector must have the same length as trait_values.")
-    }
-
-    # Automatically detect whether the vector is categorical or numeric
-    if (all(control_stress_vector %in% c("Control", "Stress"))) {
-      control_values = trait_values[control_stress_vector == "Control"]
-      stress_values = trait_values[control_stress_vector == "Stress"]
-    } else if (all(control_stress_vector %in% c(0, 1))) {
-      control_values = trait_values[control_stress_vector == 0]
-      stress_values = trait_values[control_stress_vector == 1]
+    csv <- control_stress_vector[valid]
+    if (all(csv %in% c(0,1))) {
+      ctrl <- trait[csv == 0]
+      strs <- trait[csv == 1]
+    } else if (all(csv %in% c("Control", "Stress"))) {
+      ctrl <- trait[csv == "Control"]
+      strs <- trait[csv == "Stress"]
     } else {
-      stop("control_stress_vector must contain 'Control'/'Stress' labels or numeric 0/1 values.")
+      stop("'control_stress_vector' must be 0/1 or 'Control'/'Stress'.")
     }
-
-    if (length(control_values) != length(stress_values)) {
-      stop("Control and stress groups must have the same number of values.")
+    if (length(ctrl) != length(strs)) {
+      stop("Control and Stress groups must have equal length.")
     }
-
-    # Compute PD as mean absolute difference
-    return(mean(abs(stress_values - control_values), na.rm = TRUE))
+    return(mean(abs(strs - ctrl), na.rm = TRUE))
   }
 
-  # If no control vs. stress is provided, use the selected method
+  # Validate method
+  if (!method %in% c("pairwise", "reference", "variability")) {
+    stop("'method' must be 'pairwise', 'reference', or 'variability'.")
+  }
+
+  # Variability method: max - min
+  if (method == "variability") {
+    return(max(trait, na.rm = TRUE) - min(trait, na.rm = TRUE))
+  }
+
+  # Reference method: compare environment means to lowest-mean environment
+  if (method == "reference") {
+    env_means <- tapply(trait, env, mean, na.rm = TRUE)
+    ref_env <- names(which.min(env_means))
+    diffs <- abs(env_means - env_means[ref_env])
+    diffs <- diffs[names(diffs) != ref_env]
+    return(mean(diffs, na.rm = TRUE))
+  }
+
+  # Pairwise method: average PD across all env pairs
   if (method == "pairwise") {
-    pd_values = c()
-    env_combinations = combn(unique_envs, 2)
-    for (i in 1:ncol(env_combinations)) {
-      env1 = env_combinations[1, i]
-      env2 = env_combinations[2, i]
-
-      values1 = trait_values[env_values == env1]
-      values2 = trait_values[env_values == env2]
-
-      if (length(values1) != length(values2)) next  # Skip if unequal sample sizes
-
-      pd_values = c(pd_values, mean(abs(values1 - values2), na.rm = TRUE))
+    levels_env <- levels(env)
+    combos <- utils::combn(levels_env, 2, simplify = FALSE)
+    pd_vals <- numeric(0)
+    for (pair in combos) {
+      v1 <- trait[env == pair[1]]
+      v2 <- trait[env == pair[2]]
+      v1 <- v1[!is.na(v1)]; v2 <- v2[!is.na(v2)]
+      if (length(v1) < 1 || length(v2) < 1) {
+        warning(sprintf("No valid data for '%s' vs '%s'; skipped.", pair[1], pair[2]))
+        next
+      }
+      if (length(v1) != length(v2)) {
+        warning(sprintf("Unequal sample sizes for '%s' vs '%s'; pairing with minimum length.", pair[1], pair[2]))
+        m <- min(length(v1), length(v2))
+        v1 <- head(v1, m); v2 <- head(v2, m)
+      }
+      pd_vals <- c(pd_vals, mean(abs(v1 - v2), na.rm = TRUE))
     }
-    return(mean(pd_values, na.rm = TRUE))
-
-  } else if (method == "reference") {
-    env_means = tapply(trait_values, env_values, mean, na.rm = TRUE)
-    reference_env = names(which.min(env_means))
-
-    pd_values = c()
-    for (env in unique_envs) {
-      if (env == reference_env) next
-      values1 = trait_values[env_values == reference_env]
-      values2 = trait_values[env_values == env]
-      if (length(values1) != length(values2)) next  # Skip if unequal sample sizes
-      pd_values = c(pd_values, mean(abs(values1 - values2), na.rm = TRUE))
+    if (length(pd_vals) == 0) {
+      warning("No PD values computed; returning NA.")
+      return(NA_real_)
     }
-    return(mean(pd_values, na.rm = TRUE))
-
-  } else if (method == "variability") {
-    return(max(trait_values, na.rm = TRUE) - min(trait_values, na.rm = TRUE))
-
-  } else {
-    stop("Invalid method. Choose 'pairwise', 'reference', or 'variability'.")
+    return(mean(pd_vals, na.rm = TRUE))
   }
 }
+
+
+
 
 
 ## test - passed on synthetic dataset
@@ -739,77 +870,130 @@ calculate_general_PD = function(trait_values, env_values = NULL, control_stress_
 #' print(result_with_control)
 #'
 #' @export
-calculate_FPI = function(trait_values, env_values = NULL, control_stress = NULL) {
-  # Ensure trait_values is numeric
-  if (!is.numeric(trait_values)) stop("trait_values must be a numeric vector.")
+calculate_FPI <- function(trait_values,
+                          env_values     = NULL,
+                          control_stress = NULL,
+                          summary_fun    = mean,
+                          na.rm          = TRUE,
+                          drop_zero      = TRUE) {
 
-  n = length(trait_values)
+  # 1. Basic checks
+  if (!is.numeric(trait_values)) {
+    stop("`trait_values` must be a numeric vector.")
+  }
+  n <- length(trait_values)
+  if (n < 2L) {
+    stop("Need at least two trait values to compute FPI.")
+  }
 
-  # Assume equidistant environments if not provided
+  # 2. env_values default & check
   if (is.null(env_values)) {
-    env_values = seq_len(n)
+    env_values <- seq_len(n)
+  }
+  if (length(env_values) != n) {
+    stop("`env_values` must have same length as `trait_values`.")
+  }
+  # allow factors/chars → force to factor
+  if (is.factor(env_values) || is.character(env_values)) {
+    env_values <- as.factor(env_values)
+  } else if (!is.numeric(env_values) && !is.integer(env_values)) {
+    stop("`env_values` must be numeric, integer, factor, or character.")
   }
 
-  # Ensure env_values has correct length
-  if (length(env_values) != n) stop("env_values must have the same length as trait_values.")
-
-  unique_envs = unique(env_values)
-
-  # If only one environment is present, return NA
-  if (length(unique_envs) < 2) {
-    warning("Only one unique environment present. FPI cannot be calculated.")
-    return(NA)
-  }
-
-  # If control-stress mapping is provided
+  # 3. control_stress branch
   if (!is.null(control_stress)) {
-    if (length(control_stress) != n) stop("control_stress must have the same length as trait_values.")
-
-    # Ensure binary format (0/1 or Control/Stress)
-    if (!all(control_stress %in% c(0, 1, "Control", "Stress"))) {
-      stop("control_stress must be a vector of 0/1 or 'Control'/'Stress'.")
+    if (length(control_stress) != n) {
+      stop("`control_stress` must have same length as `trait_values`.")
+    }
+    # logical → 0/1
+    if (is.logical(control_stress)) {
+      control_stress <- ifelse(control_stress, 1L, 0L)
+    }
+    # factor/char → "Control"/"Stress"
+    if (is.factor(control_stress) || is.character(control_stress)) {
+      cs_c <- as.character(control_stress)
+      if (!all(cs_c %in% c("Control", "Stress"))) {
+        stop("If character/factor, `control_stress` must be 'Control'/'Stress'.")
+      }
+      control_stress <- ifelse(cs_c == "Control", 0L, 1L)
+    }
+    if (!all(control_stress %in% c(0L, 1L))) {
+      stop("`control_stress` must be logical, 0/1, or 'Control'/'Stress'.")
     }
 
-    # Convert to 0/1 if needed
-    if (is.character(control_stress)) {
-      control_stress = ifelse(control_stress == "Control", 0, 1)
+    # split
+    control_idx <- which(control_stress == 0L)
+    stress_idx  <- which(control_stress == 1L)
+    if (length(control_idx) < 1 || length(stress_idx) < 1) {
+      stop("Need at least one Control and one Stress observation.")
     }
 
-    control_values = trait_values[control_stress == 0]
-    stress_values = trait_values[control_stress == 1]
+    # drop zeros (ignore NAs)
+    if (drop_zero && any(trait_values[control_idx] == 0, na.rm = TRUE)) {
+      zeros <- sum(trait_values[control_idx] == 0, na.rm = TRUE)
+      unit  <- if (zeros == 1) "value" else "values"
+      warning(sprintf(
+        "Dropping %d zero control %s to avoid division by zero.",
+        zeros, unit
+      ))
+      keep        <- !is.na(trait_values[control_idx]) & trait_values[control_idx] != 0
+      control_idx <- control_idx[keep]
+    }
 
-    # Ensure equal sample size
-    min_len = min(length(control_values), length(stress_values))
-    control_values = control_values[seq_len(min_len)]
-    stress_values = stress_values[seq_len(min_len)]
+    # pair up
+    m            <- min(length(control_idx), length(stress_idx))
+    control_idx  <- control_idx[seq_len(m)]
+    stress_idx   <- stress_idx[seq_len(m)]
 
-    # Compute FPI
-    FPI_values = (stress_values - control_values) / control_values
-    return(mean(FPI_values, na.rm = TRUE))
+    FPI_vec  <- (trait_values[stress_idx] - trait_values[control_idx]) /
+      trait_values[control_idx]
+    pairwise <- setNames(FPI_vec,
+                         paste0("Control–Stress_", seq_along(FPI_vec)))
+    overall  <- summary_fun(FPI_vec, na.rm = na.rm)
+
+    return(list(pairwise = pairwise, overall = overall))
   }
 
-  # Otherwise, compute FPI for all environment pairs
-  env_combinations = combn(unique_envs, 2, simplify = TRUE)
-  FPI_results = numeric(ncol(env_combinations))
-
-  for (i in seq_len(ncol(env_combinations))) {
-    env1 = env_combinations[1, i]
-    env2 = env_combinations[2, i]
-
-    idx1 = which(env_values == env1)
-    idx2 = which(env_values == env2)
-
-    min_len = min(length(idx1), length(idx2))
-    idx1 = idx1[seq_len(min_len)]
-    idx2 = idx2[seq_len(min_len)]
-
-    FPI_values = (trait_values[idx2] - trait_values[idx1]) / trait_values[idx1]
-    FPI_results[i] = mean(FPI_values, na.rm = TRUE)
+  # 4. Pairwise env/env
+  uniq_envs <- unique(env_values)
+  if (length(uniq_envs) < 2L) {
+    warning("Only one unique environment; returning NA.")
+    return(list(pairwise = NA_real_, overall = NA_real_))
   }
 
-  FPI_grand=mean(FPI_results)
-  names(FPI_results) = apply(env_combinations, 2, paste, collapse = "-")
-  return(FPI_grand)
+  combos  <- utils::combn(uniq_envs, 2L, simplify = FALSE)
+  out_vec <- numeric(length(combos))
+  names(out_vec) <- vapply(combos,
+                           function(x) paste0(x[1], "–", x[2]),
+                           character(1))
+
+  for (nm in names(out_vec)) {
+    evs  <- strsplit(nm, "–", fixed = TRUE)[[1]]
+    idx1 <- which(env_values == evs[1])
+    idx2 <- which(env_values == evs[2])
+
+    m    <- min(length(idx1), length(idx2))
+    idx1 <- idx1[seq_len(m)]
+    idx2 <- idx2[seq_len(m)]
+
+    if (drop_zero && any(trait_values[idx1] == 0, na.rm = TRUE)) {
+      zeros <- sum(trait_values[idx1] == 0, na.rm = TRUE)
+      unit  <- if (zeros == 1) "value" else "values"
+      warning(sprintf(
+        "Dropping %d zero baseline %s for pair %s",
+        zeros, unit, nm
+      ))
+      keep <- !is.na(trait_values[idx1]) & trait_values[idx1] != 0
+      idx1 <- idx1[keep]
+      idx2 <- idx2[keep]
+    }
+
+    vals     <- (trait_values[idx2] - trait_values[idx1]) / trait_values[idx1]
+    out_vec[nm] <- unname(summary_fun(vals, na.rm = na.rm))
+  }
+
+  overall <- summary_fun(out_vec, na.rm = na.rm)
+  return(list(pairwise = out_vec, overall = overall))
 }
 
 
@@ -842,30 +1026,77 @@ calculate_FPI = function(trait_values, env_values = NULL, control_stress = NULL)
 #' print(tps_result)
 #'
 #' @export
-calculate_TPS = function(trait_values, env_values, native_env, transplanted_env) {
-  # Ensure trait_values is numeric
-  if (!is.numeric(trait_values)) stop("trait_values must be a numeric vector.")
+calculate_TPS <- function(trait_values,
+                          env_values,
+                          native_env,
+                          transplanted_env,
+                          summary_fun = mean,
+                          na.rm       = TRUE,
+                          drop_zero   = TRUE) {
 
-  # Ensure env_values is provided and has correct length
-  if (is.null(env_values)) stop("env_values must be provided.")
-  if (length(env_values) != length(trait_values)) stop("env_values must have the same length as trait_values.")
-
-  # Check if specified native and transplanted environments exist in env_values
-  unique_envs = unique(env_values)
-  if (!(native_env %in% unique_envs) || !(transplanted_env %in% unique_envs)) {
-    stop("native_env and transplanted_env must be in env_values.")
+  # 1. Basic checks
+  if (!is.numeric(trait_values)) {
+    stop("`trait_values` must be a numeric vector.")
+  }
+  n <- length(trait_values)
+  if (n < 1L) {
+    stop("`trait_values` must have length >= 1.")
+  }
+  if (missing(env_values) || is.null(env_values)) {
+    stop("`env_values` must be provided.")
+  }
+  if (length(env_values) != n) {
+    stop("`env_values` must have the same length as `trait_values`.")
+  }
+  # allow factor/char
+  if (is.factor(env_values) || is.character(env_values)) {
+    env_values <- as.factor(env_values)
+  } else if (!is.numeric(env_values) && !is.integer(env_values)) {
+    stop("`env_values` must be numeric, integer, factor, or character.")
   }
 
-  # Extract trait values for native and transplanted environments
-  native_data = trait_values[env_values == native_env]
-  transplanted_data = trait_values[env_values == transplanted_env]
+  # 2. native/transplanted must exist
+  uniq <- unique(env_values)
+  if (!(native_env %in% uniq)) {
+    stop("`native_env` not found in `env_values`.")
+  }
+  if (!(transplanted_env %in% uniq)) {
+    stop("`transplanted_env` not found in `env_values`.")
+  }
 
-  # Ensure equal sample size
-  min_len = min(length(native_data), length(transplanted_data))
-  native_data = native_data[seq_len(min_len)]
-  transplanted_data = transplanted_data[seq_len(min_len)]
+  # 3. Pull out and pair
+  native_idx      <- which(env_values == native_env)
+  transplanted_idx<- which(env_values == transplanted_env)
+  if (length(native_idx) < 1 || length(transplanted_idx) < 1) {
+    stop("Need at least one observation in each env.")
+  }
+  m               <- min(length(native_idx), length(transplanted_idx))
+  native_data     <- trait_values[native_idx[seq_len(m)]]
+  transplanted_data <- trait_values[transplanted_idx[seq_len(m)]]
 
-  # Compute TPS
-  TPS_values = (transplanted_data - native_data) / native_data
-  return(mean(TPS_values, na.rm = TRUE))
+  # 4. Drop zeros if requested
+  if (drop_zero && any(native_data == 0, na.rm = TRUE)) {
+    zeros <- sum(native_data == 0, na.rm = TRUE)
+    unit  <- if (zeros == 1) "value" else "values"
+    warning(sprintf(
+      "Dropping %d zero native %s to avoid division by zero.",
+      zeros, unit
+    ))
+    keep         <- !is.na(native_data) & native_data != 0
+    native_data  <- native_data[keep]
+    transplanted_data <- transplanted_data[keep]
+  }
+
+  # 5. If nothing left, warn & return NA
+  if (length(native_data) < 1) {
+    warning("No valid pairs remain after zero-dropping; returning NA.")
+    return(list(raw = numeric(0), overall = NA_real_))
+  }
+
+  # 6. Compute
+  tps      <- (transplanted_data - native_data) / native_data
+  raw      <- unname(tps)
+  overall  <- summary_fun(raw, na.rm = na.rm)
+
+  list(raw = raw, overall = overall)
 }

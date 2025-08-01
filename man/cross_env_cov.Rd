@@ -2,37 +2,38 @@
 % Please edit documentation in R/5.R
 \name{cross_env_cov}
 \alias{cross_env_cov}
-\title{Calculate Cross-Environment Covariance and Correlation for Linear Reaction Norms}
+\title{Cross‐Environment Covariance and Correlation for Linear Reaction Norms}
 \usage{
 cross_env_cov(trait_values, env_values = NULL, return_correlation = FALSE)
 }
 \arguments{
-\item{trait_values}{A numeric vector representing trait values measured across different environments.}
+\item{trait_values}{A numeric vector of trait measurements taken across environments.}
 
-\item{env_values}{(Optional) A numeric vector specifying the environment associated with each trait measurement.
-If NULL, environments are assumed to be equidistant.}
+\item{env_values}{(Optional) A numeric vector of the same length as \code{trait_values}, giving the environment
+associated with each measurement. If \code{NULL}, defaults to \code{seq_along(trait_values)}.}
 
-\item{return_correlation}{Logical; if TRUE, returns both covariance and correlation (default: FALSE).}
+\item{return_correlation}{Logical; if \code{TRUE}, returns both covariance and correlation (default is \code{FALSE}).}
 }
 \value{
 A named list containing:
-  - `covariance`: The covariance between trait values across environments.
-  - `correlation` (if `return_correlation = TRUE`): The Pearson correlation coefficient.
+\itemize{
+  \item{\code{covariance}}{Numeric, the covariance between \code{trait_values} and \code{env_values}.}
+  \item{\code{correlation}}{(Only if \code{return_correlation = TRUE}) Numeric, the Pearson correlation.}
+}
 }
 \description{
-This function computes the covariance (and optionally correlation) of trait values across different environments.
-If no environment vector is provided, it assumes equidistant environments.
+Computes the covariance of a trait measured across environments, and optionally its Pearson correlation
+with the environmental gradient. If \code{env_values} is not supplied, environments are assumed
+equidistant (1, 2, …, length of trait_values).
 }
 \examples{
-trait_values = c(10, 12, 15, 17, 20, 22, 25, 27, 30, 32)
+trait_values <- c(10, 12, 15, 17, 20, 22, 25, 27, 30, 32)
 
-# Calculate covariance with equidistant environments
-result = cross_env_cov(trait_values)
-print(result)
+# 1) Covariance with equidistant environments
+cross_env_cov(trait_values)
 
-# Provide an explicit environment vector
-env_values = seq_along(trait_values)  # Example of environmental values
-result_with_env = cross_env_cov(trait_values, env_values, return_correlation = TRUE)
-print(result_with_env)
+# 2) Covariance and correlation with explicit environments
+env_values <- seq_along(trait_values)
+cross_env_cov(trait_values, env_values, return_correlation = TRUE)
 
 }

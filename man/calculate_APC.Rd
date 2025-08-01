@@ -2,45 +2,38 @@
 % Please edit documentation in R/4.R
 \name{calculate_APC}
 \alias{calculate_APC}
-\title{Calculate Absolute Plasticity Coefficient (APC) for a Single Trait}
+\title{Absolute Plasticity Coefficient (APC) for a Single Trait}
 \usage{
 calculate_APC(trait_values, env_labels = NULL, sequential_env = TRUE)
 }
 \arguments{
 \item{trait_values}{A numeric vector of trait measurements.}
 
-\item{env_labels}{Optional vector of environment identifiers (numeric, character, or factor).
-Must be the same length as \code{trait_values}. If not provided, equidistant environments
-are assumed.}
+\item{env_labels}{(Optional) A vector of environment identifiers (numeric, character, or factor) of the same length
+as `trait_values`. If `NULL` (default), environments are taken to be `1:length(trait_values)`.}
 
-\item{sequential_env}{Logical indicating whether the environments should be treated as sequentially ordered.
-Defaults to \code{TRUE}. If \code{TRUE}, the function orders the environments in increasing order.}
+\item{sequential_env}{Logical; if `TRUE` (default), environments are ordered by their natural/ascending order before
+computing means. If `FALSE`, environments are used in the order of first appearance.}
 }
 \value{
-A numeric value representing the Absolute Plasticity Coefficient (APC).
+A single numeric value: the APC, or `NA` (with a warning) if fewer than two unique environments are found.
 }
 \description{
-This function calculates the Absolute Plasticity Coefficient (APC) for a single trait by
-computing the average absolute difference between the mean trait values of consecutive environments.
-The trait measurements are grouped by the provided environment identifiers. If no environment vector
-is given, the function assumes that the environments are equidistant and uses \code{seq_along(trait_values)}.
-}
-\details{
-The formula used is:
-\deqn{APC = \frac{1}{n-1} \sum_{i=1}^{n-1} \left| \mu_{i+1} - \mu_i \right|}
+Computes the Absolute Plasticity Coefficient (APC) by averaging the absolute differences
+between mean trait values in consecutive environments. If no environment labels are provided,
+environments are assumed equidistant (1, 2, …).
 
-where \eqn{\mu_i} is the mean trait value in environment \eqn{i} and \eqn{n} is the number of unique environments.
+The index is defined as:
+\deqn{APC = \frac{1}{n - 1} \sum_{i=1}^{n-1} \left| \mu_{i+1} - \mu_i \right|,}
+where \(\mu_i\) is the mean trait value in environment \(i\) and \(n\) is the number of unique environments.
 }
 \examples{
-# Example with explicit environment labels:
+# With explicit environment labels:
 trait_values <- c(10, 12, 15, 20, 22, 25)
-env_labels <- c(1, 1, 2, 2, 3, 3)
-apc_value <- calculate_APC(trait_values, env_labels, sequential_env = TRUE)
-print(apc_value)
+env_labels   <- c(1, 1, 2, 2, 3, 3)
+calculate_APC(trait_values, env_labels, sequential_env = TRUE)
 
-# Example without providing env_labels (assumes equidistant environments):
-trait_values <- c(10, 12, 15, 20, 22, 25)
-apc_value <- calculate_APC(trait_values)
-print(apc_value)
+# Without env_labels (assumes equidistant environments):
+calculate_APC(trait_values)
 
 }

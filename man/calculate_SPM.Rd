@@ -7,34 +7,41 @@
 calculate_SPM(data, env_col, trait_col, resident_env, nonresident_env)
 }
 \arguments{
-\item{data}{A data frame containing the input data.}
+\item{data}{A data frame containing the trait measurements and environment labels.}
 
-\item{env_col}{A string, numeric, or vector indicating the column in `data` that contains the environment labels, or an external vector specifying environment belonging.}
+\item{env_col}{Either the name or index of the column in `data` that holds the environment labels,
+or a vector of length `nrow(data)` giving environment membership.}
 
-\item{trait_col}{A string or numeric value indicating the column in the dataset containing the trait values.}
+\item{trait_col}{The name or index of the column in `data` containing the numeric trait values.}
 
-\item{resident_env}{A numeric or string value representing the identifier for the resident environment in `env_col`.}
+\item{resident_env}{The label or value (matching `env_col`) of the resident environment.}
 
-\item{nonresident_env}{A numeric or string value representing the identifier for the nonresident environment in `env_col`.}
+\item{nonresident_env}{The label or value (matching `env_col`) of the nonresident environment.}
 }
 \value{
-A numeric value representing the Standardized Plasticity Metric (SPM).
+A single numeric value: the SPM, i.e. the absolute difference between the mean trait
+in the resident vs. nonresident environment divided by the resident mean.
 }
 \description{
-This function calculates the Standardized Plasticity Metric (SPM), which quantifies phenotypic plasticity
-by comparing trait values between resident and nonresident environments.
-}
-\details{
-The formula used is:
-\deqn{SPM = \frac{|AinA - AinB|}{AinA} \text{ or } \frac{|BinB - BinA|}{BinB}}
+Computes the Standardized Plasticity Metric (SPM) by comparing mean trait values
+between a resident and a nonresident environment. SPM quantifies plasticity as the
+proportional difference relative to the resident environment:
+
+\deqn{SPM = \frac{|\,\bar{x}_{resident} - \bar{x}_{nonresident}\,|}{\bar{x}_{resident}}}
 }
 \examples{
-# Example usage with synthetic data
-synthetic_data = data.frame(
+synthetic_data <- data.frame(
   Trait_Values = c(10, 12, 15, 18),
-  Environment = factor(c(1, 1, 2, 2))  # Resident = 1, Nonresident = 2
+  Environment  = factor(c(1, 1, 2, 2))
 )
-spm_value = calculate_SPM(synthetic_data, env_col = "Environment", trait_col = "Trait_Values", resident_env = 1, nonresident_env = 2)
+# Resident = 1, Nonresident = 2
+spm_value <- calculate_SPM(
+  data            = synthetic_data,
+  env_col         = "Environment",
+  trait_col       = "Trait_Values",
+  resident_env    = 1,
+  nonresident_env = 2
+)
 print(spm_value)
 
 }

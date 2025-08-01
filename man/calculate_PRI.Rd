@@ -7,25 +7,30 @@
 calculate_PRI(trait_values, env_indicator)
 }
 \arguments{
-\item{trait_values}{A numeric vector of trait values.}
+\item{trait_values}{Numeric vector of trait measurements.}
 
-\item{env_indicator}{A binary vector of the same length as trait_values (0 for control, 1 for extreme).}
+\item{env_indicator}{Binary vector (same length as \code{trait_values}) indicating environment:
+\code{0} = control, \code{1} = extreme.}
 }
 \value{
-A numeric value representing the Plasticity Response Index (PRI).
+A single numeric value: the calculated PRI.
+Returns \code{NA} (with a warning) if the overall mean of \code{trait_values} is zero.
 }
 \description{
-This function calculates the Plasticity Response Index (PRI) for a single trait. It requires a
-numeric vector of trait values and a corresponding binary vector of the same length indicating
-the environment for each measurement (0 for control, 1 for extreme). The PRI is calculated as:
-}
-\details{
-\deqn{PRI = \frac{\text{Mean(Extreme)} - \text{Mean(Control)}}{\text{Mean(Overall)}}}
+Computes the Plasticity Response Index (PRI) for a single trait, defined as the
+difference between the mean trait value under extreme conditions and the mean under
+control conditions, normalized by the overall mean:
+\deqn{PRI = \frac{\overline{x}_{\rm extreme} - \overline{x}_{\rm control}}{\overline{x}_{\rm overall}}.}
 }
 \examples{
-trait_values <- c(10, 15, 20, 25, 30)
-env_indicator <- c(0, 0, 1, 1, 1)
-pri_value <- calculate_PRI(trait_values, env_indicator)
-print(pri_value)
+# Example: half control, half extreme
+trait_values  <- c(10, 15, 20, 25, 30)
+env_indicator  <- c(0, 0, 1, 1, 1)
+calculate_PRI(trait_values, env_indicator)
+
+# Edge case: overall mean zero
+tv <- c(-1, 1, -1, 1)
+ei <- c(0, 0, 1, 1)
+calculate_PRI(tv, ei)
 
 }

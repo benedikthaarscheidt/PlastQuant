@@ -2,51 +2,50 @@
 % Please edit documentation in R/1.R
 \name{calculate_PIR}
 \alias{calculate_PIR}
-\title{Calculate Phenotypic Instability Ratio (PIR) for One or Multiple Traits}
+\title{Phenotypic Instability Ratio (PIR)}
 \usage{
 calculate_PIR(trait_values, env_values = NULL, rgr_values = NULL)
 }
 \arguments{
-\item{trait_values}{A numeric vector containing the trait values.}
+\item{trait_values}{Numeric vector of trait measurements.}
 
-\item{env_values}{(Optional) A vector (numeric, character, or factor) representing the environmental identifiers corresponding to `trait_values`.
-If `NULL`, environments are assumed to be equidistant.}
+\item{env_values}{Optional vector (numeric, character, or factor) of the same length as `trait_values`
+indicating the environment for each measurement. If `NULL` (default), environments
+are treated as equally spaced (1, 2, …).}
 
-\item{rgr_values}{(Optional) A numeric vector of relative growth rate (RGR) values corresponding to `trait_values`. If `NULL`, RGR is estimated dynamically.}
+\item{rgr_values}{Optional numeric vector of relative growth rates corresponding to `trait_values`.
+If `NULL` (default), RGR is estimated from successive differences in environment means.}
 }
 \value{
-A numeric value representing the PIR for the trait.
+Single numeric PIR value.
 }
 \description{
-This function calculates the Phenotypic Instability Ratio (PIR) for a given trait across different environments,
-following the method described by Robinson (1989). PIR is calculated as the ratio of the difference between the maximum and minimum
-mean trait values across environments to the mean trait value in the environment with the maximum relative growth rate (RGR).
-The PIR metric provides an intermediate measure of plasticity and assumes normality in the data. If relative growth rates (RGRs) are
-not provided, they are dynamically estimated from the mean trait values across environments. If environment values are not provided,
-they are assumed to be equidistant.
+Computes the Phenotypic Instability Ratio (PIR) for a trait measured across environments,
+following Robinson (1989). PIR is defined as the difference between the maximum and minimum
+mean trait values across environments, divided by the mean trait value in the environment
+with the highest relative growth rate (RGR).
 }
 \details{
-The function first converts the environment column into a factor (or generates equidistant environments if `env_values` is `NULL`)
-and computes the mean trait values for each environment. It then identifies the environment with the maximum relative growth rate and uses the
-trait's mean value in that environment to compute the PIR score. If RGR is not provided, it is estimated as the relative change in mean trait values
-between consecutive environments.
-The calculation follows the formula:
-\deqn{PIR = \frac{MaxMean - MinMean}{Mean_{MaxRGR}}}
-where \code{MaxMean} is the maximum mean trait value, \code{MinMean} is the minimum mean trait value,
-and \code{Mean_{MaxRGR}} is the mean trait value in the environment with the maximum RGR.
+1. Convert or generate `env_values` into a factor.
+2. Compute the mean trait value in each environment.
+3. Determine `MaxMean` and `MinMean` from these environment means.
+4. Obtain or estimate RGR per environment; identify the environment with maximum RGR.
+5. Compute \eqn{\mathrm{PIR} = (MaxMean - MinMean) / Mean_{MaxRGR}}.
 }
 \examples{
-trait_values = c(10, 12, 11, 13, 14, 15, 13, 14, 12, 13,
-                 20, 22, 21, 23, 24, 25, 23, 24, 22, 23,
-                 30, 32, 31, 33, 34, 35, 33, 34, 32, 33)
-env_values = rep(c("Env1", "Env2", "Env3"), each = 10)
-PIR_value = calculate_PIR(trait_values, env_values)
-print(PIR_value)
+trait_values <- c(
+  10,12,11,13,14,15,13,14,12,13,
+  20,22,21,23,24,25,23,24,22,23,
+  30,32,31,33,34,35,33,34,32,33
+)
+env_values <- rep(c("Env1","Env2","Env3"), each = 10)
+calculate_PIR(trait_values, env_values)
 
-# Example with equidistant environments
-PIR_value_equidistant = calculate_PIR(trait_values)
-print(PIR_value_equidistant)
+# Equidistant environments
+calculate_PIR(trait_values)
+
 }
 \references{
-Robinson, D. (1989). \emph{Plasticity in plant growth and resource use as a trait for crop breeding}. Field Crops Research, 11(2-3), 153-159.
+Robinson, D. (1989). *Plasticity in plant growth and resource use as a trait for crop breeding*.
+Field Crops Research, 11(2-3), 153–159.
 }

@@ -2,35 +2,40 @@
 % Please edit documentation in R/1.R
 \name{calculate_CVm}
 \alias{calculate_CVm}
-\title{Calculate the Coefficient of Variation of Means (CVm) for Trait Values}
+\title{Coefficient of Variation of Group Means (CVm)}
 \usage{
-calculate_CVm(trait_values, env_values = NULL)
+calculate_CVm(trait_values, group_labels = NULL)
 }
 \arguments{
-\item{trait_values}{Either a numeric vector of trait values or a list of numeric vectors (one per group).}
+\item{trait_values}{Either a **list** of numeric vectors (one per group), or a **numeric vector** of trait measurements.}
 
-\item{group_labels}{An optional vector of group labels. Required if `trait_values` is a single vector.}
+\item{group_labels}{(Optional) A vector of the same length as `trait_values` giving the group label for each observation.
+Required when `trait_values` is a numeric vector.}
 }
 \value{
-A numeric value representing the CVm for the given trait values.
+A single numeric value:
+\deqn{\mathrm{CVm} = \frac{\mathrm{sd}(\bar{x}_g)}{\mathrm{mean}(\bar{x}_g)},}
+where \(\bar{x}_g\) are the means of each group.
 }
 \description{
-This function calculates the Coefficient of Variation of Means (CVm),
-which is the ratio of the standard deviation of group means to the mean of the group means.
-It can accept either a list of vectors (one vector per group) or a single vector of trait values
-along with a vector of group labels.
+Computes the Coefficient of Variation of Means (CVm), defined as the standard deviation
+of group means divided by their grand mean. You can supply either:
+
+1. A **list** of numeric vectors (each element is one group), or
+2. A **numeric vector** of trait measurements plus a matching **group_labels** vector.
 }
 \examples{
-# Example 1: Using a list of vectors
-trait_groups = list(
-  Env1 = c(10, 12),
-  Env2 = c(20, 22),
-  Env3 = c(15, 18)
+# As a list of groups:
+trait_groups <- list(
+  Env1 = c(10, 12, 11),
+  Env2 = c(20, 22, 21),
+  Env3 = c(15, 18, 17)
 )
 calculate_CVm(trait_values = trait_groups)
 
-# Example 2: Using a single vector with group labels
-trait_values = c(10, 12, 20, 22, 15, 18)
-group_labels = c("Env1", "Env1", "Env2", "Env2", "Env3", "Env3")
-calculate_CVm(trait_values = trait_values, group_labels = group_labels)
+# As a vector with labels:
+traits <- c(10,12,11, 20,22,21, 15,18,17)
+labels <- rep(c("Env1","Env2","Env3"), each = 3)
+calculate_CVm(trait_values = traits, group_labels = labels)
+
 }

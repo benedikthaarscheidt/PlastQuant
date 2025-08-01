@@ -2,32 +2,40 @@
 % Please edit documentation in R/1.R
 \name{calculate_PILSM}
 \alias{calculate_PILSM}
-\title{Calculate the Proportional Inter-Least Square Mean Difference (PILSM)
-for One or Multiple Traits}
+\title{Proportional Inter‑Least‑Square Mean Difference (PILSM)}
 \usage{
-calculate_PILSM(trait_values, env, covariates = NULL)
+calculate_PILSM(trait_values, env = NULL, covariates = NULL)
 }
 \arguments{
-\item{trait_values}{A numeric vector containing the trait values.}
+\item{trait_values}{Numeric vector of trait measurements.}
 
-\item{env}{A vector (numeric, character, or factor) representing the environmental conditions.}
+\item{env}{Vector (numeric, character, or factor) indicating the environment for each observation.}
 
-\item{covariates}{(Optional) A numeric vector or data frame for covariate values.}
+\item{covariates}{Optional numeric vector or data frame of covariate values to include in the model.}
 }
 \value{
-A numeric value representing the PILSM for the trait.
+A single numeric value:
+  \deqn{\frac{\max(\hat{\mu}_e) - \min(\hat{\mu}_e)}{\max(\hat{\mu}_e)}},
+  where \(\hat{\mu}_e\) are the estimated least‑square means for each environment.
 }
 \description{
-This function calculates the Proportional Inter-Least Square Mean Difference (PILSM),
-defined as the difference between the maximum and minimum least square means (LSMs)
-of a trait across different environments, divided by the maximum LSM.
+Computes the Proportional Inter‑Least‑Square Mean Difference (PILSM), defined as the
+difference between the maximum and minimum least‑square means (LSMs) of a trait across
+environments, divided by the maximum LSM.
 }
 \examples{
-trait_values = c(10, 12, 11, 13, 14, 15, 13, 14, 12, 13,
-                 20, 22, 21, 23, 24, 25, 23, 24, 22, 23,
-                 30, 32, 31, 33, 34, 35, 33, 34, 32, 33)
-env = factor(rep(c("Env1", "Env2", "Env3"), each = 10))
-covariates = data.frame(SoilQuality = c(rep(3, 10), rep(4, 10), rep(5, 10)))
-result = calculate_PILSM(trait_values, env, covariates)
-print(result)
+trait_values <- c(
+  rep(10:14, each = 1),
+  rep(20:24, each = 1),
+  rep(30:34, each = 1)
+)
+env <- factor(rep(c("Env1", "Env2", "Env3"), each = 5))
+covariates <- data.frame(SoilQuality = rep(c(3, 4, 5), each = 5))
+
+# Without covariates
+calculate_PILSM(trait_values, env)
+
+# With covariates
+calculate_PILSM(trait_values, env, covariates)
+
 }

@@ -2,29 +2,29 @@
 % Please edit documentation in R/1.R
 \name{calculate_PImd}
 \alias{calculate_PImd}
-\title{Calculate the Proportional Inter-Median Difference (PImd) for One or Multiple Traits}
+\title{Proportional Inter‑Median Difference (PImd)}
 \usage{
-calculate_PImd(trait_values, env)
+calculate_PImd(trait_values, env = NULL)
 }
 \arguments{
-\item{trait_values}{A numeric vector containing the trait values.}
+\item{trait_values}{Numeric vector of trait measurements.}
 
-\item{env}{A vector (numeric, character, or factor) representing the environmental conditions.}
+\item{env}{Vector (numeric, character, or factor) indicating the environment for each measurement.}
 }
 \value{
-A numeric value representing the PImd for the trait.
+A single numeric value:
+  \deqn{\frac{\max(\tilde{x}_g) - \min(\tilde{x}_g)}{\max(\tilde{x}_g)}},
+  where \(\tilde{x}_g\) are the medians of each environment group.
 }
 \description{
-This function calculates the Proportional Inter-Median Difference (PImd),
-defined as the difference between the maximum and minimum medians of a trait
-across different environmental conditions divided by the maximum median.
-It provides a measure of the relative variability in the trait across the specified conditions.
-The function accepts vectors for traits and environmental conditions as input.
+Calculates the Proportional Inter‑Median Difference (PImd), defined as the difference
+between the maximum and minimum medians of a trait across environmental groups,
+divided by the maximum median.  This provides a measure of relative variability
+of the trait across the specified conditions.
 }
 \examples{
-# Example usage
-trait_values = c(1, 2, 3, 4, 5, 6, 7, 8, 9, 10)
-env = factor(c("A", "A", "B", "B", "C", "C", "A", "B", "C", "A"))
-result = calculate_PImd(trait_values, env)
-print(result)
+trait_values <- c(1, 2, 3, 4, 5, 6, 7, 8, 9, 10)
+env <- factor(c('A','A','B','B','C','C','A','B','C','A'))
+calculate_PImd(trait_values, env)
+
 }

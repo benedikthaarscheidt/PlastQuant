@@ -2,7 +2,7 @@
 % Please edit documentation in R/1.R
 \name{calculate_grand_plasticity}
 \alias{calculate_grand_plasticity}
-\title{Calculate Grand Plasticity (Pi) using Adjusted Means for One or Multiple Traits}
+\title{Calculate Grand Plasticity (Pi) for a Single Trait}
 \usage{
 calculate_grand_plasticity(
   trait_values,
@@ -12,38 +12,41 @@ calculate_grand_plasticity(
 )
 }
 \arguments{
-\item{env_data}{A factor or vector representing the environmental conditions (must include control).}
+\item{trait_values}{Numeric vector of trait measurements for one genotype across environments.}
 
-\item{covariate_data}{A numeric vector representing the covariate (e.g., biomass) values.}
+\item{env_data}{Factor or vector (same length as `trait_values`) indicating the environment
+of each observation.}
 
-\item{control_env}{The label or value in `env_data` that represents the control environment.}
+\item{covariate_data}{Optional numeric vector (same length) to adjust for a covariate in the model.}
 
-\item{trait_data}{A named list of numeric vectors representing the trait values, one vector per trait.}
+\item{control_env}{Optional level of `env_data` to treat as the control; that level's emmean will
+be excluded when computing the CV.}
 }
 \value{
-A named numeric vector where each element represents the grand plasticity (Pi) for a single trait.
+A single numeric value:
+  \eqn{\mathrm{Pi} = \frac{\mathrm{sd}(\hat\mu_e)}{\mathrm{mean}(\hat\mu_e)},}
+  where \(\hat\mu_e\) are the emmeans for each environment (minus any control_env).
 }
 \description{
-This function calculates the grand plasticity (Pi) for specified traits across different treatments,
-correcting for a covariate (e.g., size effect like biomass) using adjusted means. The Pi is calculated
-as the coefficient of variation (CV) of the adjusted means (standard deviation of adjusted means
-divided by the grand mean of adjusted means) across the treatments.
+Fits a linear model of a single trait on environment (and optional covariate),
+obtains least‐square means for each environment via **emmeans**, and then
+computes the coefficient of variation (CV) of those means.  Optionally you
+may exclude a control environment from the calculation.
 }
 \examples{
-# Example data
-trait_data = list(
-  Height = c(10, 12, 20, 22),
-  Weight = c(5, 6, 7, 8)
-)
-env_data = factor(c("Control", "Control", "Treatment1", "Treatment2"))
-covariate_data = c(5, 6, 7, 8)  # Covariate (e.g., biomass)
-control_env = "Control"
+trait_values   <- c(10, 12, 20, 22)
+env_data       <- factor(c(1,1,2,2))
+covariate_data <- c(5, 6, 7, 8)
 
-grand_plasticity = calculate_grand_plasticity(
-  trait_data = trait_data,
-  env_data = env_data,
+# Without covariate, include all envs
+calculate_grand_plasticity(trait_values, env_data)
+
+# With covariate, exclude "Control"
+calculate_grand_plasticity(
+  trait_values   = trait_values,
+  env_data       = env_data,
   covariate_data = covariate_data,
-  control_env = control_env
+  control_env    = "Control"
 )
-print(grand_plasticity)
+
 }

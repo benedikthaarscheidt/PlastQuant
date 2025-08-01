@@ -2,31 +2,38 @@
 % Please edit documentation in R/1.R
 \name{calculate_Phenotypic_Plasticity_Index}
 \alias{calculate_Phenotypic_Plasticity_Index}
-\title{Calculate the Phenotypic Plasticity Index (Pi)}
+\title{Phenotypic Plasticity Index (Pi)}
 \usage{
 calculate_Phenotypic_Plasticity_Index(data, trait_cols = NULL)
 }
 \arguments{
-\item{data}{A numeric vector, data frame, or matrix containing the trait data.
-If a data frame or matrix is provided, each column represents a trait.}
+\item{data}{A numeric vector, or a data frame / matrix where each column is a trait.}
 
-\item{trait_cols}{(Optional) A vector of column numbers or names of the traits to analyze
-if `data` is a data frame or matrix. If not specified, it calculates Pi for the entire data vector.}
+\item{trait_cols}{(Optional) A vector of column names or indices indicating which columns of `data`
+to analyze.  If `NULL` (the default), `data` must be a numeric vector and Pi is
+calculated for that vector.}
 }
 \value{
-A named numeric vector of Phenotypic Plasticity Index (Pi) values for each trait.
+- If `trait_cols = NULL`, a single numeric value: Pi for the input vector.
+  - Otherwise, a named numeric vector of Pi values, one per specified column.
 }
 \description{
-This function calculates the Phenotypic Plasticity Index (Pi), defined as the
-difference between the maximum and minimum values of a trait divided by the maximum value.
-The function can be applied to multiple traits at once if provided with multiple trait columns.
+Calculates the Phenotypic Plasticity Index (Pi), defined as the difference between
+the maximum and minimum values of a trait divided by the maximum value.  Pi may be
+computed on a single numeric vector or on specified columns of a data frame or matrix.
 }
 \examples{
-df = data.frame(
-  Trait1 = c(10, 15, 12, 14, 18),
-  Trait2 = c(20, 25, 22, 23, 27),
-  Trait3 = c(30, 35, 32, 34, 37)
+# Single-vector mode
+x <- c(5, 8, 12, 7, 10)
+calculate_Phenotypic_Plasticity_Index(x)
+
+# Data-frame mode
+df <- data.frame(
+  Height = c(10, 15, 12, 14, 18),
+  Width  = c(20, 25, 22, 23, 27),
+  Depth  = c(30, 35, 32, 34, 37)
 )
-Pi_values = calculate_Phenotypic_Plasticity_Index(df, trait_cols = c("Trait1", "Trait2"))
-print(Pi_values)
+# Compute Pi for Height and Width only
+calculate_Phenotypic_Plasticity_Index(df, trait_cols = c("Height", "Width"))
+
 }

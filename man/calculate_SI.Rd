@@ -2,39 +2,35 @@
 % Please edit documentation in R/4.R
 \name{calculate_SI}
 \alias{calculate_SI}
-\title{Calculate Stability Index (SI) for a Single Trait}
+\title{Stability Index (SI) for a Single Trait}
 \usage{
 calculate_SI(trait_values, env = NULL)
 }
 \arguments{
 \item{trait_values}{A numeric vector of trait measurements.}
 
-\item{env}{Optional vector of environments (numeric, character, or factor) corresponding to each measurement.
-If not provided, the function assumes equidistant environments using \code{seq_along(trait_values)}.}
+\item{env}{(Optional) A vector (numeric, character, or factor) of the same length as `trait_values`
+indicating the environment for each measurement. If `NULL`, environments are assumed
+to be equidistant (`1:length(trait_values)`).}
 }
 \value{
-A numeric value representing the Stability Index (SI).
+A single numeric value: the Stability Index (SI). Returns `NA` (with a warning)
+if the overall mean of environment means is zero.
 }
 \description{
-This function calculates the Stability Index (SI) for a single trait, quantifying the stability
-of trait expression across different environments. It groups the trait measurements by the provided
-environment vector, computes the mean trait value for each environment, and then calculates SI as the
-ratio of the variance among these environment means to their overall mean.
-}
-\details{
-The formula used is:
-\deqn{SI = \frac{\text{Variance of Environment Means}}{\text{Mean of Environment Means}}}
+Computes the Stability Index (SI), quantifying how stable a trait is across environments.
+SI is defined as the ratio of the variance among environment means to their overall mean:
+\deqn{SI = \frac{\mathrm{Var}(\bar{x}_e)}{\mathrm{Mean}(\bar{x}_e)},}
+where \(\bar{x}_e\) are the mean trait values in each environment.
 }
 \examples{
-# Example with explicit environments:
+# Explicit environments:
 trait_values <- c(10, 12, 15, 20)
-env <- c(1, 2, 3, 4)
-si_value <- calculate_SI(trait_values, env)
-print(si_value)
+env          <- c(1, 2, 3, 4)
+calculate_SI(trait_values, env)
 
-# Example without providing env (assumes equidistant environments):
+# Equidistant environments assumed:
 trait_values <- c(10, 12, 15, 20)
-si_value <- calculate_SI(trait_values)
-print(si_value)
+calculate_SI(trait_values)
 
 }
