@@ -47,6 +47,11 @@ data/                   input datasets (A-Datasets/, maize_scores_list.rds)
 output/                 all generated artefacts (git-ignored)
 ```
 
+## Full pipeline reference
+
+See [`docs/PIPELINE.md`](docs/PIPELINE.md) for a detailed description of every script,
+its inputs/outputs, and all tunable parameters.
+
 ## Running the pipeline
 
 Each **scenario** driver sets its parameters and sources the pipeline. From the
