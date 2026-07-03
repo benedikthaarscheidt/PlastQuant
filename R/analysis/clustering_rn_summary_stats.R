@@ -1,3 +1,19 @@
+# =============================================================================
+# clustering_rn_summary_stats.R — cluster reaction-norm summary statistics
+# =============================================================================
+# WHAT IT DOES: Clusters genotypes / indices on their reaction-norm summary statistics
+#   (k-means, DBSCAN, hierarchical, mclust) and renders the associated heatmaps/plots.
+#   Auto-sources 03_plasticity_scores.R when scores are not already loaded
+#   (guarded by the `data_loaded` flag at the top).
+# REQUIRES:     03 (so HERITABILITY_5TH / CAUSAL_SNP_NUM / OUTPUT_BASE must be set).
+# PRODUCES:     Clustering figures under OUTPUT_BASE.
+# HOW TO RUN:   setwd("~/PlastQuant"); source(here::here("R","analysis","clustering_rn_summary_stats.R"))
+# -----------------------------------------------------------------------------
+# PARAMETERS: inherits 03's parameters via the auto-source; clustering knobs are set
+#   in the body of the script (edit them there). Set `data_loaded <- TRUE` beforehand to
+#   reuse already-computed scores instead of re-running 03.
+# =============================================================================
+
 if (!exists("data_loaded") || !data_loaded) {
   source(here::here("R", "03_plasticity_scores.R"))
   data_loaded = TRUE

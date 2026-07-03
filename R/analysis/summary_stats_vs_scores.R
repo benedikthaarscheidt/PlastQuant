@@ -1,3 +1,18 @@
+# =============================================================================
+# summary_stats_vs_scores.R — relate summary statistics to plasticity scores
+# =============================================================================
+# WHAT IT DOES: Computes and visualises the relationship between reaction-norm summary
+#   statistics and the plasticity scores (correlation matrices, distance measures,
+#   clustering). Auto-sources 03_plasticity_scores.R when scores are not already loaded
+#   (guarded by the `data_loaded` flag at the top).
+# REQUIRES:     03 (so HERITABILITY_5TH / CAUSAL_SNP_NUM / OUTPUT_BASE must be set).
+# PRODUCES:     Summary-stat vs score figures/tables under OUTPUT_BASE.
+# HOW TO RUN:   setwd("~/PlastQuant"); source(here::here("R","analysis","summary_stats_vs_scores.R"))
+# -----------------------------------------------------------------------------
+# PARAMETERS: inherits 03's parameters via the auto-source; analysis knobs are set in the
+#   body. Set `data_loaded <- TRUE` beforehand to reuse already-computed scores.
+# =============================================================================
+
 if (!exists("data_loaded") || !data_loaded) {
   source(here::here("R", "03_plasticity_scores.R"))
   data_loaded = TRUE

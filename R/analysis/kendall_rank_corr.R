@@ -1,3 +1,20 @@
+# =============================================================================
+# kendall_rank_corr.R — Kendall rank correlations between indices
+# =============================================================================
+# WHAT IT DOES: Computes Kendall rank correlations between the plasticity indices over
+#   the chosen sampling intervals and reaction-norm ranges. Auto-sources
+#   03_plasticity_scores.R when the scores are not already loaded.
+# REQUIRES:     03 (so HERITABILITY_5TH / CAUSAL_SNP_NUM / OUTPUT_BASE must be set).
+# PRODUCES:     Rank-correlation tables (and inputs for downstream figures).
+# HOW TO RUN:   setwd("~/PlastQuant"); source(here::here("R","analysis","kendall_rank_corr.R"))
+# -----------------------------------------------------------------------------
+# PARAMETERS (edit the named assignment near the top of the script)
+#   sampling_intervals    integer vector, default c(10)   measurement intervals to test   [COMMON]
+#   global_initial_length integer, default 50             full reaction-norm length
+#   range_list            list, default list(full=c(1,50)) sub-ranges to evaluate
+#   score_names           character vector                which indices to correlate
+# =============================================================================
+
 suppressPackageStartupMessages({
   library(dplyr)
   library(tidyr)

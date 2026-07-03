@@ -11,8 +11,8 @@
 # -----------------------------------------------------------------------------
 # PARAMETERS (edit at the noted line)
 #   USE_KINSHIP           logical, default TRUE   include kinship (K) in the mixed model;
-#                                                 set at line 10                          [COMMON]
-#   DO_NOT_PLOT_MAHATTAN  if defined, Manhattan PDFs are skipped (faster); see line 281   [COMMON]
+#                                                 edit the `USE_KINSHIP <-` assignment below [COMMON]
+#   DO_NOT_PLOT_MAHATTAN  if defined, Manhattan PDFs are skipped (faster)                 [COMMON]
 #   GWAS                  logical (from caller/03) whether GWAS is run                     [COMMON]
 #   OUTPUT_BASE           path (from caller/03)    where results are written
 # =============================================================================

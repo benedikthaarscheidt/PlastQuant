@@ -1,6 +1,26 @@
-# Script:    head_maize.R
-# Purpose:   Load all plasticity‐score functions, load data from files, compute every plasticity
-#            score across the three phenotypes (Biomass, leaf area, water usage efficiency)
+# =============================================================================
+# 03_plasticity_scores_maize.R — compute plasticity indices for the maize data
+# =============================================================================
+# WHAT IT DOES: Loads the empirical maize datasets and computes every plasticity index
+#   (via the ppindices package) across the three phenotypes (biomass, leaf area, water-
+#   use efficiency), producing the maize `scores_list`. Maize counterpart of
+#   03_plasticity_scores.R (loads real data instead of simulating it).
+# REQUIRES:     data/A-Datasets/ maize inputs; library(ppindices).
+# PRODUCES:     Maize `scores_list` in memory; per-score CSVs under OUTPUT_BASE.
+# HOW TO RUN:   setwd("~/PlastQuant"); source(here::here("R", "03_plasticity_scores_maize.R"))
+# -----------------------------------------------------------------------------
+# PARAMETERS (edit the named assignment near the top / set in your session)
+#   OUTPUT_BASE           path, default output/scenario_maize  where outputs go; edit `OUTPUT_BASE <-`
+#   NUM_GENOTYPES         integer, default 800  guarded default (from data if provided)
+#   NUM_SNPs              integer, default 200000  guarded default
+#   USE_GENETICS          logical, default TRUE  guarded further down
+#   KEEP_REPLICATES / STRUCTURED_POPULATION / GENETIC_VARIANCES  guarded defaults below
+# =============================================================================
+# Original notes:
+# Script:    03_plasticity_scores_maize.R
+# Purpose:   Load all plasticity-score functions (via ppindices), load data from files,
+#            compute every plasticity score across the three phenotypes (biomass, leaf
+#            area, water usage efficiency)
 
 #
 # Steps:

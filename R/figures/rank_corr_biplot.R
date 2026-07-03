@@ -1,3 +1,16 @@
+# =============================================================================
+# rank_corr_biplot.R — rank-correlation biplot
+# =============================================================================
+# WHAT IT DOES: Builds the rank-correlation biplot of the plasticity indices (also used
+#   as a helper by plasticity_score_realisation_plot_maize.R).
+# REQUIRES:     Rank-correlation inputs produced upstream (read from under output/).
+# PRODUCES:     Rank-correlation biplot figure.
+# HOW TO RUN:   setwd("~/PlastQuant"); source(here::here("R","figures","rank_corr_biplot.R"))
+# -----------------------------------------------------------------------------
+# PARAMETERS (edit the named input path / selection assignments in the body)
+#   the input path and index selection are set in the script body.
+# =============================================================================
+
 # Script: comprehensive_plasticity_analysis_corrected.R
 # Purpose: Comprehensive analysis of plasticity scores with consistent layout
 # All correlations use the same clustering and visualization

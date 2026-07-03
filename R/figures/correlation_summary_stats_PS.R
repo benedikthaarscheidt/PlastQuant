@@ -1,3 +1,17 @@
+# =============================================================================
+# correlation_summary_stats_PS.R — summary-stat vs plasticity-score correlations
+# =============================================================================
+# WHAT IT DOES: Renders correlation panels between the reaction-norm summary statistics
+#   and the plasticity scores.
+# REQUIRES:     A regression-data CSV under output/regression_summary_stats/.
+# PRODUCES:     Correlation-panel figure(s).
+# HOW TO RUN:   setwd("~/PlastQuant"); source(here::here("R","figures","correlation_summary_stats_PS.R"))
+# -----------------------------------------------------------------------------
+# PARAMETERS (edit the named assignment near the top of the script)
+#   the input CSV path (read via read_csv at the top)                                      [COMMON]
+#   stat_cols   character vector  summary-stat columns to use
+# =============================================================================
+
 # install.packages(c(
 #   "readr","dplyr","reshape2","ggplot2","scales","Hmisc","broom","RColorBrewer"
 # ))

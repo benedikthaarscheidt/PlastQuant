@@ -1,3 +1,17 @@
+# =============================================================================
+# resolution.R — resolution experiment (dataprep + regression combined)
+# =============================================================================
+# WHAT IT DOES: Runs, in one pass, what regression_sumstats_dataprep.R and
+#   regression_summarystats.R do together, for the resolution experiment. Auto-sources
+#   03_plasticity_scores.R and analysis/summary_stats_vs_scores.R.
+# REQUIRES:     03 (so HERITABILITY_5TH / CAUSAL_SNP_NUM / OUTPUT_BASE must be set).
+# PRODUCES:     Resolution-experiment tables/figures under output/.
+# HOW TO RUN:   setwd("~/PlastQuant"); source(here::here("R","figures","resolution.R"))
+# -----------------------------------------------------------------------------
+# PARAMETERS: inherits 03's parameters via the auto-source; resolution knobs are set in
+#   the body of the script (edit them there).
+# =============================================================================
+
 # Purpose:   This script does what regression_sumstats_dataprep.R and regression_summarystats.R do in combination).
 #            For each specified sub‐range of the trait curve and each sampling
 #            interval:

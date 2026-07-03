@@ -10,7 +10,7 @@
 # HOW TO RUN:   setwd("~/PlastQuant"); source(here::here("R", "05_evaluate_gwas.R"))
 # -----------------------------------------------------------------------------
 # PARAMETERS (edit at the noted line)
-#   alpha   numeric, default 0.05   significance threshold for a GWAS hit; set at line 30  [COMMON]
+#   alpha   numeric, default 0.05   significance threshold; edit the `alpha <-` assignment  [COMMON]
 #   GWAS    logical (from caller)    whether GWAS was run upstream
 # =============================================================================
 # Original notes:

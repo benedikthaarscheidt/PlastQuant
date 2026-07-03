@@ -1,3 +1,17 @@
+# =============================================================================
+# plasticity_score_realisation_plot.R — plasticity-score realisations (simulated)
+# =============================================================================
+# WHAT IT DOES: Plots the realised plasticity scores across genotypes/forms for the
+#   simulated data.
+# REQUIRES:     Score outputs produced by 03_plasticity_scores.R (run a scenario first),
+#               read from under output/.
+# PRODUCES:     Plasticity-score realisation figure(s).
+# HOW TO RUN:   setwd("~/PlastQuant"); source(here::here("R","figures","plasticity_score_realisation_plot.R"))
+# -----------------------------------------------------------------------------
+# PARAMETERS (edit the named input path / selection assignments in the body)
+#   the input score path and any index/form selection are set in the script body.
+# =============================================================================
+
 
 #this script is for the assembly of the second figure containing the boxplots for the distribution of the scores as well as the clustering results (hclust with kendalll correlation distance as distance metrics) in form of a dendrogram 
 #and the adjusted rand index table comparing the clusterings across the different genotype forms. THe reszlts suggest (sampling interval=5) that the scores obey to a similar clustering for all different genotype forms

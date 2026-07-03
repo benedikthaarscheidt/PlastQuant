@@ -1,3 +1,22 @@
+# =============================================================================
+# regression_summarystats.R — regress plasticity scores on summary statistics
+# =============================================================================
+# WHAT IT DOES: For each plasticity score, fits full/simple/ridge regression models on
+#   the nine summary-stat predictors, builds coefficient tables with significance stars
+#   and R^2, clusters scores, and writes per-score and combined diagnostic PDFs.
+# REQUIRES:     regression_sumstats_dataprep.R MUST be run first — this script reads its
+#               combined CSV from output/regression_summary_stats/.
+# PRODUCES:     Coefficient tables and diagnostic PDFs under output/plots/.
+# HOW TO RUN:   setwd("~/PlastQuant"); source(here::here("R","analysis","regression_summarystats.R"))
+# -----------------------------------------------------------------------------
+# PARAMETERS (edit the named assignment near the top of the script)
+#   input_folder     path, default output/regression_summary_stats  where the CSV is read [COMMON]
+#   output_folder    path, default output/plots                     where PDFs are written [COMMON]
+#   predictor_names  character vector  the summary-stat predictors used
+#   k                integer, default 4     number of score clusters
+#   n_perm           integer, default 1000  permutations for the cluster test
+# =============================================================================
+
 # Script:    regression_summarystats.R
 # Purpose:   Using a pre‑computed table of summary statistics versus plasticity scores,
 #            this script fits and evaluates multiple regression models, generates

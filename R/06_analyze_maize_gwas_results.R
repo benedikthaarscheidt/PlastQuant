@@ -10,8 +10,8 @@
 # HOW TO RUN:   setwd("~/PlastQuant"); source(here::here("R", "06_analyze_maize_gwas_results.R"))
 # -----------------------------------------------------------------------------
 # PARAMETERS (edit at the noted line)
-#   PPIs   character vector   plasticity indices to summarise; set at line ~38          [COMMON]
-#   RNs    character vector   reaction-norm traits (leafArea/WUE/biomass); set line ~43 [COMMON]
+#   PPIs   character vector   plasticity indices to summarise; edit `PPIs <-`            [COMMON]
+#   RNs    character vector   reaction-norm traits (leafArea/WUE/biomass); edit `RNs <-` [COMMON]
 #   GWAS   logical            whether GWAS results are present
 # =============================================================================
 ## Import causal snp truth data from text files

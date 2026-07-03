@@ -1,3 +1,19 @@
+# =============================================================================
+# kendall_tau_corr_clustering.R — cluster indices by rank agreement
+# =============================================================================
+# WHAT IT DOES: Reads the rank-agreement ("rank flops") tables and clusters the
+#   plasticity indices by their Kendall-tau agreement across top-k rankings.
+# REQUIRES:     Rank-flop CSVs under output/rank_flops/ (produced upstream).
+# PRODUCES:     Clustering summaries/plots of index agreement.
+# HOW TO RUN:   setwd("~/PlastQuant"); source(here::here("R","analysis","kendall_tau_corr_clustering.R"))
+# -----------------------------------------------------------------------------
+# PARAMETERS (edit the named assignment near the top of the script)
+#   in_dir          path, default output/rank_flops   input rank-agreement files          [COMMON]
+#   tau_threshold   numeric, default 0.8              Kendall-tau agreement threshold      [COMMON]
+#   topk_values     integer vector, default c(3,5,10,15,20)  top-k cutoffs to evaluate     [COMMON]
+#   AGREE_THR_FULL  numeric, default 1.00             full-agreement threshold
+# =============================================================================
+
 suppressPackageStartupMessages({
   library(dplyr)
   library(tidyr)

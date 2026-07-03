@@ -1,3 +1,20 @@
+# =============================================================================
+# combined_resolution_figure.R — combined resolution figure
+# =============================================================================
+# WHAT IT DOES: Combines the resolution heatmap (left) and the confounder/summary-stat
+#   panel (right) into one publication figure.
+# REQUIRES:     Regression-summary CSVs under output/regression_summary_stats/
+#               (produced by regression_sumstats_dataprep.R / regression_summarystats.R).
+# PRODUCES:     A combined resolution figure PDF.
+# HOW TO RUN:   setwd("~/PlastQuant"); source(here::here("R","figures","combined_resolution_figure.R"))
+# -----------------------------------------------------------------------------
+# PARAMETERS (edit the named assignment near the top of the script)
+#   directory   path, default output/regression_summary_stats  input CSV folder           [COMMON]
+#   files       character vector  the specific input CSVs to combine
+#   n_samples   integer vector, default c(2,3,4,5,6,11,26,50)   sample counts per resolution
+#   stat_cols   character vector  summary-stat columns to use
+# =============================================================================
+
 # Combines slope_heatmap_resolution (left) and confoundermodel_sumstats (right)
 # into a single side-by-side figure.
 

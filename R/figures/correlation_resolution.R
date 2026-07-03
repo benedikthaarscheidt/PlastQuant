@@ -1,3 +1,21 @@
+# =============================================================================
+# correlation_resolution.R — correlation vs sampling resolution
+# =============================================================================
+# WHAT IT DOES: Plots how index correlations change with the sampling resolution of the
+#   reaction norm.
+# REQUIRES:     Regression-summary CSVs under output/regression_summary_stats/.
+# PRODUCES:     Correlation-vs-resolution figure(s).
+# HOW TO RUN:   setwd("~/PlastQuant"); source(here::here("R","figures","correlation_resolution.R"))
+# -----------------------------------------------------------------------------
+# PARAMETERS (edit the named assignment near the top of the script)
+#   directory    path, default output/regression_summary_stats  input CSV folder          [COMMON]
+#   resolutions  integer vector, default c(50,25,20,15,10,5,2,1) sampling resolutions
+#   n_samples    integer vector, default c(2,3,4,5,6,11,26,50)   sample counts
+#   sel_idx      integer vector, default c(1,3,7,8)   which resolutions to plot            [COMMON]
+#   files        character vector  the input CSVs
+#   stat_cols    character vector  summary-stat columns to use
+# =============================================================================
+
 library(tidyverse)
 library(patchwork)
 library(viridis)

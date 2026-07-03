@@ -1,3 +1,18 @@
+# =============================================================================
+# plotting_reaction_norms_all.R — reaction-norm overview figure
+# =============================================================================
+# WHAT IT DOES: Assembles the reaction-norm overview figure: genotype line plots plus
+#   histograms of the trait distribution.
+# REQUIRES:     all_combined_data.csv written by a scenario run under
+#               output/<scenario>/synthetic_data/... (a scenario must be run first).
+# PRODUCES:     Reaction-norm overview figure PDF.
+# HOW TO RUN:   setwd("~/PlastQuant"); source(here::here("R","figures","plotting_reaction_norms_all.R"))
+# -----------------------------------------------------------------------------
+# PARAMETERS (edit the named assignment near the top of the script)
+#   the input all_combined_data path (read via read_csv at the top)                        [COMMON]
+#   ylim   numeric length-2  y-axis limits for the line plots
+# =============================================================================
+
 #this is the script for the assembly of the first figure containing the genotype line plots as well as the histograms for the trait distribution 
 
 

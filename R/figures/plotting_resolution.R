@@ -1,3 +1,17 @@
+# =============================================================================
+# plotting_resolution.R — resolution correlation plots
+# =============================================================================
+# WHAT IT DOES: Reads the per-resolution correlation CSVs and renders the resolution
+#   correlation plots across the defined reaction-norm ranges.
+# REQUIRES:     correlations_*.csv files under the input directory (produced upstream).
+# PRODUCES:     Resolution correlation figure(s).
+# HOW TO RUN:   setwd("~/PlastQuant"); source(here::here("R","figures","plotting_resolution.R"))
+# -----------------------------------------------------------------------------
+# PARAMETERS (edit the named assignment near the top of the script)
+#   dir_path     path   folder holding the correlations_*.csv inputs                       [COMMON]
+#   range_names  character vector, default c("full","partial1","partial2")  ranges plotted
+# =============================================================================
+
 library(dplyr)
 library(ggplot2)
 

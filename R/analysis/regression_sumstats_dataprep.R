@@ -1,3 +1,18 @@
+# =============================================================================
+# regression_sumstats_dataprep.R — build the summary-stats vs scores table
+# =============================================================================
+# WHAT IT DOES: Assembles the table of reaction-norm summary statistics against
+#   plasticity scores that regression_summarystats.R and several figure scripts consume.
+#   Auto-sources 03_plasticity_scores.R and analysis/summary_stats_vs_scores.R.
+# REQUIRES:     Runs 03 (so it needs HERITABILITY_5TH / CAUSAL_SNP_NUM / OUTPUT_BASE set
+#               by a scenario or your session, as 03 does).
+# PRODUCES:     Regression-input CSV(s) under output/regression_summary_stats/.
+# HOW TO RUN:   setwd("~/PlastQuant"); source(here::here("R","analysis","regression_sumstats_dataprep.R"))
+# -----------------------------------------------------------------------------
+# PARAMETERS (supplied by 03 / a scenario / your session; see 03_plasticity_scores.R)
+#   NUM_GENOTYPES, HERITABILITY_5TH, CAUSAL_SNP_NUM, USE_GENETICS, OUTPUT_BASE      [COMMON]
+# =============================================================================
+
 
 # Script:    regression_sumstats_dataprep.R
 # Purpose:   For each specified sampling interval (resolution) and range of the

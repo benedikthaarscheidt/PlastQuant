@@ -1,3 +1,19 @@
+# =============================================================================
+# correlation_resolution_experiment.R — resolution robustness with confounders
+# =============================================================================
+# WHAT IT DOES: A resolution-robustness analysis like correlation_resolution.R, but with
+#   the summary statistics included in the regression as confounders.
+# REQUIRES:     Regression-summary CSVs under output/regression_summary_stats/.
+# PRODUCES:     Resolution-experiment figure(s).
+# HOW TO RUN:   setwd("~/PlastQuant"); source(here::here("R","figures","correlation_resolution_experiment.R"))
+# -----------------------------------------------------------------------------
+# PARAMETERS (edit the named assignment near the top of the script)
+#   directory   path, default output/regression_summary_stats  input CSV folder           [COMMON]
+#   files       character vector  the input CSVs
+#   n_samples   integer vector, default c(2,3,4,5,6,11,26,50)   sample counts
+#   stat_cols   character vector  summary-stat columns to use
+# =============================================================================
+
 # here we do a similar robustness analysis as in correlation_resolution.R, however in the regression we additionally consider confounders (the summary statistics) 
 #in order to distinguish effects which occur due to the sampling effect on the summary statistics and might unknowingly effect the slope of the sampling resolution
 

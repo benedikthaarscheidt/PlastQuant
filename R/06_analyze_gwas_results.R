@@ -10,7 +10,7 @@
 # HOW TO RUN:   setwd("~/PlastQuant"); source(here::here("R", "06_analyze_gwas_results.R"))
 # -----------------------------------------------------------------------------
 # PARAMETERS (edit at the noted line)
-#   PPIs   character vector   which plasticity indices to summarise; set at line ~65   [COMMON]
+#   PPIs   character vector   which plasticity indices to summarise; edit `PPIs <-`     [COMMON]
 #   GWAS   logical            whether GWAS results are present
 # =============================================================================
 ## Import causal snp truth data from text files

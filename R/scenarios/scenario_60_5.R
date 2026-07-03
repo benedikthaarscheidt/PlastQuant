@@ -1,3 +1,19 @@
+# =============================================================================
+# scenario_60_5.R — scenario driver: HERITABILITY_5TH=3, CAUSAL_SNP_NUM=5
+# =============================================================================
+# WHAT IT DOES: Sets the parameters for this scenario, then runs the plasticity-score
+#   computation (03_plasticity_scores.R) and the GWAS accuracy evaluation
+#   (05_evaluate_gwas.R) end-to-end.
+# REQUIRES:     None — self-contained driver. Run from the project root.
+# PRODUCES:     Scores + GWAS evaluation under OUTPUT_BASE (output/scenario_60_5/).
+# HOW TO RUN:   setwd("~/PlastQuant"); source(here::here("R","scenarios","scenario_60_5.R"))
+# -----------------------------------------------------------------------------
+# PARAMETERS (edit here — set UNCONDITIONALLY below so they override script defaults)
+#   OUTPUT_BASE           output location for this scenario
+#   HERITABILITY_5TH      = 3    heritability setting for the 5th trait          [COMMON]
+#   CAUSAL_SNP_NUM        = 5    causal SNPs per parameter                       [COMMON]
+#   DO_NOT_PLOT_MAHATTAN  = TRUE  skip Manhattan plots
+# =============================================================================
 
 OUTPUT_BASE = here::here("output", "scenario_60_5")
 HERITABILITY_5TH = 3
