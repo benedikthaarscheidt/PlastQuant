@@ -1,4 +1,39 @@
-# Script:    head3.R
+# =============================================================================
+# 03_plasticity_scores.R — compute every plasticity index (pipeline hub)
+# =============================================================================
+# WHAT IT DOES: Computes every plasticity index (via the ppindices package) for each
+#   simulated genotype's reaction norm across the four forms (linear, gaussian,
+#   sinusoidal, wave), assembling the `scores_list` consumed by GWAS and analysis.
+#   This is the hub: it auto-sources 01 and 02, so running it reruns the upstream
+#   simulation.
+# REQUIRES:     Auto-sources 01_simulate_genetics.R, 02_reaction_norms_linear.R,
+#               02_reaction_norms_nonlinear.R; library(ppindices).
+#               When USE_GENETICS = TRUE (the default) the caller MUST set
+#               HERITABILITY_5TH, CAUSAL_SNP_NUM and OUTPUT_BASE first (a scenario_*.R
+#               driver, or assignments in your R session) — the script stops otherwise.
+# PRODUCES:     `scores_list` in memory; per-score CSVs under OUTPUT_BASE when SAVE=TRUE.
+# HOW TO RUN:   setwd("~/PlastQuant")
+#               HERITABILITY_5TH <- 1; CAUSAL_SNP_NUM <- 5
+#               OUTPUT_BASE <- here::here("output","my_run")
+#               source(here::here("R", "03_plasticity_scores.R"))
+# -----------------------------------------------------------------------------
+# PARAMETERS — set these in a scenario_*.R driver or your R session before sourcing.
+#   The defaults below are applied in-script (guarded) at the noted line numbers.
+#   USE_GENETICS          logical, default TRUE  use simulated genetics (line 36)        [COMMON]
+#   HERITABILITY_5TH      numeric, REQUIRED when USE_GENETICS=TRUE  H^2 of the 5th trait [COMMON]
+#   CAUSAL_SNP_NUM        integer, REQUIRED when USE_GENETICS=TRUE  causal SNPs / param  [COMMON]
+#   OUTPUT_BASE           path,    REQUIRED when USE_GENETICS=TRUE  output location      [COMMON]
+#   NUM_GENOTYPES         integer, default 800   number of genotypes (line 100)
+#   N_MEAS_POINTS         integer, default 6     measurement points per reaction norm (line 161)
+#   KEEP_REPLICATES       logical, default (see lines 97/179)  keep replicate rows
+#   STRUCTURED_POPULATION logical, default FALSE nested population structure (line 98)
+#   GENETIC_VARIANCES     logical/vector         per-parameter genetic variances (from 01)
+#   POLY_MODE/STRENGTH/COUNTS  causal-effect controls passed through to 01
+#   GWAS                  logical                run GWAS downstream (read by 04/05/06)
+#   SAVE                  logical                write per-score CSVs under OUTPUT_BASE
+# =============================================================================
+# Original notes:
+# Script:    03_plasticity_scores.R
 # Purpose:   Load all plasticity‐score functions, set sampling parameters (range,
 #            interval, indices, covariate, type labels, etc.), preprocess reaction‐
 #            norm data into per‐genotype trait vectors, and compute every plasticity

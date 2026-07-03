@@ -1,6 +1,25 @@
-# Script: run_gwas_simulation.R
-# Purpose: Load pre-generated genetics, phenotypes, and scores from head3.R output
-#          and run GWAS to identify causal SNPs
+# =============================================================================
+# 04_run_gwas.R — GWAS on plasticity scores
+# =============================================================================
+# WHAT IT DOES: Runs GWAS (rrBLUP / sommer) for each plasticity score against the
+#   simulated genotypes, optionally with a kinship correction, and (unless suppressed)
+#   writes Manhattan plots. Identifies which SNPs each index recovers.
+# REQUIRES:     scores_list and genetics from 03_plasticity_scores.R (run 03 first, or
+#               source it); data/A-Datasets/ genotype inputs; packages rrBLUP / sommer.
+# PRODUCES:     GWAS result CSVs and Manhattan PDFs under OUTPUT_BASE.
+# HOW TO RUN:   setwd("~/PlastQuant"); source(here::here("R", "04_run_gwas.R"))
+# -----------------------------------------------------------------------------
+# PARAMETERS (edit at the noted line)
+#   USE_KINSHIP           logical, default TRUE   include kinship (K) in the mixed model;
+#                                                 set at line 10                          [COMMON]
+#   DO_NOT_PLOT_MAHATTAN  if defined, Manhattan PDFs are skipped (faster); see line 281   [COMMON]
+#   GWAS                  logical (from caller/03) whether GWAS is run                     [COMMON]
+#   OUTPUT_BASE           path (from caller/03)    where results are written
+# =============================================================================
+# Original notes:
+# Script: 04_run_gwas.R
+# Purpose: Load pre-generated genetics, phenotypes, and scores from
+#          03_plasticity_scores.R output and run GWAS to identify causal SNPs
 
 library(dplyr)
 

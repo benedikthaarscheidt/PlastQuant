@@ -1,3 +1,26 @@
+# =============================================================================
+# 02_reaction_norms_nonlinear.R — generate nonlinear reaction norms
+# =============================================================================
+# WHAT IT DOES: Builds nonlinear reaction norms (Gaussian, sinusoidal, and wave
+#   shapes) across environments for each genotype, optionally driven by the
+#   simulated genetics from 01.
+# REQUIRES:     Genetic parameters from 01_simulate_genetics.R when USE_GENETICS = TRUE
+#               (typically sourced upstream by 03_plasticity_scores.R).
+# PRODUCES:     In memory: the nonlinear reaction-norm data consumed by 03.
+# HOW TO RUN:   Sourced by 03_plasticity_scores.R; or, with 01 already run,
+#               setwd("~/PlastQuant"); source(here::here("R", "02_reaction_norms_nonlinear.R"))
+# -----------------------------------------------------------------------------
+# PARAMETERS (edit here)
+#   USE_GENETICS  logical, default FALSE   use simulated genetics (FALSE = random params)  [COMMON]
+#   SEED          integer, default 42      RNG seed                                        [COMMON]
+#   OUTPUT_BASE   path, default here::here("output","default")  where outputs go
+# -----------------------------------------------------------------------------
+# These parameters are supplied by the sourcing script (03_plasticity_scores.R) or your
+# R session. They are intentionally NOT assigned here: the script branches on whether
+# SEED / USE_GENETICS exist (USE_GENETICS falls back to FALSE further down; SEED, when
+# defined, offsets the RNG seed), so defining them here would change behaviour.
+# =============================================================================
+
 library(MASS) # For multivariate normal distributions
 library(ggplot2) # For plotting
 library(dplyr) # For data manipulation

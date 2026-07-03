@@ -1,4 +1,20 @@
-# Script: evaluate_gwas_accuracy.R
+# =============================================================================
+# 05_evaluate_gwas.R — GWAS accuracy evaluation
+# =============================================================================
+# WHAT IT DOES: Compares GWAS hits against the simulated ground-truth causal SNPs to
+#   quantify how well each plasticity index recovers the true signal. Produces 5 power
+#   heatmaps: one combined (all forms) plus one per reaction-norm form.
+# REQUIRES:     GWAS results from 04_run_gwas.R — this script auto-sources 04 (which in
+#               turn needs 03). Reads the GWAS results CSV under OUTPUT_BASE.
+# PRODUCES:     5 power-heatmap PDFs under OUTPUT_BASE/plots.
+# HOW TO RUN:   setwd("~/PlastQuant"); source(here::here("R", "05_evaluate_gwas.R"))
+# -----------------------------------------------------------------------------
+# PARAMETERS (edit at the noted line)
+#   alpha   numeric, default 0.05   significance threshold for a GWAS hit; set at line 30  [COMMON]
+#   GWAS    logical (from caller)    whether GWAS was run upstream
+# =============================================================================
+# Original notes:
+# Script: 05_evaluate_gwas.R
 # Purpose: Compare GWAS results against simulated ground truth to validate plasticity scores.
 #          Produces 5 power heatmaps: one combined (all forms) + one per RN form.
 source(here::here("R", "04_run_gwas.R"))

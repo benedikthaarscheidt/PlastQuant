@@ -1,3 +1,18 @@
+# =============================================================================
+# 06_analyze_gwas_results.R — summarise simulated-GWAS results
+# =============================================================================
+# WHAT IT DOES: Loads the causal-SNP ground truth and the simulated GWAS result tables
+#   and summarises, per plasticity index, how the recovered signal compares to truth,
+#   rendering summary heatmaps/plots.
+# REQUIRES:     GWAS result CSVs produced by 04/05 (run a scenario first); the causal
+#               truth text files under the scenario's OUTPUT_BASE.
+# PRODUCES:     Summary heatmaps/plots under OUTPUT_BASE.
+# HOW TO RUN:   setwd("~/PlastQuant"); source(here::here("R", "06_analyze_gwas_results.R"))
+# -----------------------------------------------------------------------------
+# PARAMETERS (edit at the noted line)
+#   PPIs   character vector   which plasticity indices to summarise; set at line ~65   [COMMON]
+#   GWAS   logical            whether GWAS results are present
+# =============================================================================
 ## Import causal snp truth data from text files
 library(pheatmap)
 

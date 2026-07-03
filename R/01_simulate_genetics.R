@@ -1,6 +1,33 @@
-# Script: simulate_genetics.R
-# Purpose: Generate synthetic SNP data for 80 genotypes with nested population structure
-#          and calculate ALL reaction norm parameters.
+# =============================================================================
+# 01_simulate_genetics.R — simulate SNP genotypes and genetic parameters
+# =============================================================================
+# WHAT IT DOES: Generates synthetic SNP genotypes for NUM_GENOTYPES individuals with
+#   optional nested population structure, assigns causal SNPs and effect sizes to the
+#   reaction-norm parameters, and records the ground-truth causal map later used to
+#   score GWAS accuracy.
+# REQUIRES:     Nothing upstream (pure simulation; reads no external data).
+# PRODUCES:     In memory: the genotype matrix and truth table consumed by 02/03.
+#               If OUTPUT_BASE is set, writes them under OUTPUT_BASE.
+# HOW TO RUN:   setwd("~/PlastQuant"); source(here::here("R", "01_simulate_genetics.R"))
+# -----------------------------------------------------------------------------
+# PARAMETERS (edit here)
+#   NUM_GENOTYPES         integer, default 80      number of simulated genotypes           [COMMON]
+#   GENETIC_VARIANCES     logical/vector, default FALSE  per-parameter genetic variances
+#                                                  (FALSE = use built-in defaults)
+#   POLY_MODE             "uniform"|"exponential", default "uniform"  causal-effect distribution
+#   POLY_STRENGTH         integer 1-5, default 5   genetic-variance strength (5 = full target SD)
+#   POLY_COUNTS           integer/vector, default 1  number of causal SNPs per parameter
+#   STRUCTURED_POPULATION logical, default FALSE   add nested population structure
+#   SEED                  integer, default 42      RNG seed for reproducibility            [COMMON]
+#   OUTPUT_BASE           path, default here::here("output","default")  where outputs go
+# -----------------------------------------------------------------------------
+# These parameters are supplied by the sourcing script (03_plasticity_scores.R or a
+# scenario_*.R driver) or by your R session before sourcing. They are intentionally
+# NOT assigned here: the simulation branches on whether SEED / GENETIC_VARIANCES exist
+# (see below), so defining them here would change the RNG path. GENETIC_VARIANCES falls
+# back to FALSE further down; SEED, when defined, offsets the seeds (leave it unset to
+# reproduce the default simulation).
+# =============================================================================
 
 
 pick_snps <- function(n, exclude, total_snps_num) {

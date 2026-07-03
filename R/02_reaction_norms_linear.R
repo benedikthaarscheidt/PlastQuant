@@ -1,3 +1,25 @@
+# =============================================================================
+# 02_reaction_norms_linear.R — generate linear reaction norms
+# =============================================================================
+# WHAT IT DOES: Builds linear (intercept + slope) reaction norms across environments
+#   for each genotype, optionally driven by the simulated genetics from 01.
+# REQUIRES:     Genetic parameters from 01_simulate_genetics.R when USE_GENETICS = TRUE
+#               (typically sourced upstream by 03_plasticity_scores.R).
+# PRODUCES:     In memory: the linear reaction-norm data consumed by 03.
+# HOW TO RUN:   Sourced by 03_plasticity_scores.R; or, with 01 already run,
+#               setwd("~/PlastQuant"); source(here::here("R", "02_reaction_norms_linear.R"))
+# -----------------------------------------------------------------------------
+# PARAMETERS (edit here)
+#   USE_GENETICS  logical, default FALSE   use simulated genetics (FALSE = random params)  [COMMON]
+#   SEED          integer, default 42      RNG seed                                        [COMMON]
+#   OUTPUT_BASE   path, default here::here("output","default")  where outputs go
+# -----------------------------------------------------------------------------
+# These parameters are supplied by the sourcing script (03_plasticity_scores.R) or your
+# R session. They are intentionally NOT assigned here: the script branches on whether
+# SEED / USE_GENETICS exist (USE_GENETICS falls back to FALSE further down; SEED, when
+# defined, offsets the RNG seed), so defining them here would change behaviour.
+# =============================================================================
+
 # Function to build covariance matrix
 build_cov_matrix <- function(VE, VS, rES) {
   matrix(c(

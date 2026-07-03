@@ -1,3 +1,19 @@
+# =============================================================================
+# 06_analyze_maize_gwas_results.R — summarise empirical maize-GWAS results
+# =============================================================================
+# WHAT IT DOES: Summarises the GWAS results for the empirical maize dataset across the
+#   selected plasticity indices (PPIs) and reaction-norm traits (RNs), rendering the
+#   maize result heatmaps/plots.
+# REQUIRES:     Maize GWAS result data (produced by the maize scenario / 03_maize + 04);
+#               data/maize_scores_list.rds.
+# PRODUCES:     Maize summary heatmaps/plots under OUTPUT_BASE.
+# HOW TO RUN:   setwd("~/PlastQuant"); source(here::here("R", "06_analyze_maize_gwas_results.R"))
+# -----------------------------------------------------------------------------
+# PARAMETERS (edit at the noted line)
+#   PPIs   character vector   plasticity indices to summarise; set at line ~38          [COMMON]
+#   RNs    character vector   reaction-norm traits (leafArea/WUE/biomass); set line ~43 [COMMON]
+#   GWAS   logical            whether GWAS results are present
+# =============================================================================
 ## Import causal snp truth data from text files
 library(pheatmap)
 
