@@ -7,7 +7,7 @@ library(ggplot2)
 library(forcats)
 library(dplyr)   # must come last — re-asserts dplyr::select/count over MASS
 
-directory   <- "~/CRC_1644_Z2_GWAS_simple/R-files/regression_summary_stats"
+directory   <- here::here("output", "regression_summary_stats")
 resolutions <- c(50, 25, 20, 15, 10, 5, 2, 1)
 n_samples   <- c( 2,  3, 4,  5,   6, 11,26,50)
 files       <- c(
@@ -96,13 +96,13 @@ combined=ggplot(df_all, aes(x = metric, y = value, fill = type)) +
     panel.grid.minor.x = element_blank()
   )
 
-path <- "~/CRC_1644_Z2_GWAS_simple/plots/figures"
+path <- here::here("output", "plots", "figures")
 if (!dir.exists(dirname(path))) {
   dir.create(dirname(path), recursive = TRUE)
 }
 ggsave(
   combined,
-  filename = file.path("~/CRC_1644_Z2_GWAS_simple/plots/figures/boxplot_resolution.pdf"),
+  filename = file.path(here::here("output", "plots", "figures", "boxplot_resolution.pdf")),
   width    = 6.3,
   height   = 8,
   dpi      = 900
@@ -331,7 +331,7 @@ p_slope_heat <- ggplot(slope_heat, aes(x = Stat, y = PS, fill = slope)) +
 print(p_slope_heat)
 
 ggsave(
-  filename = "~/CRC_1644_Z2_GWAS_simple/plots/figures/slope_heatmap_resolution.pdf",
+  filename = here::here("output", "plots", "figures", "slope_heatmap_resolution.pdf"),
   plot     = p_slope_heat,
   width    = 6.3,
   height   = 7,

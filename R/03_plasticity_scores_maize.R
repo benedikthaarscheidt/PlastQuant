@@ -33,11 +33,11 @@
 #   gaussian_data, sinusoidal_data, wave_data, linear_data
 library(readr)
 
-OUTPUT_BASE = "~/CRC_1644_Z2_GWAS_simple/scenario_maize"
+OUTPUT_BASE = here::here("output", "scenario_maize")
 
 if (!dir.exists(paste(OUTPUT_BASE,"/plots",sep=""))) dir.create(paste(OUTPUT_BASE,"/plots",sep=""), recursive = TRUE)
 
-source("~/CRC_1644_Z2_GWAS_simple/R-files/Plasticity_scores/1_2.R")
+library(ppindices)
 # coefficient-of variation total (calculate_CVt) - tested,
 # slope of norm reaction (calculate_reaction_norm_slope) - tested,
 # slope of plastic response (D) (calculate_D_slope)- tested,
@@ -51,13 +51,11 @@ source("~/CRC_1644_Z2_GWAS_simple/R-files/Plasticity_scores/1_2.R")
 # PILSM (calculate_PILSM)- tested,
 # RTR (calculate_RTR)- tested,
 # PIR (calculate_PIR) - tested
-source("~/CRC_1644_Z2_GWAS_simple/R-files/Plasticity_scores/2.R")
 # RDPI	(rdpi_calculation) - tested,
 # RDPIs (rdpi_mean_calculation) - tested,
 # ESPI (calculate_ESPI) - tested,
 # ESPIid (espiid_calculation) - tested,
 # evwpi_calculation (idea from Benedikt)
-source("~/CRC_1644_Z2_GWAS_simple/R-files/Plasticity_scores/3.R")
 # Phenotypic Stability Index (calculate_PSI),
 # Relative Plasticity Index (calculate_RPI) - tested,
 # Plasticity Quotient (calculate_PQ) - tested,
@@ -67,7 +65,6 @@ source("~/CRC_1644_Z2_GWAS_simple/R-files/Plasticity_scores/3.R")
 # Calculate Plasticity Differential (PD) (calculate_PD) - tested,
 # Calculate Fitness Plasticity Index (FPI) (calculate_FPI) - tested,
 # Calculate Transplant Plasticity Score (TPS)(calculate_TPS) - tested,
-source("~/CRC_1644_Z2_GWAS_simple/R-files/Plasticity_scores/4.R")
 # Calculate Developmental Plasticity Index (DPI)(calculate_DPI) - tested,
 # Calculate Coefficient of Environmental Variation (CEV)(calculate_CEV) - tested,
 # Calculate Plasticity Response Index (PRI)(calculate_PRI) - tested,
@@ -82,7 +79,6 @@ source("~/CRC_1644_Z2_GWAS_simple/R-files/Plasticity_scores/4.R")
 # Calculate Standardized Plasticity Metric (SPM)(calculate_SPM) - tested,
 # Calculate SSpop/SStotal Plasticity Ratio(calculate_Plasticity_Ratio) - tested
 
-source("~/CRC_1644_Z2_GWAS_simple/R-files/Plasticity_scores/5.R")
 
 # -----------------------------------------------------------------------------
 # ENABLE GENETICS AND GENERATE DATA
@@ -94,9 +90,9 @@ if (!exists("GENETIC_VARIANCES")) GENETIC_VARIANCES <- FALSE
 if (!exists("NUM_GENOTYPES")) NUM_GENOTYPES <- 800
 if (!exists("NUM_SNPs")) NUM_SNPs <- 200000
 
-biomass_data_raw <- read_tsv("~/CRC_1644_Z2_GWAS_simple/A-Datasets/Biomass_RDPI_CV_Ratio.txt")
-leafArea_data_raw <- read_tsv("~/CRC_1644_Z2_GWAS_simple/A-Datasets/Leaf_area_RDPI_CV_Ratio.txt")
-WUE_data_raw <- read_tsv("~/CRC_1644_Z2_GWAS_simple/A-Datasets/WUE_RDPI_CV_Ratio.txt")
+biomass_data_raw <- read_tsv(here::here("data", "A-Datasets", "Biomass_RDPI_CV_Ratio.txt"))
+leafArea_data_raw <- read_tsv(here::here("data", "A-Datasets", "Leaf_area_RDPI_CV_Ratio.txt"))
+WUE_data_raw <- read_tsv(here::here("data", "A-Datasets", "WUE_RDPI_CV_Ratio.txt"))
 
 env = c(mean(biomass_data_raw$Biomass_S12_WD),mean(biomass_data_raw$Biomass_S13_WD),
                  mean(biomass_data_raw$Biomass_S16_WD),mean(biomass_data_raw$Biomass_W13_WD),
@@ -688,7 +684,7 @@ message("Per-PPI CSVs saved to: ", ppi_dir)
 # Its CSV will therefore have fewer rows than other scores when KEEP_REPLICATES=TRUE.
 # This is correct — never use #replicates copies of the same FW beta in GWAS.
 
-git_path = "~/CRC_1644_Z2_GWAS_simple/A-Datasets/"
+git_path = here::here("data", "A-Datasets")
 # Load Genotyping Data (available at https://forgemia.inra.fr/gqe-base/djabali-drought-plasticity-qtls-article1)
 load(file.path(git_path, "Genotyping_matrix_Negro_et_al_2019.Rdata"))
 DL_windows <- readRDS(file.path(git_path, "SNPs_DL_windows_Negro_et_al_2019.rds"))

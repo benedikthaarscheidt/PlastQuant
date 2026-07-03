@@ -28,7 +28,7 @@ library(vegan)      # for mantel()
 # Read 
 
 if (exists("form_ranges") && length(form_ranges) == 3) {
-  scores_list <- readRDS("~/CRC_1644_Z2_GWAS_simple/maize_scores_list.rds")
+  scores_list <- readRDS(here::here("data", "maize_scores_list.rds"))
   scores_list_arr = array(unlist(scores_list),dim=c(732,3,28))
   scores_list_arr2 = as.numeric(scores_list_arr[,1,])
   dim(scores_list_arr2) = c(732,28)
@@ -43,7 +43,7 @@ if (exists("form_ranges") && length(form_ranges) == 3) {
     wave       = 61:80
   )
 
-  df <- read_csv("~/CRC_1644_Z2_GWAS_simple/R-files/regression_summary_stats/regression_data_full_interval_10_indices_1_11_21_31_41_50.csv")
+  df <- read_csv(here::here("output", "regression_summary_stats", "regression_data_full_interval_10_indices_1_11_21_31_41_50.csv"))
   na_counts <- colSums(is.na(df))
 
   # keep only columns with zero NAs (there are some in the case of 1 and 2 samples across the environmental gradient as the RN and RNN cannot be calculated in this scenario)
@@ -82,7 +82,7 @@ make_plot <- function(metric_name) {
 plots   <- lapply(unique(scores_long$Metric), make_plot)
 combined <- wrap_plots(plots, ncol = 4) 
 print(combined)
-ggsave("~/CRC_1644_Z2_GWAS_simple/plots/plasticity_scores_histograms.pdf", combined, width = 6.3, height = 5,
+ggsave(here::here("output", "plots", "plasticity_scores_histograms.pdf"), combined, width = 6.3, height = 5,
        dpi = 900, units = "in", device = "pdf")
 
 
@@ -115,7 +115,7 @@ pp=ggplot(scores_long_trimmed, aes(x = Metric, y = Score)) +
   )
 print(pp)
 
-ggsave("~/CRC_1644_Z2_GWAS_simple/plots/figures/plasticity_scores_boxplots.pdf", pp, width = 6.3, height = 5,
+ggsave(here::here("output", "plots", "figures", "plasticity_scores_boxplots.pdf"), pp, width = 6.3, height = 5,
        dpi = 900, units = "in", device = "pdf")
 
 ##########################################################
@@ -335,12 +335,12 @@ sep_panel <- (plot_comb | plots_sep[[2]]) /
 
 print(sep_panel)
 ggsave(
-  "~/CRC_1644_Z2_GWAS_simple/plots/figures/plasticity_scores_dendrograms.pdf",
+  here::here("output", "plots", "figures", "plasticity_scores_dendrograms.pdf"),
   sep_panel,
   width = 6.3, height = 5, dpi = 900, units = "in", device = "pdf")
 
 ggsave(
-  "~/CRC_1644_Z2_GWAS_simple/plots/figures/dendrogram_linear.pdf",
+  here::here("output", "plots", "figures", "dendrogram_linear.pdf"),
   plots_sep[[1]],
   width = 6.3, height = 4, dpi = 900, units = "in", device = "pdf")
 
@@ -420,7 +420,7 @@ coord_fixed() +
 print(tbl_obs_plot)
 
 ggsave(
-  "~/CRC_1644_Z2_GWAS_simple/plots/figures/plasticity_scores_mantel_table.pdf",
+  here::here("output", "plots", "figures", "plasticity_scores_mantel_table.pdf"),
   tbl_obs_plot,
   width = 6.3, height = 5, dpi = 900, units = "in", device = "pdf"
 )
@@ -456,7 +456,7 @@ BBBCCC
 print(final_fig3)
 
 ggsave(
-  "~/CRC_1644_Z2_GWAS_simple/plots/figures/figure2_2.pdf",
+  here::here("output", "plots", "figures", "figure2_2.pdf"),
   final_fig3,
   width = 6.3, height = 8, dpi = 900, units = "in", device = "pdf"
 )
@@ -490,7 +490,7 @@ BBBBCC
   )
 
 ggsave(
-  "~/CRC_1644_Z2_GWAS_simple/plots/figures/figure2_3.pdf",
+  here::here("output", "plots", "figures", "figure2_3.pdf"),
   final_fig4,
   width = 6.3, height = 8, dpi = 900, units = "in", device = "pdf"
 )
@@ -541,7 +541,7 @@ CCDD
 }
 
 ggsave(
-  "~/CRC_1644_Z2_GWAS_simple/plots/figures/dendro_supp.pdf",
+  here::here("output", "plots", "figures", "dendro_supp.pdf"),
   final_fig7,
   width = 6.3, height = 6, dpi = 900, units = "in", device = "pdf"
 )

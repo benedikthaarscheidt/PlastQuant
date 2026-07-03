@@ -66,7 +66,7 @@ pair_tau <- function(df_long, i, j) {
   dplyr::tibble(score_i = i, score_j = j, correlation = est, p_value = pval, n_common = nrow(ab))
 }
 
-out_dir <- path.expand("~/CRC_1644_Z2_GWAS_simple/rank_flops")
+out_dir <- path.expand(here::here("output", "rank_flops"))
 dir.create(out_dir, showWarnings = FALSE, recursive = TRUE)
 
 for (range_name in names(range_list)) {
@@ -78,7 +78,7 @@ for (range_name in names(range_list)) {
     global_traits <- length(indices)
     traits <- global_traits
     env <- seq_along(indices)
-    source("~/CRC_1644_Z2_GWAS_simple/R-files/head3.R")
+    source(here::here("R", "03_plasticity_scores.R"))
     scores_list <- list()
     for (nm in score_names) {
       obj <- get0(nm, ifnotfound = NULL)

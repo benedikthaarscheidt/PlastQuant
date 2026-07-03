@@ -1,9 +1,9 @@
 
-OUTPUT_BASE = "~/CRC_1644_Z2_GWAS_simple/scenario_40_20"
+OUTPUT_BASE = here::here("output", "scenario_40_20")
 HERITABILITY_5TH = 2
 CAUSAL_SNP_NUM = 20
 DO_NOT_PLOT_MAHATTAN = TRUE
 
-source("~/CRC_1644_Z2_GWAS_simple/R-files/head3.R")
+source(here::here("R", "03_plasticity_scores.R"))
 
-source("~/CRC_1644_Z2_GWAS_simple/R-files/evaluate_gwas_accuracy.R")
+source(here::here("R", "05_evaluate_gwas.R"))

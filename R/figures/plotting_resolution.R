@@ -7,8 +7,8 @@ ensure_dir_exists <- function(file_path) {
     dir.create(dir_path, recursive = TRUE, showWarnings = FALSE)
   }
 }
-dir_path <- path.expand("~/CRC_1644_Z2_GWAS_simple/correlation_summary_stats")
-output_dir <- path.expand("~/CRC_1644_Z2_GWAS_simple/plots")
+dir_path <- path.expand(here::here("output", "correlation_summary_stats"))
+output_dir <- path.expand(here::here("output", "plots"))
 ensure_dir_exists(dir_path)
 ensure_dir_exists(output_dir)
 

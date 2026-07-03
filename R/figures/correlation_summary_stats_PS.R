@@ -23,7 +23,7 @@ library(factoextra)
 
 
 ############################# data reading and computation of the linear regression for the slope heatmaps 
-df <- read_csv("~/CRC_1644_Z2_GWAS_simple/R-files/regression_summary_stats/regression_data_full_interval_10_indices_1_11_21_31_41_50.csv")
+df <- read_csv(here::here("output", "regression_summary_stats", "regression_data_full_interval_10_indices_1_11_21_31_41_50.csv"))
 
 
 stat_cols <- c("min","max","mean","median","slope","range","variance","mean_lower","mean_upper")
@@ -157,7 +157,7 @@ p_slope <- ggplot(slope_df, aes(x = Stat, y = PS, fill = precision)) +
   theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1))
 
 print(p_slope)
-#ggsave("~/CRC_1644_Z2_GWAS_simple/plots/scatter_plots/heatmap_slope_with_stars.png", p_slope, width = 12, height = 9, dpi = 300)
+#ggsave(here::here("output", "plots", "scatter_plots", "heatmap_slope_with_stars.png"), p_slope, width = 12, height = 9, dpi = 300)
 
 ################################################################ this creates scatter plots for each and every combination of summary stat and plasticity score --> linear regression plot 
 # I didnt use this anywhere but it is useful for looking the regressions up 
@@ -195,7 +195,7 @@ plot_scatter <- function(data, xvar, yvar) {
 }
 
 # 10) Generate & save scatter plots for every PS × summary-stat pair
-out_base <- "~/CRC_1644_Z2_GWAS_simple/plots/scatter_plots/"
+out_base <- here::here("output", "plots", "scatter_plots")
 if (!dir.exists(out_base)) {
   dir.create(out_base, recursive = TRUE)
 }
@@ -436,12 +436,12 @@ CCCCCC
 print(final_fig3)
 
 
-out= "~/CRC_1644_Z2_GWAS_simple/plots/figures"
+out= here::here("output", "plots", "figures")
 if (!dir.exists(out)) {
   dir.create(out, recursive = TRUE)
 }
 ggsave(
-  filename = "~/CRC_1644_Z2_GWAS_simple/plots/figures/sum_stats_cor_pearson.pdf",
+  filename = here::here("output", "plots", "figures", "sum_stats_cor_pearson.pdf"),
   plot     = final_fig3,
   device   = "pdf",
   width    = 6.3,
@@ -451,7 +451,7 @@ ggsave(
 )
 
 ggsave(
-  filename = "~/CRC_1644_Z2_GWAS_simple/plots/figures/hclust_dend_corrdist.pdf",
+  filename = here::here("output", "plots", "figures", "hclust_dend_corrdist.pdf"),
   plot     = p_dend_ps,
   device   = "pdf",
   width    = 6.3,
@@ -487,7 +487,7 @@ CCCDDD
 print(final_fig4)
 
 ggsave(
-  filename = "~/CRC_1644_Z2_GWAS_simple/plots/figures/ols.pdf",
+  filename = here::here("output", "plots", "figures", "ols.pdf"),
   plot     = final_fig4,
   device   = "pdf",
   width    = 6.3,
@@ -690,7 +690,7 @@ woho=ggplot(slope_df_sig, aes(x = Stat, y = PS)) +
     plot.margin     = margin(t = 10, r = 5, b = 10, l = 5, unit = "pt")
   )
 
-ggsave("~/CRC_1644_Z2_GWAS_simple/plots/figures/single_predictor_regression.pdf", woho, width = 6.3, height = 8, units = "in", dpi = 900)
+ggsave(here::here("output", "plots", "figures", "single_predictor_regression.pdf"), woho, width = 6.3, height = 8, units = "in", dpi = 900)
 
 
 
@@ -716,7 +716,7 @@ ggsave("~/CRC_1644_Z2_GWAS_simple/plots/figures/single_predictor_regression.pdf"
 #print(final_fig5)
 #
 #ggsave(
-#  filename = "~/CRC_1644_Z2_GWAS_simple/plots/figures/fig4.pdf",
+#  filename = here::here("output", "plots", "figures", "fig4.pdf"),
 #  plot     = final_fig5,
 #  device   = "pdf",
 #  width    = 15,
@@ -832,7 +832,7 @@ CCCCCC
 
 print(final_fig6)
 ggsave(
-  filename = "~/CRC_1644_Z2_GWAS_simple/plots/figures/fig5.pdf",
+  filename = here::here("output", "plots", "figures", "fig5.pdf"),
   plot     = final_fig6,
   device   = "pdf",
   width    = 6.3,

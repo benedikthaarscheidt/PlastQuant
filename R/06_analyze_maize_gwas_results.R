@@ -54,7 +54,7 @@ for (iSNP in 1:length(SNPs)) {
 }
 
 
-git_path = "~/CRC_1644_Z2_GWAS_simple/A-Datasets/"
+git_path = here::here("data", "A-Datasets")
 load(file.path(git_path, "Genotyping_matrix_Negro_et_al_2019.Rdata"))
 mat2 <- mat2[biomass_data_raw$Variety, ]
 mat2reduced = mat2[,colnames(mat2) %in% SNPs]
@@ -62,7 +62,7 @@ MAF = colSums(mat2reduced>0)/244
 
 
 
-scores_list <- readRDS("~/CRC_1644_Z2_GWAS_simple/scenario_maize/synthetic_data/scores_output/run_2026-06-19_11-04-38/scores_list.rds")
+scores_list <- readRDS(here::here("output", "scenario_maize", "synthetic_data", "scores_output", "run_2026-06-19_11-04-38", "scores_list.rds"))
 
 scores_list_arr3 = as.numeric(scores_list_arr2)
 dim(scores_list_arr3)=c(732,28)

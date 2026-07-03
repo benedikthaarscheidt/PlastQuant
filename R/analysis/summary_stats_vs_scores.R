@@ -1,5 +1,5 @@
 if (!exists("data_loaded") || !data_loaded) {
-  source("~/CRC_1644_Z2_GWAS_simple/R-files/head3.R")
+  source(here::here("R", "03_plasticity_scores.R"))
   data_loaded = TRUE
 }
 

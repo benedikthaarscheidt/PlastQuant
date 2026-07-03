@@ -12,7 +12,7 @@ library(dplyr)
 
 # ── Shared inputs ────────────────────────────────────────────────────────────
 
-directory <- "~/CRC_1644_Z2_GWAS_simple/R-files/regression_summary_stats"
+directory <- here::here("output", "regression_summary_stats")
 files <- c(
   "regression_data_full_interval_49_indices_1_50.csv",
   "regression_data_full_interval_25_indices_1_26_50.csv",
@@ -213,7 +213,7 @@ combined <- p_left + p_right +
   plot_layout(ncol = 2, widths = c(1, 1)) +
   plot_annotation(tag_levels = "A")
 
-out_path <- "~/CRC_1644_Z2_GWAS_simple/plots/figures"
+out_path <- here::here("output", "plots", "figures")
 if (!dir.exists(out_path)) dir.create(out_path, recursive = TRUE)
 
 ggsave(

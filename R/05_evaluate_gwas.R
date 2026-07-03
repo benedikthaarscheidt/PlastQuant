@@ -1,7 +1,7 @@
 # Script: evaluate_gwas_accuracy.R
 # Purpose: Compare GWAS results against simulated ground truth to validate plasticity scores.
 #          Produces 5 power heatmaps: one combined (all forms) + one per RN form.
-source("~/CRC_1644_Z2_GWAS_simple/R-files/run_gwas_simulation.R")
+source(here::here("R", "04_run_gwas.R"))
 library(dplyr)
 library(ggplot2)
 library(tidyr)

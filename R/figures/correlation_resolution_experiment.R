@@ -7,7 +7,7 @@ library(lmerTest)
 library(dplyr)   # must come last — re-asserts dplyr::select/count over MASS
 
 
-directory <- "~/CRC_1644_Z2_GWAS_simple/R-files/regression_summary_stats"
+directory <- here::here("output", "regression_summary_stats")
 files     <- c(
   "regression_data_full_interval_49_indices_1_50.csv",
   "regression_data_full_interval_25_indices_1_26_50.csv",
@@ -150,7 +150,7 @@ p_forest <- ggplot(plot_tbl, aes(x = estimate, y = variable, colour = class)) +
 
 print(p_forest)
 
-path <- "~/CRC_1644_Z2_GWAS_simple/plots/figures"
+path <- here::here("output", "plots", "figures")
 if (!dir.exists(path)) dir.create(path, recursive = TRUE)
 
 ggsave(

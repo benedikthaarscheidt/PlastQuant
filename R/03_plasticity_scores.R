@@ -40,14 +40,14 @@ if (USE_GENETICS) {
     stop("HERITABILITY_5TH, CAUSAL_SNP_NUM and OUTPUT_BASE need to be set in the sourcing script")
   }
 } else {
-  if (!exists("OUTPUT_BASE")) OUTPUT_BASE <- "~/CRC_1644_Z2_GWAS_simple/no_genetics_output"
+  if (!exists("OUTPUT_BASE")) OUTPUT_BASE <- here::here("output", "no_genetics_output")
   if (!exists("HERITABILITY_5TH")) HERITABILITY_5TH <- 0
   if (!exists("CAUSAL_SNP_NUM")) CAUSAL_SNP_NUM <- 0
 }
 
 if (!dir.exists(paste(OUTPUT_BASE,"/plots",sep=""))) dir.create(paste(OUTPUT_BASE,"/plots",sep=""), recursive = TRUE)
 
-source("~/CRC_1644_Z2_GWAS_simple/R-files/Plasticity_scores/1_2.R")
+library(ppindices)
 # coefficient-of variation total (calculate_CVt) - tested,
 # slope of norm reaction (calculate_reaction_norm_slope) - tested,
 # slope of plastic response (D) (calculate_D_slope)- tested,
@@ -61,13 +61,11 @@ source("~/CRC_1644_Z2_GWAS_simple/R-files/Plasticity_scores/1_2.R")
 # PILSM (calculate_PILSM)- tested,
 # RTR (calculate_RTR)- tested,
 # PIR (calculate_PIR) - tested
-source("~/CRC_1644_Z2_GWAS_simple/R-files/Plasticity_scores/2.R")
 # RDPI	(rdpi_calculation) - tested,
 # RDPIs (rdpi_mean_calculation) - tested,
 # ESPI (calculate_ESPI) - tested,
 # ESPIid (espiid_calculation) - tested,
 # evwpi_calculation (idea from Benedikt)
-source("~/CRC_1644_Z2_GWAS_simple/R-files/Plasticity_scores/3.R")
 # Phenotypic Stability Index (calculate_PSI),
 # Relative Plasticity Index (calculate_RPI) - tested,
 # Plasticity Quotient (calculate_PQ) - tested,
@@ -77,7 +75,6 @@ source("~/CRC_1644_Z2_GWAS_simple/R-files/Plasticity_scores/3.R")
 # Calculate Plasticity Differential (PD) (calculate_PD) - tested,
 # Calculate Fitness Plasticity Index (FPI) (calculate_FPI) - tested,
 # Calculate Transplant Plasticity Score (TPS)(calculate_TPS) - tested,
-source("~/CRC_1644_Z2_GWAS_simple/R-files/Plasticity_scores/4.R")
 # Calculate Developmental Plasticity Index (DPI)(calculate_DPI) - tested,
 # Calculate Coefficient of Environmental Variation (CEV)(calculate_CEV) - tested,
 # Calculate Plasticity Response Index (PRI)(calculate_PRI) - tested,
@@ -92,7 +89,6 @@ source("~/CRC_1644_Z2_GWAS_simple/R-files/Plasticity_scores/4.R")
 # Calculate Standardized Plasticity Metric (SPM)(calculate_SPM) - tested,
 # Calculate SSpop/SStotal Plasticity Ratio(calculate_Plasticity_Ratio) - tested
 
-source("~/CRC_1644_Z2_GWAS_simple/R-files/Plasticity_scores/5.R")
 
 # -----------------------------------------------------------------------------
 # ENABLE GENETICS AND GENERATE DATA
@@ -140,7 +136,7 @@ if (USE_GENETICS) {
   POLY_MODE <- "uniform"
 
   message(paste("Step 1: Simulating Genetics (", NUM_GENOTYPES, " Genotypes, Polygenic Model)..."))
-  source("~/CRC_1644_Z2_GWAS_simple/R-files/simulate_genetics.R")
+  source(here::here("R", "01_simulate_genetics.R"))
   sim_gen_res = simulate_genetics()
   snp_matrix = sim_gen_res$snp_matrix
   params_df = sim_gen_res$params_df
@@ -152,9 +148,9 @@ if (USE_GENETICS) {
   message("Step 2: Generating Reaction Norms with random parameters (no genetic influence)...")
 }
 
-source("~/CRC_1644_Z2_GWAS_simple/R-files/norms_generator2_linear.R")
+source(here::here("R", "02_reaction_norms_linear.R"))
 linear_data = create_and_plot_linear_norms(NUM_GENOTYPES)
-source("~/CRC_1644_Z2_GWAS_simple/R-files/norms_generator2_nonlinear.R")
+source(here::here("R", "02_reaction_norms_nonlinear.R"))
 nonlinear_data = create_and_plot_nonlinear_norms(NUM_GENOTYPES)
 gaussian_data = nonlinear_data$gaussian_data
 sinusoidal_data = nonlinear_data$sinusoidal_data

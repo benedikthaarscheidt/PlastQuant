@@ -4,5 +4,5 @@ form_ranges <- list(
   WUE = 489:732
 )
 
-#source("~/CRC_1644_Z2_GWAS_simple/R-files/figure_producing_scripts/plasticity_score_realisation_plot.R")
-source("~/CRC_1644_Z2_GWAS_simple/R-files/figure_producing_scripts/rank_corr_biplot.R")
+#source(here::here("R", "figures", "plasticity_score_realisation_plot.R"))
+source(here::here("R", "figures", "rank_corr_biplot.R"))

@@ -68,8 +68,8 @@ ensure_dir_exists <- function(file_path) {
 }
 
 # Directories for input data and output
-input_folder  <- "~/CRC_1644_Z2_GWAS_simple/R-files/regression_summary_stats"
-output_folder <- "~/CRC_1644_Z2_GWAS_simple/plots"
+input_folder  <- here::here("output", "regression_summary_stats")
+output_folder <- here::here("output", "plots")
 
 ensure_dir_exists(input_folder)
 ensure_dir_exists(output_folder)

@@ -33,7 +33,7 @@
 # variants, no heritability). Set to TRUE to run the full genetic pipeline
 # (requires HERITABILITY_5TH, CAUSAL_SNP_NUM, and OUTPUT_BASE).
 USE_GENETICS  <- FALSE
-OUTPUT_BASE   <- "~/CRC_1644_Z2_GWAS_simple/no_genetics_output"
+OUTPUT_BASE   <- here::here("output", "no_genetics_output")
 NUM_GENOTYPES <- 200   # must be divisible by 4; keep small for fast runs
 # ---------------------------------------------------------------------------
 
@@ -44,7 +44,7 @@ ensure_dir_exists <- function(file_path) {
   }
 }
 
-output_folder <- "~/CRC_1644_Z2_GWAS_simple/R-files/regression_summary_stats"
+output_folder <- here::here("output", "regression_summary_stats")
 ensure_dir_exists(output_folder)
 
 sampling_intervals <- c(1, 2, 5, 10, 15, 20,25, 49)
@@ -91,9 +91,9 @@ for (range_name in names(range_list)) {
     traits <- length(indices)
     
     
-    source("~/CRC_1644_Z2_GWAS_simple/R-files/head3.R")
+    source(here::here("R", "03_plasticity_scores.R"))
     data_loaded <- TRUE
-    source("~/CRC_1644_Z2_GWAS_simple/R-files/summary_stats_vs_scores.R")
+    source(here::here("R", "analysis", "summary_stats_vs_scores.R"))
     data_loaded <- FALSE  # reset so head3.R re-runs on the next interval iteration
     
     ###################################

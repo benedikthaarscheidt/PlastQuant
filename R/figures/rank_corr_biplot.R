@@ -37,15 +37,15 @@ maize_pool_all <- !is_maize || is.null(maize_trait) || identical(maize_trait, "a
 if (!exists("output_dir")) {
   output_dir <- if (is_maize) {
     suffix <- if (maize_pool_all) "" else paste0("_", maize_trait)
-    file.path("~/CRC_1644_Z2_GWAS_simple/plasticity_comprehensive_analysis_maize")
+    file.path(here::here("output", "plasticity_comprehensive_analysis_maize"))
   } else {
-    "~/CRC_1644_Z2_GWAS_simple/plasticity_comprehensive_analysis"
+    here::here("output", "plasticity_comprehensive_analysis")
   }
 }
 dir.create(output_dir, recursive = TRUE, showWarnings = FALSE)
 
-regression_data_path <- "~/CRC_1644_Z2_GWAS_simple/R-files/regression_summary_stats/regression_data_full_interval_10_indices_1_11_21_31_41_50.csv"
-maize_scores_path    <- "~/CRC_1644_Z2_GWAS_simple/maize_scores_list.rds"
+regression_data_path <- here::here("output", "regression_summary_stats", "regression_data_full_interval_10_indices_1_11_21_31_41_50.csv")
+maize_scores_path    <- here::here("data", "maize_scores_list.rds")
 
 tau_threshold <- 0.8
 topk_values <- c(3, 5, 10, 15, 20)
