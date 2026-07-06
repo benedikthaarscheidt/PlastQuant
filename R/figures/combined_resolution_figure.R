@@ -230,7 +230,7 @@ combined <- p_left + p_right +
   plot_layout(ncol = 2, widths = c(1, 1)) +
   plot_annotation(tag_levels = "A")
 
-out_path <- here::here("output", "plots", "figures")
+out_path <- here::here("output", "plots")
 if (!dir.exists(out_path)) dir.create(out_path, recursive = TRUE)
 
 ggsave(create.dir = TRUE, 

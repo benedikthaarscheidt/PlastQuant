@@ -450,12 +450,12 @@ CCCCCC
 print(final_fig3)
 
 
-out= here::here("output", "plots", "figures")
+out= here::here("output", "plots")
 if (!dir.exists(out)) {
   dir.create(out, recursive = TRUE)
 }
 ggsave(create.dir = TRUE, 
-  filename = here::here("output", "plots", "figures", "sum_stats_cor_pearson.pdf"),
+  filename = here::here("output", "plots", "sum_stats_cor_pearson.pdf"),
   plot     = final_fig3,
   device   = "pdf",
   width    = 6.3,
@@ -465,7 +465,7 @@ ggsave(create.dir = TRUE,
 )
 
 ggsave(create.dir = TRUE, 
-  filename = here::here("output", "plots", "figures", "hclust_dend_corrdist.pdf"),
+  filename = here::here("output", "plots", "hclust_dend_corrdist.pdf"),
   plot     = p_dend_ps,
   device   = "pdf",
   width    = 6.3,
@@ -501,7 +501,7 @@ CCCDDD
 print(final_fig4)
 
 ggsave(create.dir = TRUE, 
-  filename = here::here("output", "plots", "figures", "ols.pdf"),
+  filename = here::here("output", "plots", "ols.pdf"),
   plot     = final_fig4,
   device   = "pdf",
   width    = 6.3,
@@ -704,7 +704,7 @@ woho=ggplot(slope_df_sig, aes(x = Stat, y = PS)) +
     plot.margin     = margin(t = 10, r = 5, b = 10, l = 5, unit = "pt")
   )
 
-ggsave(create.dir = TRUE, here::here("output", "plots", "figures", "single_predictor_regression.pdf"), woho, width = 6.3, height = 8, units = "in", dpi = 900)
+ggsave(create.dir = TRUE, here::here("output", "plots", "single_predictor_regression.pdf"), woho, width = 6.3, height = 8, units = "in", dpi = 900)
 
 
 
@@ -730,7 +730,7 @@ ggsave(create.dir = TRUE, here::here("output", "plots", "figures", "single_predi
 #print(final_fig5)
 #
 #ggsave(create.dir = TRUE, 
-#  filename = here::here("output", "plots", "figures", "fig4.pdf"),
+#  filename = here::here("output", "plots", "fig4.pdf"),
 #  plot     = final_fig5,
 #  device   = "pdf",
 #  width    = 15,
@@ -846,7 +846,7 @@ CCCCCC
 
 print(final_fig6)
 ggsave(create.dir = TRUE, 
-  filename = here::here("output", "plots", "figures", "fig5.pdf"),
+  filename = here::here("output", "plots", "fig5.pdf"),
   plot     = final_fig6,
   device   = "pdf",
   width    = 6.3,

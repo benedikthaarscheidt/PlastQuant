@@ -114,13 +114,13 @@ combined=ggplot(df_all, aes(x = metric, y = value, fill = type)) +
     panel.grid.minor.x = element_blank()
   )
 
-path <- here::here("output", "plots", "figures")
+path <- here::here("output", "plots")
 if (!dir.exists(dirname(path))) {
   dir.create(dirname(path), recursive = TRUE)
 }
 ggsave(create.dir = TRUE, 
   combined,
-  filename = file.path(here::here("output", "plots", "figures", "boxplot_resolution.pdf")),
+  filename = file.path(here::here("output", "plots", "boxplot_resolution.pdf")),
   width    = 6.3,
   height   = 8,
   dpi      = 900
@@ -349,7 +349,7 @@ p_slope_heat <- ggplot(slope_heat, aes(x = Stat, y = PS, fill = slope)) +
 print(p_slope_heat)
 
 ggsave(create.dir = TRUE, 
-  filename = here::here("output", "plots", "figures", "slope_heatmap_resolution.pdf"),
+  filename = here::here("output", "plots", "slope_heatmap_resolution.pdf"),
   plot     = p_slope_heat,
   width    = 6.3,
   height   = 7,

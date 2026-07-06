@@ -166,7 +166,7 @@ p_forest <- ggplot(plot_tbl, aes(x = estimate, y = variable, colour = class)) +
 
 print(p_forest)
 
-path <- here::here("output", "plots", "figures")
+path <- here::here("output", "plots")
 if (!dir.exists(path)) dir.create(path, recursive = TRUE)
 
 ggsave(create.dir = TRUE, 
