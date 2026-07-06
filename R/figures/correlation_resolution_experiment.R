@@ -169,7 +169,7 @@ print(p_forest)
 path <- here::here("output", "plots", "figures")
 if (!dir.exists(path)) dir.create(path, recursive = TRUE)
 
-ggsave(
+ggsave(create.dir = TRUE, 
   filename = file.path(path, "confoundermodel_sumstats.pdf"),
   plot     = p_forest,
   width    = 6.3,

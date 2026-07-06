@@ -147,7 +147,7 @@ p_corr <- ggplot(cor_df, aes(x = Stat, y = PS, fill = r)) +
 
 
 print(p_corr)
-#ggsave("heatmap_correlation.png", p_corr, width = 12, height = 9, dpi = 300)
+#ggsave(create.dir = TRUE, "heatmap_correlation.png", p_corr, width = 12, height = 9, dpi = 300)
 
 
 ######################################################## Heatmap containing the slopes of the single predictor regression model (one model per score ~ summary stat combination) 
@@ -171,7 +171,7 @@ p_slope <- ggplot(slope_df, aes(x = Stat, y = PS, fill = precision)) +
   theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1))
 
 print(p_slope)
-#ggsave(here::here("output", "plots", "scatter_plots", "heatmap_slope_with_stars.png"), p_slope, width = 12, height = 9, dpi = 300)
+#ggsave(create.dir = TRUE, here::here("output", "plots", "scatter_plots", "heatmap_slope_with_stars.png"), p_slope, width = 12, height = 9, dpi = 300)
 
 ################################################################ this creates scatter plots for each and every combination of summary stat and plasticity score --> linear regression plot 
 # I didnt use this anywhere but it is useful for looking the regressions up 
@@ -217,7 +217,7 @@ for(ps in colnames(PS)) {
   dir.create(file.path(out_base, ps), recursive = TRUE, showWarnings = FALSE)
   for(st in colnames(sumstat)) {
     p_sc <- plot_scatter(df, st, ps)
-    ggsave(
+    ggsave(create.dir = TRUE, 
       filename = file.path(out_base, ps, paste0(ps, "_vs_", st, ".png")),
       plot     = p_sc,
       width    = 6, height = 5, dpi = 300
@@ -454,7 +454,7 @@ out= here::here("output", "plots", "figures")
 if (!dir.exists(out)) {
   dir.create(out, recursive = TRUE)
 }
-ggsave(
+ggsave(create.dir = TRUE, 
   filename = here::here("output", "plots", "figures", "sum_stats_cor_pearson.pdf"),
   plot     = final_fig3,
   device   = "pdf",
@@ -464,7 +464,7 @@ ggsave(
   dpi      = 900
 )
 
-ggsave(
+ggsave(create.dir = TRUE, 
   filename = here::here("output", "plots", "figures", "hclust_dend_corrdist.pdf"),
   plot     = p_dend_ps,
   device   = "pdf",
@@ -500,7 +500,7 @@ CCCDDD
 
 print(final_fig4)
 
-ggsave(
+ggsave(create.dir = TRUE, 
   filename = here::here("output", "plots", "figures", "ols.pdf"),
   plot     = final_fig4,
   device   = "pdf",
@@ -704,7 +704,7 @@ woho=ggplot(slope_df_sig, aes(x = Stat, y = PS)) +
     plot.margin     = margin(t = 10, r = 5, b = 10, l = 5, unit = "pt")
   )
 
-ggsave(here::here("output", "plots", "figures", "single_predictor_regression.pdf"), woho, width = 6.3, height = 8, units = "in", dpi = 900)
+ggsave(create.dir = TRUE, here::here("output", "plots", "figures", "single_predictor_regression.pdf"), woho, width = 6.3, height = 8, units = "in", dpi = 900)
 
 
 
@@ -729,7 +729,7 @@ ggsave(here::here("output", "plots", "figures", "single_predictor_regression.pdf
 #
 #print(final_fig5)
 #
-#ggsave(
+#ggsave(create.dir = TRUE, 
 #  filename = here::here("output", "plots", "figures", "fig4.pdf"),
 #  plot     = final_fig5,
 #  device   = "pdf",
@@ -845,7 +845,7 @@ CCCCCC
   )
 
 print(final_fig6)
-ggsave(
+ggsave(create.dir = TRUE, 
   filename = here::here("output", "plots", "figures", "fig5.pdf"),
   plot     = final_fig6,
   device   = "pdf",

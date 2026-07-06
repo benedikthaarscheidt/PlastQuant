@@ -118,7 +118,7 @@ path <- here::here("output", "plots", "figures")
 if (!dir.exists(dirname(path))) {
   dir.create(dirname(path), recursive = TRUE)
 }
-ggsave(
+ggsave(create.dir = TRUE, 
   combined,
   filename = file.path(here::here("output", "plots", "figures", "boxplot_resolution.pdf")),
   width    = 6.3,
@@ -348,7 +348,7 @@ p_slope_heat <- ggplot(slope_heat, aes(x = Stat, y = PS, fill = slope)) +
 
 print(p_slope_heat)
 
-ggsave(
+ggsave(create.dir = TRUE, 
   filename = here::here("output", "plots", "figures", "slope_heatmap_resolution.pdf"),
   plot     = p_slope_heat,
   width    = 6.3,

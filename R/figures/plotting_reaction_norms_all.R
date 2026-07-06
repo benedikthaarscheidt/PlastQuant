@@ -408,7 +408,7 @@ final_fig3 <- wrap_plots(
 
 print(final_fig3)
 
-ggsave(
+ggsave(create.dir = TRUE, 
   filename = here::here("output", "plots", "figures", "reaction_norms_final_figure.pdf"),
   plot     = final_fig3,
   device   = "pdf",
@@ -417,7 +417,7 @@ ggsave(
   units    = "in",
   dpi      = 900
 )
-ggsave(
+ggsave(create.dir = TRUE, 
   filename = here::here("output", "plots", "figures", "reaction_norms_final_figure_panels.pdf"),
   plot     = final_fig2,
   device   = "pdf",
@@ -427,7 +427,7 @@ ggsave(
   dpi      = 900
 )
 
-ggsave(
+ggsave(create.dir = TRUE, 
   filename = here::here("output", "plots", "figures", "p_combined.pdf"),
   plot     = p_combined,
   device   = "pdf",

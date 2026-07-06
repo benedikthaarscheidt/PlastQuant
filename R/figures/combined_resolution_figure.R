@@ -233,7 +233,7 @@ combined <- p_left + p_right +
 out_path <- here::here("output", "plots", "figures")
 if (!dir.exists(out_path)) dir.create(out_path, recursive = TRUE)
 
-ggsave(
+ggsave(create.dir = TRUE, 
   filename = file.path(out_path, "combined_resolution_figure.pdf"),
   plot     = combined,
   width    = 16,
