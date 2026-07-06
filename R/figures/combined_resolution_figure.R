@@ -14,6 +14,7 @@
 #   n_samples   integer vector, default c(2,3,4,5,6,11,26,50)   sample counts per resolution
 #   stat_cols   character vector  summary-stat columns to use
 # =============================================================================
+options(warn = -1)  # silence warnings even if the project .Rprofile was not loaded
 
 # Combines slope_heatmap_resolution (left) and confoundermodel_sumstats (right)
 # into a single side-by-side figure.

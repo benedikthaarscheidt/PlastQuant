@@ -12,6 +12,7 @@
 # PARAMETERS: inherits 03's parameters via the auto-source; analysis knobs are set in the
 #   body. Set `data_loaded <- TRUE` beforehand to reuse already-computed scores.
 # =============================================================================
+options(warn = -1)  # silence warnings even if the project .Rprofile was not loaded
 
 if (!exists("data_loaded") || !data_loaded) {
   source(here::here("R", "03_plasticity_scores.R"))

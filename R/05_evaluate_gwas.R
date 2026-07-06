@@ -13,6 +13,7 @@
 #   alpha   numeric, default 0.05   significance threshold; edit the `alpha <-` assignment  [COMMON]
 #   GWAS    logical (from caller)    whether GWAS was run upstream
 # =============================================================================
+options(warn = -1)  # silence warnings even if the project .Rprofile was not loaded
 # Original notes:
 # Script: 05_evaluate_gwas.R
 # Purpose: Compare GWAS results against simulated ground truth to validate plasticity scores.

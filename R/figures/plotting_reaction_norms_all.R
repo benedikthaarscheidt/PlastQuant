@@ -12,6 +12,7 @@
 #   the input all_combined_data path (read via read_csv at the top)                        [COMMON]
 #   ylim   numeric length-2  y-axis limits for the line plots
 # =============================================================================
+options(warn = -1)  # silence warnings even if the project .Rprofile was not loaded
 
 #this is the script for the assembly of the first figure containing the genotype line plots as well as the histograms for the trait distribution 
 

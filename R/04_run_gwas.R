@@ -16,6 +16,7 @@
 #   GWAS                  logical (from caller/03) whether GWAS is run                     [COMMON]
 #   OUTPUT_BASE           path (from caller/03)    where results are written
 # =============================================================================
+options(warn = -1)  # silence warnings even if the project .Rprofile was not loaded
 # Original notes:
 # Script: 04_run_gwas.R
 # Purpose: Load pre-generated genetics, phenotypes, and scores from

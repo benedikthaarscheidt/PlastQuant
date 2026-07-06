@@ -13,6 +13,7 @@
 #   in the body of the script (edit them there). Set `data_loaded <- TRUE` beforehand to
 #   reuse already-computed scores instead of re-running 03.
 # =============================================================================
+options(warn = -1)  # silence warnings even if the project .Rprofile was not loaded
 
 if (!exists("data_loaded") || !data_loaded) {
   source(here::here("R", "03_plasticity_scores.R"))

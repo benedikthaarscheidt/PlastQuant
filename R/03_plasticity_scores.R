@@ -32,6 +32,7 @@
 #   GWAS                  logical                run GWAS downstream (read by 04/05/06)
 #   SAVE                  logical                write per-score CSVs under OUTPUT_BASE
 # =============================================================================
+options(warn = -1)  # silence warnings even if the project .Rprofile was not loaded
 # Original notes:
 # Script:    03_plasticity_scores.R
 # Purpose:   Load all plasticity‐score functions, set sampling parameters (range,

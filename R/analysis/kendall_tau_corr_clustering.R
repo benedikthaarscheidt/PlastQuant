@@ -13,6 +13,7 @@
 #   topk_values     integer vector, default c(3,5,10,15,20)  top-k cutoffs to evaluate     [COMMON]
 #   AGREE_THR_FULL  numeric, default 1.00             full-agreement threshold
 # =============================================================================
+options(warn = -1)  # silence warnings even if the project .Rprofile was not loaded
 
 suppressPackageStartupMessages({
   library(dplyr)

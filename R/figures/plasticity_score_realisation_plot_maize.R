@@ -12,6 +12,7 @@
 #   form_ranges  list  the reaction-norm ranges/forms plotted                              [COMMON]
 #   the input score path is set in the script body.
 # =============================================================================
+options(warn = -1)  # silence warnings even if the project .Rprofile was not loaded
 
 form_ranges <- list(
   biomass     = 1:244,

@@ -14,6 +14,7 @@
 #   RNs    character vector   reaction-norm traits (leafArea/WUE/biomass); edit `RNs <-` [COMMON]
 #   GWAS   logical            whether GWAS results are present
 # =============================================================================
+options(warn = -1)  # silence warnings even if the project .Rprofile was not loaded
 ## Import causal snp truth data from text files
 library(pheatmap)
 

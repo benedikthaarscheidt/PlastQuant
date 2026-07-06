@@ -13,6 +13,7 @@
 #   OUTPUT_BASE           output location for the maize run
 #   DO_NOT_PLOT_MAHATTAN  = TRUE  skip Manhattan plots
 # =============================================================================
+options(warn = -1)  # silence warnings even if the project .Rprofile was not loaded
 
 OUTPUT_BASE = here::here("output", "scenario_maize")
 DO_NOT_PLOT_MAHATTAN = TRUE

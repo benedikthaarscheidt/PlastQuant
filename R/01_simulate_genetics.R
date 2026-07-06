@@ -28,6 +28,7 @@
 # back to FALSE further down; SEED, when defined, offsets the seeds (leave it unset to
 # reproduce the default simulation).
 # =============================================================================
+options(warn = -1)  # silence warnings even if the project .Rprofile was not loaded
 
 
 pick_snps <- function(n, exclude, total_snps_num) {

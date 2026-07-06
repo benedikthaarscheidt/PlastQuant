@@ -11,6 +11,7 @@
 #   dir_path     path   folder holding the correlations_*.csv inputs                       [COMMON]
 #   range_names  character vector, default c("full","partial1","partial2")  ranges plotted
 # =============================================================================
+options(warn = -1)  # silence warnings even if the project .Rprofile was not loaded
 
 library(dplyr)
 library(ggplot2)

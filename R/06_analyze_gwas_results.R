@@ -13,6 +13,7 @@
 #   PPIs   character vector   which plasticity indices to summarise; edit `PPIs <-`     [COMMON]
 #   GWAS   logical            whether GWAS results are present
 # =============================================================================
+options(warn = -1)  # silence warnings even if the project .Rprofile was not loaded
 ## Import causal snp truth data from text files
 library(pheatmap)
 

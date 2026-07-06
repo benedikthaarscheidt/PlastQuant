@@ -14,6 +14,7 @@
 #   range_list            list, default list(full=c(1,50)) sub-ranges to evaluate
 #   score_names           character vector                which indices to correlate
 # =============================================================================
+options(warn = -1)  # silence warnings even if the project .Rprofile was not loaded
 
 suppressPackageStartupMessages({
   library(dplyr)

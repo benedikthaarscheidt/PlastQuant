@@ -11,6 +11,7 @@
 #   the input CSV path (read via read_csv at the top)                                      [COMMON]
 #   stat_cols   character vector  summary-stat columns to use
 # =============================================================================
+options(warn = -1)  # silence warnings even if the project .Rprofile was not loaded
 
 # install.packages(c(
 #   "readr","dplyr","reshape2","ggplot2","scales","Hmisc","broom","RColorBrewer"

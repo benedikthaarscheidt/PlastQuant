@@ -12,6 +12,7 @@
 # PARAMETERS (supplied by 03 / a scenario / your session; see 03_plasticity_scores.R)
 #   NUM_GENOTYPES, HERITABILITY_5TH, CAUSAL_SNP_NUM, USE_GENETICS, OUTPUT_BASE      [COMMON]
 # =============================================================================
+options(warn = -1)  # silence warnings even if the project .Rprofile was not loaded
 
 
 # Script:    regression_sumstats_dataprep.R

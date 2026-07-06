@@ -13,6 +13,7 @@
 #   n_samples   integer vector, default c(2,3,4,5,6,11,26,50)   sample counts
 #   stat_cols   character vector  summary-stat columns to use
 # =============================================================================
+options(warn = -1)  # silence warnings even if the project .Rprofile was not loaded
 
 # here we do a similar robustness analysis as in correlation_resolution.R, however in the regression we additionally consider confounders (the summary statistics) 
 #in order to distinguish effects which occur due to the sampling effect on the summary statistics and might unknowingly effect the slope of the sampling resolution

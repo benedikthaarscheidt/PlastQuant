@@ -20,6 +20,7 @@
 # SEED / USE_GENETICS exist (USE_GENETICS falls back to FALSE further down; SEED, when
 # defined, offsets the RNG seed), so defining them here would change behaviour.
 # =============================================================================
+options(warn = -1)  # silence warnings even if the project .Rprofile was not loaded
 
 library(MASS) # For multivariate normal distributions
 library(ggplot2) # For plotting

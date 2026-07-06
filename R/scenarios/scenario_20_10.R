@@ -14,6 +14,7 @@
 #   CAUSAL_SNP_NUM        = 10    causal SNPs per parameter                       [COMMON]
 #   DO_NOT_PLOT_MAHATTAN  = TRUE  skip Manhattan plots
 # =============================================================================
+options(warn = -1)  # silence warnings even if the project .Rprofile was not loaded
 
 OUTPUT_BASE = here::here("output", "scenario_20_10")
 HERITABILITY_5TH = 1

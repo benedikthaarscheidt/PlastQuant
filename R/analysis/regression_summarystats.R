@@ -16,6 +16,7 @@
 #   k                integer, default 4     number of score clusters
 #   n_perm           integer, default 1000  permutations for the cluster test
 # =============================================================================
+options(warn = -1)  # silence warnings even if the project .Rprofile was not loaded
 
 # Script:    regression_summarystats.R
 # Purpose:   Using a pre‑computed table of summary statistics versus plasticity scores,

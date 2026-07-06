@@ -10,6 +10,7 @@
 # PARAMETERS (edit the named input path / selection assignments in the body)
 #   the input path and index selection are set in the script body.
 # =============================================================================
+options(warn = -1)  # silence warnings even if the project .Rprofile was not loaded
 
 # Script: comprehensive_plasticity_analysis_corrected.R
 # Purpose: Comprehensive analysis of plasticity scores with consistent layout

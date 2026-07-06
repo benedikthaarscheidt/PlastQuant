@@ -11,6 +11,7 @@
 # PARAMETERS (edit the named input path / selection assignments in the body)
 #   the input score path and any index/form selection are set in the script body.
 # =============================================================================
+options(warn = -1)  # silence warnings even if the project .Rprofile was not loaded
 
 
 #this script is for the assembly of the second figure containing the boxplots for the distribution of the scores as well as the clustering results (hclust with kendalll correlation distance as distance metrics) in form of a dendrogram 

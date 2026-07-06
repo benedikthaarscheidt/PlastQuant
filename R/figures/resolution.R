@@ -11,6 +11,7 @@
 # PARAMETERS: inherits 03's parameters via the auto-source; resolution knobs are set in
 #   the body of the script (edit them there).
 # =============================================================================
+options(warn = -1)  # silence warnings even if the project .Rprofile was not loaded
 
 # Purpose:   This script does what regression_sumstats_dataprep.R and regression_summarystats.R do in combination).
 #            For each specified sub‐range of the trait curve and each sampling

@@ -15,6 +15,7 @@
 #   files        character vector  the input CSVs
 #   stat_cols    character vector  summary-stat columns to use
 # =============================================================================
+options(warn = -1)  # silence warnings even if the project .Rprofile was not loaded
 
 library(tidyverse)
 library(patchwork)

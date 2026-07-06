@@ -16,6 +16,7 @@
 #   USE_GENETICS          logical, default TRUE  guarded further down
 #   KEEP_REPLICATES / STRUCTURED_POPULATION / GENETIC_VARIANCES  guarded defaults below
 # =============================================================================
+options(warn = -1)  # silence warnings even if the project .Rprofile was not loaded
 # Original notes:
 # Script:    03_plasticity_scores_maize.R
 # Purpose:   Load all plasticity-score functions (via ppindices), load data from files,
