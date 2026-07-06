@@ -32,7 +32,7 @@ suppressPackageStartupMessages({
 })
 
 # ======================= CONFIG =======================
-in_dir  <- here::here("output", "rank_flops")
+in_dir  <- here::here("data", "rank_flops")
 out_dir <- file.path(in_dir, "derived")
 dir.create(out_dir, recursive = TRUE, showWarnings = FALSE)
 
@@ -42,7 +42,7 @@ AGREE_THR_FULL <- 1.00
 
 # Summary-stats/PS realisations file used in your other figure
 sumstats_path_override <-
-  here::here("output", "regression_summary_stats", "regression_data_full_interval_15_indices_1_16_31_46_50.csv")
+  here::here("data", "regression_summary_stats", "regression_data_full_interval_15_indices_1_16_31_46_50.csv")
 # Adjust columns if your file layout differs:
 sumstats_ps_cols   <- 2:28   # plasticity index realisations (methods)
 sumstats_stat_from <- 29     # first summary-stat column

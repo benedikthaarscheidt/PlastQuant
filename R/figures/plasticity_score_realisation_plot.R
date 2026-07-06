@@ -57,7 +57,7 @@ if (exists("form_ranges") && length(form_ranges) == 3) {
     wave       = 61:80
   )
 
-  df <- read_csv(here::here("output", "regression_summary_stats", "regression_data_full_interval_10_indices_1_11_21_31_41_50.csv"))
+  df <- read_csv(here::here("data", "regression_summary_stats", "regression_data_full_interval_10_indices_1_11_21_31_41_50.csv"))
   na_counts <- colSums(is.na(df))
 
   # keep only columns with zero NAs (there are some in the case of 1 and 2 samples across the environmental gradient as the RN and RNN cannot be calculated in this scenario)

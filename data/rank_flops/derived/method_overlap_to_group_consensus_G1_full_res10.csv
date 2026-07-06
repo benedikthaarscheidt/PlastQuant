@@ -1,0 +1,6 @@
+method,k,overlap_to_consensus,full_agree_consensus
+APC,3,1,TRUE
+APC,5,1,TRUE
+APC,10,1,TRUE
+APC,15,1,TRUE
+APC,20,1,TRUE

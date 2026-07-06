@@ -87,7 +87,7 @@ ensure_dir_exists <- function(file_path) {
 }
 
 # Directories for input data and output
-input_folder  <- here::here("output", "regression_summary_stats")
+input_folder  <- here::here("data", "regression_summary_stats")
 output_folder <- here::here("output", "plots")
 
 ensure_dir_exists(input_folder)

@@ -57,7 +57,7 @@ if (!exists("output_dir")) {
 }
 dir.create(output_dir, recursive = TRUE, showWarnings = FALSE)
 
-regression_data_path <- here::here("output", "regression_summary_stats", "regression_data_full_interval_10_indices_1_11_21_31_41_50.csv")
+regression_data_path <- here::here("data", "regression_summary_stats", "regression_data_full_interval_10_indices_1_11_21_31_41_50.csv")
 maize_scores_path    <- here::here("data", "maize_scores_list.rds")
 
 tau_threshold <- 0.8
