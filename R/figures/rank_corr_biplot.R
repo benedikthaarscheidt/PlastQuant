@@ -47,13 +47,12 @@ if (is_maize && !exists("maize_trait")) {
 }
 maize_pool_all <- !is_maize || is.null(maize_trait) || identical(maize_trait, "all")
 
-if (!exists("output_dir")) {
-  output_dir <- if (is_maize) {
-    suffix <- if (maize_pool_all) "" else paste0("_", maize_trait)
-    file.path(here::here("output", "plasticity_comprehensive_analysis_maize"))
-  } else {
-    here::here("output", "plasticity_comprehensive_analysis")
-  }
+# Always resolve the output directory inside this project. Set unconditionally so a
+# stray `output_dir` left over in the R session can never redirect writes elsewhere.
+output_dir <- if (is_maize) {
+  here::here("output", "plasticity_comprehensive_analysis_maize")
+} else {
+  here::here("output", "plasticity_comprehensive_analysis")
 }
 dir.create(output_dir, recursive = TRUE, showWarnings = FALSE)
 
