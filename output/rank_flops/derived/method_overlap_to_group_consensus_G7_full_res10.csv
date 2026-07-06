@@ -1,0 +1,6 @@
+method,k,overlap_to_consensus,full_agree_consensus
+RSI,3,1,TRUE
+RSI,5,1,TRUE
+RSI,10,1,TRUE
+RSI,15,1,TRUE
+RSI,20,1,TRUE
