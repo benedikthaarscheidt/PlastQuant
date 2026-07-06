@@ -23,7 +23,7 @@ library(lmerTest)
 library(dplyr)   # must come last — re-asserts dplyr::select/count over MASS
 
 
-directory <- here::here("data", "regression_summary_stats")
+directory <- here::here("output", "regression_summary_stats")
 files     <- c(
   "regression_data_full_interval_49_indices_1_50.csv",
   "regression_data_full_interval_25_indices_1_26_50.csv",

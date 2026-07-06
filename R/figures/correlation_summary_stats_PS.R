@@ -37,7 +37,7 @@ library(factoextra)
 
 
 ############################# data reading and computation of the linear regression for the slope heatmaps 
-df <- read_csv(here::here("data", "regression_summary_stats", "regression_data_full_interval_10_indices_1_11_21_31_41_50.csv"))
+df <- read_csv(here::here("output", "regression_summary_stats", "regression_data_full_interval_10_indices_1_11_21_31_41_50.csv"))
 
 
 stat_cols <- c("min","max","mean","median","slope","range","variance","mean_lower","mean_upper")

@@ -25,7 +25,7 @@ library(ggplot2)
 library(forcats)
 library(dplyr)   # must come last — re-asserts dplyr::select/count over MASS
 
-directory   <- here::here("data", "regression_summary_stats")
+directory   <- here::here("output", "regression_summary_stats")
 resolutions <- c(50, 25, 20, 15, 10, 5, 2, 1)
 n_samples   <- c( 2,  3, 4,  5,   6, 11,26,50)
 files       <- c(

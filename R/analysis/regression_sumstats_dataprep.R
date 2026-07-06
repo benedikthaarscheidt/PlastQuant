@@ -59,7 +59,7 @@ ensure_dir_exists <- function(file_path) {
   }
 }
 
-output_folder <- here::here("data", "regression_summary_stats")
+output_folder <- here::here("output", "regression_summary_stats")
 ensure_dir_exists(output_folder)
 
 sampling_intervals <- c(1, 2, 5, 10, 15, 20,25, 49)

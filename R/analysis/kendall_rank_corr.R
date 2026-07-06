@@ -83,7 +83,7 @@ pair_tau <- function(df_long, i, j) {
   dplyr::tibble(score_i = i, score_j = j, correlation = est, p_value = pval, n_common = nrow(ab))
 }
 
-out_dir <- path.expand(here::here("data", "rank_flops"))
+out_dir <- path.expand(here::here("output", "rank_flops"))
 dir.create(out_dir, showWarnings = FALSE, recursive = TRUE)
 
 for (range_name in names(range_list)) {
