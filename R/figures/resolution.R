@@ -112,8 +112,11 @@ for (range_name in names(range_list)) {
     global_traits <- length(indices)
     traits <- global_traits  
     env=seq_along(indices)
+    # The resolution experiment runs without genetics; set these unconditionally so
+    # 03 does not stop (and never writes outside the project via a stale OUTPUT_BASE).
+    USE_GENETICS <- FALSE
+    OUTPUT_BASE  <- here::here("output", "no_genetics_output")
     # Source the processing script that uses the globals.
-    # head3.R is modified to use global_sampling_interval, global_start_index, global_end_index, and traits.
     source(here::here("R", "03_plasticity_scores.R"))
     source(here::here("R", "analysis", "summary_stats_vs_scores.R"))
     # After sourcing, all preprocessed data and score objects (e.g. CV_t, RN, etc.) are recalculated.
