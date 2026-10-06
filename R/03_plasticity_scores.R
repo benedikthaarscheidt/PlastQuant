@@ -26,6 +26,8 @@
 #   NUM_GENOTYPES         integer, default 800   number of genotypes (line 100)
 #   N_MEAS_POINTS         integer, default 6     measurement points per reaction norm (line 161)
 #   KEEP_REPLICATES       logical, default (see lines 97/179)  keep replicate rows
+#   RESIDUAL_VAR          numeric, default 0     variance of iid residual error added to every
+#                                                observation before averaging (0 = none)
 #   STRUCTURED_POPULATION logical, default FALSE nested population structure (line 98)
 #   GENETIC_VARIANCES     logical/vector         per-parameter genetic variances (from 01)
 #   POLY_MODE/STRENGTH/COUNTS  causal-effect controls passed through to 01
@@ -467,6 +469,22 @@ combine_traits_with_groups <- function(processed_data_list) {
 
 
 ##############################################################################
+
+# Residual (measurement) error: independent N(0, RESIDUAL_VAR) noise on every observation,
+# added once here before averaging so both preprocess_data() passes below see the same data.
+if (!exists("RESIDUAL_VAR")) RESIDUAL_VAR <- 0
+add_residual <- function(data) {
+  data$Trait <- data$Trait + rnorm(nrow(data), 0, sqrt(RESIDUAL_VAR))
+  data$Trait[data$Trait < 0] <- 0 # keep traits non-negative, as in the generators
+  data
+}
+if (RESIDUAL_VAR > 0) {
+  message("Adding residual error with variance ", RESIDUAL_VAR)
+  linear_data <- add_residual(linear_data)
+  gaussian_data <- add_residual(gaussian_data)
+  sinusoidal_data <- add_residual(sinusoidal_data)
+  wave_data <- add_residual(wave_data)
+}
 
 # Now call preprocess_data with the indices parameter.
 processed_data_list <- list(

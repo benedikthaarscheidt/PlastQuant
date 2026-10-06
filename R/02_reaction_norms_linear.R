@@ -128,6 +128,7 @@ create_individual_norm <- function(i, VE_vec, VS_vec, rES, num_individuals_per_g
     
     # The replicate curve is the mother curve plus the individual deviation
     replicate_curve <- fixed_effect + deviation
+    replicate_curve[replicate_curve < 0] <- 0 # same non-negativity as the mother curve
     
     data.frame(
       Genotype = i,
