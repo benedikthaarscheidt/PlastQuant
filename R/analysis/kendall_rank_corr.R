@@ -1,19 +1,17 @@
 # =============================================================================
 # kendall_rank_corr.R — Kendall rank correlations between indices
 # =============================================================================
-# WHAT IT DOES: Computes Kendall rank correlations between the plasticity indices over
-#   the chosen sampling intervals and reaction-norm ranges. Auto-sources
-#   03_plasticity_scores.R when the scores are not already loaded.
-# REQUIRES:     POPULATION_DIR: a simulated population folder with at least
-#               global_initial_length (50) measurement points (03 is sourced on it).
+# WHAT IT DOES: Ranks the genotypes under every plasticity index and computes the
+#   Kendall rank correlation of every index pair, for the population at its own
+#   sampling resolution.
+# REQUIRES:     POPULATION_DIR with its PPIs (compute_population_ppis()).
 # PRODUCES:     Rank-correlation tables under POPULATION_DIR/analyses/rank_flops/.
-# HOW TO RUN:   setwd("~/PlastQuant"); source(here::here("R","analysis","kendall_rank_corr.R"))
+# HOW TO RUN:   setwd("~/PlastQuant")
+#               POPULATION_DIR <- here::here("output", "populations", "ppi_comparison")
+#               source(here::here("R","analysis","kendall_rank_corr.R"))
 # -----------------------------------------------------------------------------
 # PARAMETERS (edit the named assignment near the top of the script)
 #   POPULATION_DIR        path, REQUIRED                  population folder               [COMMON]
-#   sampling_intervals    integer vector, default c(10)   measurement intervals to test   [COMMON]
-#   global_initial_length integer, default 50             full reaction-norm length
-#   range_list            list, default list(full=c(1,50)) sub-ranges to evaluate
 #   score_names           character vector                which indices to correlate
 # =============================================================================
 options(warn = -1)  # silence warnings even if the project .Rprofile was not loaded
@@ -24,10 +22,6 @@ suppressPackageStartupMessages({
   library(readr)
   library(purrr)
 })
-
-sampling_intervals <- c(10)
-global_initial_length <- 50
-range_list <- list(full = c(1, global_initial_length))
 
 score_names <- c("CV_t","RN","RNN","D_slope","RC","gPi","PPF","PPi","PImd","PILSM","RTR","PIR","RDPI","ESPI","ESPIID","PSI","RPI","PQ","PR","NRW","ESP","CEV","PFI","APC","SI","RSI","EVS")
 
@@ -86,51 +80,40 @@ pair_tau <- function(df_long, i, j) {
   dplyr::tibble(score_i = i, score_j = j, correlation = est, p_value = pval, n_common = nrow(ab))
 }
 
-# Needs a population with dense curves (indices up to global_initial_length)
-if (!exists("POPULATION_DIR")) stop("set POPULATION_DIR: a simulated population with at least ", global_initial_length, " measurement points")
+if (!exists("POPULATION_DIR")) stop("set POPULATION_DIR (a population folder) first")
 source(here::here("R", "pipeline", "load_pipeline.R"))
-require_population_points(POPULATION_DIR, global_initial_length)
 out_dir <- file.path(POPULATION_DIR, "analyses", "rank_flops")
 dir.create(out_dir, showWarnings = FALSE, recursive = TRUE)
 
-for (range_name in names(range_list)) {
-  global_start_index <- range_list[[range_name]][1]
-  global_end_index   <- range_list[[range_name]][2]
-  for (interval in sampling_intervals) {
-    indices <- unique(c(seq(global_start_index, global_end_index, by = interval), global_end_index))
-    global_sampling_interval <- interval
-    global_traits <- length(indices)
-    traits <- global_traits
-    env <- seq_along(indices)
-    source(here::here("R", "03_plasticity_scores.R"))
-    scores_list <- list()
-    for (nm in score_names) {
-      obj <- get0(nm, ifnotfound = NULL)
-      if (!is.null(obj)) scores_list[[nm]] <- obj
-    }
-    if (length(scores_list) < 2) stop("Fewer than 2 score objects available after sourcing head3.R")
-    x_long <- purrr::imap_dfr(scores_list, ~std_index_long(.x, .y))
-    if (nrow(x_long) == 0) stop("No valid score rows produced")
-    rank_mat <- x_long |>
-      dplyr::group_by(index) |>
-      dplyr::mutate(rank = base::rank(-score, ties.method = "average")) |>
-      dplyr::ungroup() |>
-      dplyr::select(genotype_id, index, rank) |>
-      dplyr::distinct() |>
-      tidyr::pivot_wider(names_from = index, values_from = rank) |>
-      dplyr::arrange(genotype_id) |>
-      dplyr::mutate(gid = dplyr::row_number()) |>
-      dplyr::relocate(gid, .before = genotype_id)
-    idxs <- x_long |> dplyr::distinct(index) |> dplyr::arrange(index) |> dplyr::pull(index)
-    pairs <- if (length(idxs) >= 2) utils::combn(idxs, 2, simplify = FALSE) else list()
-    pairs_tbl <- purrr::map_dfr(pairs, ~pair_tau(x_long, .x[1], .x[2])) |>
-      dplyr::mutate(resolution = interval, .before = 1)
-    tag <- paste0(range_name, "_res", interval)
-    readr::write_csv(pairs_tbl, file.path(out_dir, paste0("kendall_pairs_", tag, ".csv")))
-    readr::write_csv(rank_mat,  file.path(out_dir, paste0("ranks_matrix_combined_", tag, ".csv")))
-    readr::write_csv(rank_mat |> dplyr::select(gid, genotype_id), file.path(out_dir, paste0("genotype_map_", tag, ".csv")))
-    message("Saved: ", file.path(out_dir, paste0("kendall_pairs_", tag, ".csv")))
-    message("Saved: ", file.path(out_dir, paste0("ranks_matrix_combined_", tag, ".csv")))
-    message("Saved: ", file.path(out_dir, paste0("genotype_map_", tag, ".csv")))
-  }
+# Scores of the population at its own resolution (one row per genotype)
+score_tab <- population_score_table(POPULATION_DIR)
+n_points <- nrow(read.csv(file.path(POPULATION_DIR, "data", "environments.csv")))
+genotype_ids <- paste(score_tab$Shape, score_tab$Genotype, sep = "_")
+scores_list <- list()
+for (nm in intersect(score_names, names(score_tab))) {
+  scores_list[[nm]] <- data.frame(genotype_id = genotype_ids, score = score_tab[[nm]])
 }
+if (length(scores_list) < 2) stop("Fewer than 2 scores in ", POPULATION_DIR)
+x_long <- purrr::imap_dfr(scores_list, ~std_index_long(.x, .y))
+if (nrow(x_long) == 0) stop("No valid score rows produced")
+rank_mat <- x_long |>
+  dplyr::group_by(index) |>
+  dplyr::mutate(rank = base::rank(-score, ties.method = "average")) |>
+  dplyr::ungroup() |>
+  dplyr::select(genotype_id, index, rank) |>
+  dplyr::distinct() |>
+  tidyr::pivot_wider(names_from = index, values_from = rank) |>
+  dplyr::arrange(genotype_id) |>
+  dplyr::mutate(gid = dplyr::row_number()) |>
+  dplyr::relocate(gid, .before = genotype_id)
+idxs <- x_long |> dplyr::distinct(index) |> dplyr::arrange(index) |> dplyr::pull(index)
+pairs <- if (length(idxs) >= 2) utils::combn(idxs, 2, simplify = FALSE) else list()
+pairs_tbl <- purrr::map_dfr(pairs, ~pair_tau(x_long, .x[1], .x[2])) |>
+  dplyr::mutate(resolution = n_points, .before = 1)
+tag <- paste0("population_res", n_points)
+readr::write_csv(pairs_tbl, file.path(out_dir, paste0("kendall_pairs_", tag, ".csv")))
+readr::write_csv(rank_mat,  file.path(out_dir, paste0("ranks_matrix_combined_", tag, ".csv")))
+readr::write_csv(rank_mat |> dplyr::select(gid, genotype_id), file.path(out_dir, paste0("genotype_map_", tag, ".csv")))
+message("Saved: ", file.path(out_dir, paste0("kendall_pairs_", tag, ".csv")))
+message("Saved: ", file.path(out_dir, paste0("ranks_matrix_combined_", tag, ".csv")))
+message("Saved: ", file.path(out_dir, paste0("genotype_map_", tag, ".csv")))

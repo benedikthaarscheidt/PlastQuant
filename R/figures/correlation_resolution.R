@@ -3,12 +3,15 @@
 # =============================================================================
 # WHAT IT DOES: Plots how index correlations change with the sampling resolution of the
 #   reaction norm.
-# REQUIRES:     Regression-summary CSVs under output/regression_summary_stats/.
-# PRODUCES:     Correlation-vs-resolution figure(s).
-# HOW TO RUN:   setwd("~/PlastQuant"); source(here::here("R","figures","correlation_resolution.R"))
+# REQUIRES:     The tables of regression_sumstats_dataprep.R in
+#               POPULATION_DIR/analyses/regression_summary_stats/.
+# PRODUCES:     boxplot_resolution.pdf, slope_heatmap_resolution.pdf in POPULATION_DIR/plots/.
+# HOW TO RUN:   setwd("~/PlastQuant")
+#               POPULATION_DIR <- here::here("output", "populations", "ppi_comparison")
+#               source(here::here("R","figures","correlation_resolution.R"))
 # -----------------------------------------------------------------------------
 # PARAMETERS (edit the named assignment near the top of the script)
-#   directory    path, default output/regression_summary_stats  input CSV folder          [COMMON]
+#   POPULATION_DIR  path, REQUIRED (set before sourcing)   population folder                [COMMON]
 #   resolutions  integer vector, default c(50,25,20,15,10,5,2,1) sampling resolutions
 #   n_samples    integer vector, default c(2,3,4,5,6,11,26,50)   sample counts
 #   sel_idx      integer vector, default c(1,3,7,8)   which resolutions to plot            [COMMON]
@@ -26,7 +29,8 @@ library(ggplot2)
 library(forcats)
 library(dplyr)   # must come last — re-asserts dplyr::select/count over MASS
 
-directory   <- here::here("output", "regression_summary_stats")
+if (!exists("POPULATION_DIR")) stop("set POPULATION_DIR (a population folder with the tables of regression_sumstats_dataprep.R) first")
+directory   <- file.path(POPULATION_DIR, "analyses", "regression_summary_stats")
 resolutions <- c(50, 25, 20, 15, 10, 5, 2, 1)
 n_samples   <- c( 2,  3, 4,  5,   6, 11,26,50)
 files       <- c(
@@ -115,13 +119,13 @@ combined=ggplot(df_all, aes(x = metric, y = value, fill = type)) +
     panel.grid.minor.x = element_blank()
   )
 
-path <- here::here("output", "plots")
+path <- file.path(POPULATION_DIR, "plots")
 if (!dir.exists(dirname(path))) {
   dir.create(dirname(path), recursive = TRUE)
 }
 ggsave(create.dir = TRUE, 
   combined,
-  filename = file.path(here::here("output", "plots", "boxplot_resolution.pdf")),
+  filename = file.path(path, "boxplot_resolution.pdf"),
   width    = 6.3,
   height   = 8,
   dpi      = 900
@@ -350,7 +354,7 @@ p_slope_heat <- ggplot(slope_heat, aes(x = Stat, y = PS, fill = slope)) +
 print(p_slope_heat)
 
 ggsave(create.dir = TRUE, 
-  filename = here::here("output", "plots", "slope_heatmap_resolution.pdf"),
+  filename = file.path(path, "slope_heatmap_resolution.pdf"),
   plot     = p_slope_heat,
   width    = 6.3,
   height   = 7,

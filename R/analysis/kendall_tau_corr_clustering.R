@@ -3,12 +3,16 @@
 # =============================================================================
 # WHAT IT DOES: Reads the rank-agreement ("rank flops") tables and clusters the
 #   plasticity indices by their Kendall-tau agreement across top-k rankings.
-# REQUIRES:     Rank-flop CSVs under output/rank_flops/ (produced upstream).
-# PRODUCES:     Clustering summaries/plots of index agreement.
-# HOW TO RUN:   setwd("~/PlastQuant"); source(here::here("R","analysis","kendall_tau_corr_clustering.R"))
+# REQUIRES:     kendall_rank_corr.R run on POPULATION_DIR (analyses/rank_flops/); the
+#               summary statistics are those of the population at its own resolution.
+# PRODUCES:     Clustering summaries/plots of index agreement in
+#               POPULATION_DIR/analyses/rank_flops/derived/.
+# HOW TO RUN:   setwd("~/PlastQuant")
+#               POPULATION_DIR <- here::here("output", "populations", "ppi_comparison")
+#               source(here::here("R","analysis","kendall_tau_corr_clustering.R"))
 # -----------------------------------------------------------------------------
 # PARAMETERS (edit the named assignment near the top of the script)
-#   in_dir          path, default output/rank_flops   input rank-agreement files          [COMMON]
+#   POPULATION_DIR  path, REQUIRED (set before sourcing)   population folder              [COMMON]
 #   tau_threshold   numeric, default 0.8              Kendall-tau agreement threshold      [COMMON]
 #   topk_values     integer vector, default c(3,5,10,15,20)  top-k cutoffs to evaluate     [COMMON]
 #   AGREE_THR_FULL  numeric, default 1.00             full-agreement threshold
@@ -33,7 +37,8 @@ suppressPackageStartupMessages({
 })
 
 # ======================= CONFIG =======================
-in_dir  <- here::here("output", "rank_flops")
+if (!exists("POPULATION_DIR")) stop("set POPULATION_DIR (a population folder) first")
+in_dir  <- file.path(POPULATION_DIR, "analyses", "rank_flops")
 out_dir <- file.path(in_dir, "derived")
 dir.create(out_dir, recursive = TRUE, showWarnings = FALSE)
 
@@ -42,11 +47,11 @@ topk_values  <- c(3,5,10,15,20)
 AGREE_THR_FULL <- 1.00
 
 # Summary-stats/PS realisations file used in your other figure
-sumstats_path_override <-
-  here::here("output", "regression_summary_stats", "regression_data_full_interval_15_indices_1_16_31_46_50.csv")
-# Adjust columns if your file layout differs:
-sumstats_ps_cols   <- 2:28   # plasticity index realisations (methods)
-sumstats_stat_from <- 29     # first summary-stat column
+# Scores and summary statistics of the population at its own resolution
+source(here::here("R", "pipeline", "load_pipeline.R"))
+sumstats_score_table <- population_score_table(POPULATION_DIR)
+# Columns: first the genotype, then the plasticity indices, then these statistics
+sumstats_stat_names <- c("min", "max", "mean", "median", "slope", "range", "variance", "mean_lower", "mean_upper")
 # ======================================================
 
 
@@ -337,11 +342,12 @@ plot_threshold_sweep <- function(sweep_df, tag) {
 
 
 # ====== SUMMARY-STATS LINK (+ PS–PS τ/ρ/r HEATMAPS) ======
-read_sumstats_and_cor <- function(path_to_csv, ps_cols, stat_start) {
-  df <- read_csv(path_to_csv, show_col_types = FALSE)
+read_sumstats_and_cor <- function(score_table, stat_names) {
+  df <- cbind(Genotype = paste(score_table$Shape, score_table$Genotype, sep = "_"),
+              score_table[, setdiff(names(score_table), c("Shape", "Genotype"))])
   
-  PS      <- df[, ps_cols,   drop = FALSE]
-  sumstat <- df[, stat_start:ncol(df), drop = FALSE]
+  PS      <- df[, setdiff(colnames(df)[-1], stat_names), drop = FALSE]
+  sumstat <- df[, stat_names, drop = FALSE]
   
   # Method × Stat Kendall (for interpretability)
   ct_ms <- psych::corr.test(as.matrix(cbind(PS, sumstat)),
@@ -593,10 +599,8 @@ for (pairs_path in pairs_files) {
   print(plot_topk_overlap_heatmap_matrix(Om, tag, k_show))
   
   # ================= PS–STAT LINK + PS–PS CORR HEATMAPS =================
-  if (!is.null(sumstats_path_override) && file.exists(sumstats_path_override)) {
-    ss <- read_sumstats_and_cor(sumstats_path_override,
-                                ps_cols = sumstats_ps_cols,
-                                stat_start = sumstats_stat_from)
+  if (!is.null(sumstats_score_table)) {
+    ss <- read_sumstats_and_cor(sumstats_score_table, stat_names = sumstats_stat_names)
     cor_df    <- ss$cor_df
     r_ms      <- ss$r_ms
     r_mm_tau  <- ss$r_mm_tau
@@ -641,7 +645,7 @@ for (pairs_path in pairs_files) {
                                    fill_label = "r"))
   } else {
     grid::grid.newpage()
-    grid::grid.text("Summary-statistics file not found.\nSet 'sumstats_path_override' to your CSV.",
+    grid::grid.text("No summary statistics available.",
                     x = 0.5, y = 0.5, gp = grid::gpar(cex = 1))
   }
   # ==================================================================

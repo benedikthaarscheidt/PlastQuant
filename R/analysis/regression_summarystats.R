@@ -4,14 +4,15 @@
 # WHAT IT DOES: For each plasticity score, fits full/simple/ridge regression models on
 #   the nine summary-stat predictors, builds coefficient tables with significance stars
 #   and R^2, clusters scores, and writes per-score and combined diagnostic PDFs.
-# REQUIRES:     regression_sumstats_dataprep.R MUST be run first — this script reads its
-#               combined CSV from output/regression_summary_stats/.
-# PRODUCES:     Coefficient tables and diagnostic PDFs under output/plots/.
-# HOW TO RUN:   setwd("~/PlastQuant"); source(here::here("R","analysis","regression_summarystats.R"))
+# REQUIRES:     POPULATION_DIR with its PPIs (compute_population_ppis()); the scores and
+#               summary statistics are those of the population's own sampling resolution.
+# PRODUCES:     Coefficient tables and diagnostic PDFs under POPULATION_DIR/plots/regression_summary_stats/.
+# HOW TO RUN:   setwd("~/PlastQuant")
+#               POPULATION_DIR <- here::here("output", "populations", "ppi_comparison")
+#               source(here::here("R","analysis","regression_summarystats.R"))
 # -----------------------------------------------------------------------------
 # PARAMETERS (edit the named assignment near the top of the script)
-#   input_folder     path, default output/regression_summary_stats  where the CSV is read [COMMON]
-#   output_folder    path, default output/plots                     where PDFs are written [COMMON]
+#   POPULATION_DIR   path, REQUIRED (set before sourcing)   population folder               [COMMON]
 #   predictor_names  character vector  the summary-stat predictors used
 #   k                integer, default 4     number of score clusters
 #   n_perm           integer, default 1000  permutations for the cluster test
@@ -88,16 +89,15 @@ ensure_dir_exists <- function(file_path) {
 }
 
 # Directories for input data and output
-input_folder  <- here::here("output", "regression_summary_stats")
-output_folder <- here::here("output", "plots")
+if (!exists("POPULATION_DIR")) stop("set POPULATION_DIR (a population folder) first")
+source(here::here("R", "pipeline", "load_pipeline.R"))
+output_folder <- file.path(POPULATION_DIR, "plots", "regression_summary_stats")
+dir.create(output_folder, recursive = TRUE, showWarnings = FALSE)
 
-ensure_dir_exists(input_folder)
-ensure_dir_exists(output_folder)
-
-# Load combined data
-combined_file <- file.path(input_folder,
-                           "regression_data_full_interval_2_indices_1_3_5_7_9_11_13_15_17_19_21_23_25_27_29_31_33_35_37_39_41_43_45_47_49_50.csv")
-combined_df <- read.csv(combined_file, row.names = 1)
+# Scores and summary statistics of the population at its own resolution (one row per genotype)
+score_tab <- population_score_table(POPULATION_DIR)
+combined_df <- score_tab[, setdiff(names(score_tab), c("Shape", "Genotype"))]
+rownames(combined_df) <- paste(score_tab$Shape, score_tab$Genotype, sep = "_")
 
 # Predictor and score names
 predictor_names <- c("min","max","mean","median","slope","range",

@@ -2,10 +2,13 @@
 # resolution.R — resolution experiment (dataprep + regression combined)
 # =============================================================================
 # WHAT IT DOES: Runs, in one pass, what regression_sumstats_dataprep.R and
-#   regression_summarystats.R do together, for the resolution experiment. Auto-sources
-#   03_plasticity_scores.R and analysis/summary_stats_vs_scores.R.
-# REQUIRES:     03 (so H2 / CAUSAL_SNP_NUM / OUTPUT_BASE must be set).
-# PRODUCES:     Resolution-experiment tables/figures under output/.
+#   regression_summarystats.R do together, for the resolution experiment: Kendall
+#   correlations (permutation test) between every score and every summary statistic,
+#   pooled over the forms and per form, for every sub-range and sampling interval.
+# REQUIRES:     POPULATION_DIR: a simulated population folder; its reaction norms are
+#               sampled at every range x interval of a grid of global_initial_length points.
+# PRODUCES:     correlations_<range>_interval_<i>_indices_<...>.csv in
+#               POPULATION_DIR/analyses/correlation_summary_stats/ (read by plotting_resolution.R).
 # HOW TO RUN:   setwd("~/PlastQuant"); source(here::here("R","figures","resolution.R"))
 # -----------------------------------------------------------------------------
 # PARAMETERS: inherits 03's parameters via the auto-source; resolution knobs are set in
@@ -16,9 +19,9 @@ options(warn = -1)  # silence warnings even if the project .Rprofile was not loa
 # Purpose:   This script does what regression_sumstats_dataprep.R and regression_summarystats.R do in combination).
 #            For each specified sub‐range of the trait curve and each sampling
 #            interval:
-#            1. Re‐sample the trait data at the new resolution and sub‐range
-#               (via head3.R),
-#            2. Re‐compute an array of plasticity scores (via head3.R),
+#            1. Sample the population's reaction norms at the new resolution and
+#               sub‐range (sample_population(); same genotypes and plants),
+#            2. Compute the plasticity scores (compute_ppis()),
 #            3. Compute nine summary statistics on each re‐sampled reaction norm,
 #            4. Test Correlation (with 999 permutations) between every score and
 #               every summary statistic:
@@ -32,8 +35,8 @@ options(warn = -1)  # silence warnings even if the project .Rprofile was not loa
 #   • sampling_intervals: vector of step‐sizes for sampling the curve
 #   • global_initial_length: full vector length (default 50)
 #   • range_list: named list of (start, end) index pairs
-#   • head3.R: re‐sampling & score‐calculation script (uses globals)
-#   • summary_stats_vs_scores.R: prepares summary‐stat and correlation functions
+#   • POPULATION_DIR: the simulated population folder
+#   • R/pipeline: sampling, PPIs, summary_statistics(), calc_similarity_perm()
 #
 # Outputs:
 #   • One CSV per (range × interval) containing columns:
@@ -82,8 +85,14 @@ sig_stars <- function(p) {
   }
 }
 
-# Define summary statistic names (produced by compute_summary_stats)
+# Define summary statistic names (produced by summary_statistics())
 stat_names <- c("min", "max", "mean", "median", "slope", "range", "variance", "mean_lower", "mean_upper")
+
+# The population whose reaction norms are sampled at every design
+if (!exists("POPULATION_DIR")) stop("set POPULATION_DIR (a simulated population folder) first")
+source(here::here("R", "pipeline", "load_pipeline.R"))
+correlation_dir <- file.path(POPULATION_DIR, "analyses", "correlation_summary_stats")
+dir.create(correlation_dir, recursive = TRUE, showWarnings = FALSE)
 
 # Container to track output CSV filenames
 csv_files <- c()
@@ -104,84 +113,35 @@ for (range_name in names(range_list)) {
     # Set global sampling interval
     global_sampling_interval <- interval
     # Compute the effective indices within the specified range:
-    indices <- unique(c(seq(global_start_index, global_end_index, by = global_sampling_interval),
-                        global_end_index))
+    indices <- grid_design(global_start_index, global_end_index, global_sampling_interval)
     
     #print(indices)
     
-    global_traits <- length(indices)
-    traits <- global_traits  
-    env=seq_along(indices)
-    # Reaction norms from the simulation model; only the curves are used here, so a
-    # small SNP panel is enough. The indices refer to a curve of global_initial_length points.
-    H2 <- 0.4; CAUSAL_SNP_NUM <- 5; NUM_SNPs <- 2000; N_MEAS_POINTS <- global_initial_length
-    OUTPUT_BASE <- here::here("output", "resolution_simulation")
-    # Source the processing script that uses the globals.
-    source(here::here("R", "03_plasticity_scores.R"))
-    source(here::here("R", "analysis", "summary_stats_vs_scores.R"))
-    # After sourcing, all preprocessed data and score objects (e.g. CV_t, RN, etc.) are recalculated.
-    
-    # Build the scores list from the computed objects
-    scores_list <- list(
-      CV_t = CV_t,
-      RN = RN,
-      RNN = RNN,
-      D_slope = D_slope,
-      RC = RC,
-      gPi = gPi,
-      PPF = PPF,
-      PPi = PPi,
-      PImd = PImd,
-      PILSM = PILSM,
-      RTR = RTR,
-      PIR = PIR,
-      RDPI = RDPI,
-      ESPI = ESPI,
-      ESPIID = ESPIID,
-      PSI = PSI,
-      RPI = RPI,
-      PQ = PQ,
-      PR = PR,
-      NRW = NRW,
-      ESP = ESP,
-      CEV = CEV,
-      PFI = PFI,
-      APC = APC,
-      SI = SI,
-      RSI = RSI,
-      EVS = EVS
-    )
-    
-    # Combine reaction norm matrices for each genotype form.
-    # (Assumes head3.R produces lists: linear, gaussian, sinusoidal, wave)
-    linear_matrix   <- do.call(rbind, linear)
-    gaussian_matrix <- do.call(rbind, gaussian)
-    sinusoidal_matrix <- do.call(rbind, sinusoidal)
-    wave_matrix     <- do.call(rbind, wave)
-    
-    rn_matrix_list <- list(
-      linear = linear_matrix,
-      gaussian = gaussian_matrix,
-      sinusoidal = sinusoidal_matrix,
-      wave = wave_matrix
-    )
-    
+    # The population's reaction norms sampled at this design (same genotypes and plants)
+    measured <- sample_population(POPULATION_DIR, t = design_points(indices, global_initial_length))
     genotype_forms <- c("linear", "gaussian", "sinusoidal", "wave")
-    
+
+    # The 27 plasticity scores of this analysis (all PPIs except the population-level FW)
+    scores_list <- compute_ppis(measured$phenotypes, measured$environments, exclude = "FW")
+
+    # Replicate-mean reaction norm matrices of every genotype form (rows in the order of the scores)
+    rn_matrix_list <- lapply(setNames(genotype_forms, genotype_forms), function(form) {
+      replicate_means(measured$phenotypes[[form]], measured$environments)
+    })
+
     # Helper: extract score vector for a given genotype form.
     prepare_score_vector <- function(score_df, genotype_form) {
       subset(score_df, score_df[, "Type"] == genotype_form)[, "Score"]
     }
-    
+
     # For global analysis, combine summary stats from all genotype forms.
     combined_stats <- data.frame()
     for (form in genotype_forms) {
-      rn_matrix <- rn_matrix_list[[form]]
-      form_stats <- compute_summary_stats(rn_matrix)
+      form_stats <- summary_statistics(rn_matrix_list[[form]], measured$environments)
       form_stats$Form <- form
       combined_stats <- rbind(combined_stats, form_stats)
     }
-    
+
     # Initialize containers for correlation results.
     # Global analysis: one row per (score, summary stat)
     global_results <- data.frame()
@@ -216,8 +176,7 @@ for (range_name in names(range_list)) {
       score_df <- scores_list[[score_name]]
       for (form in genotype_forms) {
         score_vec <- as.numeric(as.character(prepare_score_vector(score_df, form)))
-        rn_matrix <- rn_matrix_list[[form]]
-        stats_df <- compute_summary_stats(rn_matrix)
+        stats_df <- summary_statistics(rn_matrix_list[[form]], measured$environments)
         for (stat in stat_names) {
           test <- calc_similarity_perm(score_vec, stats_df[[stat]], method = "kendall", n_perm = 999)
           local_results <- rbind(local_results, data.frame(
@@ -237,7 +196,7 @@ for (range_name in names(range_list)) {
     all_results <- rbind(global_results, local_results)
     
     # Save the results into a CSV file whose name includes the sampling interval and range label.
-    csv_filename <- paste0("correlations_", range_name, "_interval_", interval, "_indices_", paste(indices, collapse = "_"), ".csv")
+    csv_filename <- file.path(correlation_dir, paste0("correlations_", range_name, "_interval_", interval, "_indices_", paste(indices, collapse = "_"), ".csv"))
     write.csv(all_results, file = csv_filename, row.names = FALSE)
     message("CSV saved as ", csv_filename)
     csv_files <- c(csv_files, csv_filename)

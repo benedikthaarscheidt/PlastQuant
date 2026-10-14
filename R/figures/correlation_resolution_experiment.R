@@ -3,12 +3,15 @@
 # =============================================================================
 # WHAT IT DOES: A resolution-robustness analysis like correlation_resolution.R, but with
 #   the summary statistics included in the regression as confounders.
-# REQUIRES:     Regression-summary CSVs under output/regression_summary_stats/.
-# PRODUCES:     Resolution-experiment figure(s).
-# HOW TO RUN:   setwd("~/PlastQuant"); source(here::here("R","figures","correlation_resolution_experiment.R"))
+# REQUIRES:     The tables of regression_sumstats_dataprep.R in
+#               POPULATION_DIR/analyses/regression_summary_stats/.
+# PRODUCES:     confoundermodel_sumstats.pdf in POPULATION_DIR/plots/.
+# HOW TO RUN:   setwd("~/PlastQuant")
+#               POPULATION_DIR <- here::here("output", "populations", "ppi_comparison")
+#               source(here::here("R","figures","correlation_resolution_experiment.R"))
 # -----------------------------------------------------------------------------
 # PARAMETERS (edit the named assignment near the top of the script)
-#   directory   path, default output/regression_summary_stats  input CSV folder           [COMMON]
+#   POPULATION_DIR  path, REQUIRED (set before sourcing)   population folder                [COMMON]
 #   files       character vector  the input CSVs
 #   n_samples   integer vector, default c(2,3,4,5,6,11,26,50)   sample counts
 #   stat_cols   character vector  summary-stat columns to use
@@ -24,7 +27,8 @@ library(lmerTest)
 library(dplyr)   # must come last — re-asserts dplyr::select/count over MASS
 
 
-directory <- here::here("output", "regression_summary_stats")
+if (!exists("POPULATION_DIR")) stop("set POPULATION_DIR (a population folder with the tables of regression_sumstats_dataprep.R) first")
+directory <- file.path(POPULATION_DIR, "analyses", "regression_summary_stats")
 files     <- c(
   "regression_data_full_interval_49_indices_1_50.csv",
   "regression_data_full_interval_25_indices_1_26_50.csv",
@@ -167,7 +171,7 @@ p_forest <- ggplot(plot_tbl, aes(x = estimate, y = variable, colour = class)) +
 
 print(p_forest)
 
-path <- here::here("output", "plots")
+path <- file.path(POPULATION_DIR, "plots")
 if (!dir.exists(path)) dir.create(path, recursive = TRUE)
 
 ggsave(create.dir = TRUE, 

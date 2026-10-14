@@ -3,12 +3,15 @@
 # =============================================================================
 # WHAT IT DOES: Renders correlation panels between the reaction-norm summary statistics
 #   and the plasticity scores.
-# REQUIRES:     A regression-data CSV under output/regression_summary_stats/.
-# PRODUCES:     Correlation-panel figure(s).
-# HOW TO RUN:   setwd("~/PlastQuant"); source(here::here("R","figures","correlation_summary_stats_PS.R"))
+# REQUIRES:     POPULATION_DIR with its PPIs (compute_population_ppis()); scores and
+#               summary statistics at the population's own sampling resolution.
+# PRODUCES:     Correlation-panel figures in POPULATION_DIR/plots/.
+# HOW TO RUN:   setwd("~/PlastQuant")
+#               POPULATION_DIR <- here::here("output", "populations", "ppi_comparison")
+#               source(here::here("R","figures","correlation_summary_stats_PS.R"))
 # -----------------------------------------------------------------------------
 # PARAMETERS (edit the named assignment near the top of the script)
-#   the input CSV path (read via read_csv at the top)                                      [COMMON]
+#   POPULATION_DIR  path, REQUIRED (set before sourcing)   population folder                [COMMON]
 #   stat_cols   character vector  summary-stat columns to use
 # =============================================================================
 options(warn = -1)  # silence warnings even if the project .Rprofile was not loaded
@@ -38,7 +41,14 @@ library(factoextra)
 
 
 ############################# data reading and computation of the linear regression for the slope heatmaps 
-df <- read_csv(here::here("output", "regression_summary_stats", "regression_data_full_interval_10_indices_1_11_21_31_41_50.csv"))
+# Scores and summary statistics of the population at its own resolution:
+# first column the genotype, then the scores, then the summary statistics
+if (!exists("POPULATION_DIR")) stop("set POPULATION_DIR (a population folder) first")
+source(here::here("R", "pipeline", "load_pipeline.R"))
+score_tab <- population_score_table(POPULATION_DIR)
+df <- tibble::as_tibble(cbind(Genotype = paste(score_tab$Shape, score_tab$Genotype, sep = "_"),
+                              score_tab[, setdiff(names(score_tab), c("Shape", "Genotype"))]))
+plots_dir <- population_subdir(POPULATION_DIR, "plots")
 
 
 stat_cols <- c("min","max","mean","median","slope","range","variance","mean_lower","mean_upper")
@@ -172,7 +182,7 @@ p_slope <- ggplot(slope_df, aes(x = Stat, y = PS, fill = precision)) +
   theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1))
 
 print(p_slope)
-#ggsave(create.dir = TRUE, here::here("output", "plots", "scatter_plots", "heatmap_slope_with_stars.png"), p_slope, width = 12, height = 9, dpi = 300)
+#ggsave(create.dir = TRUE, file.path(plots_dir, "scatter_plots", "heatmap_slope_with_stars.png"), p_slope, width = 12, height = 9, dpi = 300)
 
 ################################################################ this creates scatter plots for each and every combination of summary stat and plasticity score --> linear regression plot 
 # I didnt use this anywhere but it is useful for looking the regressions up 
@@ -210,7 +220,7 @@ plot_scatter <- function(data, xvar, yvar) {
 }
 
 # 10) Generate & save scatter plots for every PS × summary-stat pair
-out_base <- here::here("output", "plots", "scatter_plots")
+out_base <- file.path(plots_dir, "scatter_plots")
 if (!dir.exists(out_base)) {
   dir.create(out_base, recursive = TRUE)
 }
@@ -451,12 +461,12 @@ CCCCCC
 print(final_fig3)
 
 
-out= here::here("output", "plots")
+out= plots_dir
 if (!dir.exists(out)) {
   dir.create(out, recursive = TRUE)
 }
 ggsave(create.dir = TRUE, 
-  filename = here::here("output", "plots", "sum_stats_cor_pearson.pdf"),
+  filename = file.path(plots_dir, "sum_stats_cor_pearson.pdf"),
   plot     = final_fig3,
   device   = "pdf",
   width    = 6.3,
@@ -466,7 +476,7 @@ ggsave(create.dir = TRUE,
 )
 
 ggsave(create.dir = TRUE, 
-  filename = here::here("output", "plots", "hclust_dend_corrdist.pdf"),
+  filename = file.path(plots_dir, "hclust_dend_corrdist.pdf"),
   plot     = p_dend_ps,
   device   = "pdf",
   width    = 6.3,
@@ -502,7 +512,7 @@ CCCDDD
 print(final_fig4)
 
 ggsave(create.dir = TRUE, 
-  filename = here::here("output", "plots", "ols.pdf"),
+  filename = file.path(plots_dir, "ols.pdf"),
   plot     = final_fig4,
   device   = "pdf",
   width    = 6.3,
@@ -705,7 +715,7 @@ woho=ggplot(slope_df_sig, aes(x = Stat, y = PS)) +
     plot.margin     = margin(t = 10, r = 5, b = 10, l = 5, unit = "pt")
   )
 
-ggsave(create.dir = TRUE, here::here("output", "plots", "single_predictor_regression.pdf"), woho, width = 6.3, height = 8, units = "in", dpi = 900)
+ggsave(create.dir = TRUE, file.path(plots_dir, "single_predictor_regression.pdf"), woho, width = 6.3, height = 8, units = "in", dpi = 900)
 
 
 
@@ -731,7 +741,7 @@ ggsave(create.dir = TRUE, here::here("output", "plots", "single_predictor_regres
 #print(final_fig5)
 #
 #ggsave(create.dir = TRUE, 
-#  filename = here::here("output", "plots", "fig4.pdf"),
+#  filename = file.path(plots_dir, "fig4.pdf"),
 #  plot     = final_fig5,
 #  device   = "pdf",
 #  width    = 15,
@@ -847,7 +857,7 @@ CCCCCC
 
 print(final_fig6)
 ggsave(create.dir = TRUE, 
-  filename = here::here("output", "plots", "fig5.pdf"),
+  filename = file.path(plots_dir, "fig5.pdf"),
   plot     = final_fig6,
   device   = "pdf",
   width    = 6.3,

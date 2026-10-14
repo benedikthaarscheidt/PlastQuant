@@ -7,7 +7,8 @@
 #   of the number of sampling points on every PPI from the mixed model
 #   PPI ~ n + summary statistics + (1 | genotype), fitted here on the resolution tables
 #   (forest plot).
-# REQUIRES:     POPULATION_DIR/analyses/resolution/ (run R/analysis/resolution_analysis.R first).
+# REQUIRES:     POPULATION_DIR/analyses/regression_summary_stats/ (regression_sumstats_dataprep.R)
+#               and POPULATION_DIR/analyses/resolution/ (resolution_analysis.R).
 # PRODUCES:     POPULATION_DIR/plots/combined_resolution_figure.pdf and the mixed-model
 #               results POPULATION_DIR/analyses/resolution/mixed_model.csv
 # HOW TO RUN:   setwd("~/PlastQuant")
@@ -31,9 +32,8 @@ if (!file.exists(file.path(res_dir, "correlation_regression.csv"))) {
 }
 model_df <- read.csv(file.path(res_dir, "correlation_regression.csv"), stringsAsFactors = FALSE)
 
-# Mixed model on the PPI and summary-statistic tables of all resolutions
-table_files <- list.files(file.path(res_dir, "tables"), pattern = "^n_[0-9]+\\.csv$", full.names = TRUE)
-tables <- lapply(table_files, read.csv, stringsAsFactors = FALSE, check.names = FALSE)
+# Mixed model on the PPI and summary-statistic tables of all sampling designs
+tables <- read_regression_tables(file.path(POPULATION_DIR, "analyses", "regression_summary_stats"), range = "full")
 out <- sample_size_mixed_model(tables)
 write.csv(out, file.path(res_dir, "mixed_model.csv"), row.names = FALSE)
 

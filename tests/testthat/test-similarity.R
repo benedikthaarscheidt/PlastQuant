@@ -1,0 +1,11 @@
+test_that("similarity measures and their permutation test", {
+  x <- 1:20; y <- x + rep(c(0.1, -0.1), 10)
+  expect_equal(calc_similarity(x, y, "kendall"), cor(x, y, method = "kendall"))
+  expect_equal(calc_similarity(c(1, 0), c(1, 0), "cosine"), 1)
+  expect_error(calc_similarity(x, y, "nope"), "Unknown method")
+  set.seed(1)
+  res <- calc_similarity_perm(x, y, method = "kendall", n_perm = 199)
+  expect_true(res$estimate > 0.9)
+  expect_equal(res$p.value, 1 / 200)
+  expect_true(is.na(calc_similarity_perm(c(1, NA), c(NA, 2))$estimate))
+})

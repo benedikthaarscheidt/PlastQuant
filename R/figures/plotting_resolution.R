@@ -3,12 +3,14 @@
 # =============================================================================
 # WHAT IT DOES: Reads the per-resolution correlation CSVs and renders the resolution
 #   correlation plots across the defined reaction-norm ranges.
-# REQUIRES:     correlations_*.csv files under the input directory (produced upstream).
-# PRODUCES:     Resolution correlation figure(s).
-# HOW TO RUN:   setwd("~/PlastQuant"); source(here::here("R","figures","plotting_resolution.R"))
+# REQUIRES:     correlations_*.csv of resolution.R in POPULATION_DIR/analyses/correlation_summary_stats/.
+# PRODUCES:     plots_<range>_<analysis>_per_score.pdf in POPULATION_DIR/plots/.
+# HOW TO RUN:   setwd("~/PlastQuant")
+#               POPULATION_DIR <- here::here("output", "populations", "ppi_comparison")
+#               source(here::here("R","figures","plotting_resolution.R"))
 # -----------------------------------------------------------------------------
 # PARAMETERS (edit the named assignment near the top of the script)
-#   dir_path     path   folder holding the correlations_*.csv inputs                       [COMMON]
+#   POPULATION_DIR  path, REQUIRED (set before sourcing)   population folder                [COMMON]
 #   range_names  character vector, default c("full","partial1","partial2")  ranges plotted
 # =============================================================================
 options(warn = -1)  # silence warnings even if the project .Rprofile was not loaded
@@ -22,8 +24,9 @@ ensure_dir_exists <- function(file_path) {
     dir.create(dir_path, recursive = TRUE, showWarnings = FALSE)
   }
 }
-dir_path <- path.expand(here::here("output", "correlation_summary_stats"))
-output_dir <- path.expand(here::here("output", "plots"))
+if (!exists("POPULATION_DIR")) stop("set POPULATION_DIR (a population folder) first")
+dir_path <- file.path(POPULATION_DIR, "analyses", "correlation_summary_stats")
+output_dir <- file.path(POPULATION_DIR, "plots")
 ensure_dir_exists(dir_path)
 ensure_dir_exists(output_dir)
 
