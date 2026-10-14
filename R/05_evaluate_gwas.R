@@ -1,172 +1,80 @@
 # =============================================================================
-# 05_evaluate_gwas.R — GWAS accuracy evaluation
+# 05_evaluate_gwas.R — GWAS accuracy evaluation, per reaction-norm shape
 # =============================================================================
-# WHAT IT DOES: Compares GWAS hits against the simulated ground-truth causal SNPs to
-#   quantify how well each plasticity index recovers the true signal. Produces 5 power
-#   heatmaps: one combined (all forms) plus one per reaction-norm form.
-# REQUIRES:     GWAS results from 04_run_gwas.R — this script auto-sources 04 (which in
-#               turn needs 03). Reads the GWAS results CSV under OUTPUT_BASE.
-# PRODUCES:     5 power-heatmap PDFs under OUTPUT_BASE/plots.
-# HOW TO RUN:   setwd("~/PlastQuant"); source(here::here("R", "05_evaluate_gwas.R"))
+# WHAT IT DOES: Compares the GWAS hits of one run against the simulated causal SNPs.
+#   Every shape is evaluated against its own causal SNPs only, so the power of a
+#   parameter is always the power within one shape (a hit on a causal SNP of another
+#   shape is a false positive). Draws one power heatmap per shape plus an overview.
+# REQUIRES:     A run folder written by run_simulation_scenario() / run_pipeline()
+#               (gwas_results.csv, truth.csv, config.rds), e.g. by a scenario_*.R driver.
+# PRODUCES:     RUN_DIR/gwas_accuracy_summary.csv and RUN_DIR/plots/gwas_power_heatmap.pdf.
+# HOW TO RUN:   setwd("~/PlastQuant")
+#               OUTPUT_BASE <- here::here("output", "scenario_20_5")   # newest run is used
+#               source(here::here("R", "05_evaluate_gwas.R"))
 # -----------------------------------------------------------------------------
-# PARAMETERS (edit at the noted line)
-#   alpha   numeric, default 0.05   significance threshold; edit the `alpha <-` assignment  [COMMON]
-#   GWAS    logical (from caller)    whether GWAS was run upstream
+# PARAMETERS — set these before sourcing (guarded defaults)
+#   RUN_DIR      path, default newest run_* in OUTPUT_BASE    run folder to evaluate  [COMMON]
+#   OUTPUT_BASE  path                                         scenario folder (if no RUN_DIR)
+#   ALPHA        numeric, default 0.05                        Bonferroni level: P < ALPHA / n_SNPs
 # =============================================================================
 options(warn = -1)  # silence warnings even if the project .Rprofile was not loaded
-# Original notes:
-# Script: 05_evaluate_gwas.R
-# Purpose: Compare GWAS results against simulated ground truth to validate plasticity scores.
-#          Produces 5 power heatmaps: one combined (all forms) + one per RN form.
-source(here::here("R", "04_run_gwas.R"))
-library(dplyr)
 library(ggplot2)
-library(tidyr)
+source(here::here("R", "pipeline", "load_pipeline.R"))
 
-# -----------------------------------------------------------------------------
-# 1. Load Data
-# -----------------------------------------------------------------------------
-results_dir <- latest_run
-plots_dir   <- file.path(latest_run, "plots")
-if (!dir.exists(plots_dir)) dir.create(plots_dir, recursive = TRUE)
-
-gwas_file <- file.path(results_dir, "gwas_results_mlm_80.csv")
-if (!file.exists(gwas_file)) gwas_file <- file.path(results_dir, "gwas_results_lm_80.csv")
-if (!file.exists(gwas_file)) stop("GWAS results file not found. Please run run_gwas_simulation.R first.")
-
-message("Loading GWAS results from: ", gwas_file)
-gwas_res <- read.csv(gwas_file)
-
-truth_file <- file.path(results_dir, "causal_snps_truth.csv")
-message("Loading truth from: ", truth_file)
-truth <- read.csv(truth_file)
-
-# -----------------------------------------------------------------------------
-# 2. Significance Threshold & Metadata
-# -----------------------------------------------------------------------------
-alpha   <- 0.05
-n_snps  <- length(unique(gwas_res$SNP))
-threshold <- alpha / n_snps
-message("Significance threshold (Bonferroni): P < ", format(threshold, scientific = TRUE))
-
-if (exists("snp_matrix") && is.matrix(snp_matrix)) {
-  n_genotypes <- nrow(snp_matrix)
-} else if (exists("kinship_matrix") && is.matrix(kinship_matrix)) {
-  n_genotypes <- nrow(kinship_matrix)
-} else {
-  n_genotypes <- NA
+if (!exists("RUN_DIR")) {
+  if (!exists("OUTPUT_BASE")) stop("set RUN_DIR (a run folder) or OUTPUT_BASE (a scenario folder) first")
+  RUN_DIR <- latest_run_dir(OUTPUT_BASE)
 }
+if (!exists("ALPHA")) ALPHA <- 0.05
+
+# -----------------------------------------------------------------------------
+# 1. Load the run
+# -----------------------------------------------------------------------------
+message("Evaluating GWAS of: ", RUN_DIR)
+gwas_res <- read.csv(file.path(RUN_DIR, "gwas_results.csv"), stringsAsFactors = FALSE)
+truth    <- read.csv(file.path(RUN_DIR, "truth.csv"), stringsAsFactors = FALSE)
+cfg      <- readRDS(file.path(RUN_DIR, "config.rds"))
+n_snps   <- length(unique(gwas_res$SNP))
+
+# -----------------------------------------------------------------------------
+# 2. Power per shape, parameter and PPI (Bonferroni)
+# -----------------------------------------------------------------------------
+power <- evaluate_power(gwas_res, truth, n_snps, alpha = ALPHA)
+power <- power[, c("Shape", "Score", "Parameter", "True_SNPs", "Found", "Power")]
+write.csv(power, file.path(RUN_DIR, "gwas_accuracy_summary.csv"), row.names = FALSE)
 
 subtitle_base <- paste0(
-  "N_Genotypes = ", n_genotypes,
-  ", N_SNPs = ", n_snps,
-  "  (Bonferroni P < ", format(threshold, digits = 2, scientific = TRUE), ")"
+  "h2 = ", cfg$h2, ", ", cfg$Mc, " causal SNPs per parameter, ",
+  cfg$n_per_shape, " genotypes per shape, ", n_snps, " SNPs",
+  "  (Bonferroni P < ", format(ALPHA / n_snps, digits = 2, scientific = TRUE), ")"
 )
 
 # -----------------------------------------------------------------------------
-# 3. Helper: compute power table for a given set of significant hits
+# 3. Heatmaps: overview of all shapes, then one page per shape
 # -----------------------------------------------------------------------------
-compute_power <- function(sig_hits_subset, truth, scores, params) {
-  rows <- list()
-  for (s in scores) {
-    score_hits <- unique(sig_hits_subset$SNP[sig_hits_subset$Score == s])
-    for (p in params) {
-      true_snps <- truth$SNP[truth$Parameter == p]
-      n_true    <- length(true_snps)
-      n_found   <- length(intersect(score_hits, true_snps))
-      rows[[paste(s, p)]] <- data.frame(
-        Score     = s,
-        Parameter = p,
-        True_SNPs = n_true,
-        Found     = n_found,
-        Power     = if (n_true > 0) n_found / n_true else NA_real_
-      )
-    }
-    # Global false positives
-    n_fp <- length(setdiff(score_hits, unique(truth$SNP)))
-    rows[[paste(s, "FP")]] <- data.frame(
-      Score     = s,
-      Parameter = "False_Positives_Global",
-      True_SNPs = NA_integer_,
-      Found     = n_fp,
-      Power     = NA_real_
-    )
-  }
-  do.call(rbind, rows)
-}
-
-# -----------------------------------------------------------------------------
-# 4. Helper: draw power heatmap
-# -----------------------------------------------------------------------------
-make_heatmap <- function(power_df, title, subtitle) {
-  df <- power_df %>%
-    filter(Parameter != "False_Positives_Global") %>%
-    mutate(Power = as.numeric(Power))
-
+make_heatmap <- function(df, title, subtitle) {
+  df <- df[df$Parameter != "False_Positives", ]
   ggplot(df, aes(x = Parameter, y = Score, fill = Power)) +
     geom_tile(color = "white") +
     scale_fill_gradient(low = "white", high = "red", limits = c(0, 1), na.value = "grey90") +
-    geom_text(aes(label = ifelse(is.na(Power), "", sprintf("%.2f", Power))),
-              color = "black", size = 3) +
-    labs(title = title, subtitle = subtitle,
-         x = "Causal Parameter (Truth)", y = "Plasticity Score") +
+    geom_text(aes(label = ifelse(is.na(Power), "", sprintf("%.2f", Power))), color = "black", size = 3) +
+    labs(title = title, subtitle = subtitle, x = "Causal parameter (truth of this shape)",
+         y = "Plasticity index") +
     theme_minimal() +
     theme(axis.text.x = element_text(angle = 45, hjust = 1))
 }
 
-# -----------------------------------------------------------------------------
-# 5. Evaluate: combined (union of hits across all forms) + per form
-# -----------------------------------------------------------------------------
-sig_hits <- gwas_res %>% filter(P_Value < threshold)
-scores   <- unique(gwas_res$Score)
-params   <- unique(truth$Parameter)
-forms    <- unique(gwas_res$Type)
-
-# Combined evaluation (union of SNP hits across all forms per score)
-eval_combined <- compute_power(sig_hits, truth, scores, params)
-eval_combined$Form <- "All forms (union)"
-
-# Per-form evaluation
-eval_per_form <- lapply(forms, function(f) {
-  hits_f <- sig_hits %>% filter(Type == f)
-  df     <- compute_power(hits_f, truth, scores, params)
-  df$Form <- f
-  df
-})
-names(eval_per_form) <- forms
-
-# -----------------------------------------------------------------------------
-# 6. Save CSVs
-# -----------------------------------------------------------------------------
-all_eval <- bind_rows(eval_combined, bind_rows(eval_per_form))
-write.csv(all_eval,     file.path(results_dir, "gwas_accuracy_summary.csv"),          row.names = FALSE)
-write.csv(eval_combined, file.path(results_dir, "gwas_accuracy_summary_combined.csv"), row.names = FALSE)
-for (f in forms) {
-  write.csv(eval_per_form[[f]],
-            file.path(results_dir, paste0("gwas_accuracy_summary_", f, ".csv")),
-            row.names = FALSE)
-}
-
-# -----------------------------------------------------------------------------
-# 7. Plot: 5 heatmaps in one PDF
-# -----------------------------------------------------------------------------
+plots_dir <- file.path(RUN_DIR, "plots")
+dir.create(plots_dir, recursive = TRUE, showWarnings = FALSE)
 pdf(file.path(plots_dir, "gwas_power_heatmap.pdf"), width = 10, height = 8)
-
-# Page 1: combined
-print(make_heatmap(eval_combined,
-                   "GWAS Power — All Forms (union of hits)",
-                   subtitle_base))
-
-# Pages 2–5: one per form
-for (f in forms) {
-  n_form <- nrow(sig_hits %>% filter(Type == f) %>% distinct(SNP, Score))
-  print(make_heatmap(eval_per_form[[f]],
-                     paste0("GWAS Power — Form: ", f),
-                     paste0(subtitle_base, "  |  GWAS run on ", f, " genotypes only")))
+print(make_heatmap(power, "GWAS power per shape", subtitle_base) +
+        facet_grid(. ~ Shape, scales = "free_x", space = "free_x"))
+for (s in unique(power$Shape)) {
+  fp <- power[power$Shape == s & power$Parameter == "False_Positives", ]
+  print(make_heatmap(power[power$Shape == s, ], paste0("GWAS power: ", s),
+                     paste0(subtitle_base, "\nFalse positives (all PPIs): ", sum(fp$Found))))
 }
-
 dev.off()
 
-message("Evaluation complete.")
-message("Summary CSV : ", file.path(results_dir, "gwas_accuracy_summary.csv"))
+message("Summary CSV : ", file.path(RUN_DIR, "gwas_accuracy_summary.csv"))
 message("Heatmap PDF : ", file.path(plots_dir, "gwas_power_heatmap.pdf"))

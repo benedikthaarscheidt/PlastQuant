@@ -2,7 +2,8 @@
 # scenario_20_5.R — heritability scenario: h2 = 0.2, 5 causal SNPs per parameter
 # =============================================================================
 # Simulates the population (R/sim), computes all PPIs, runs the GWAS and the
-# per-shape evaluation, and writes everything to output/scenario_20_5/run_<time>/.
+# per-shape evaluation, writes everything to output/scenario_20_5/run_<time>/
+# and draws the power heatmaps (05_evaluate_gwas.R).
 # All other settings (variance components, study space, ...) are the defaults of
 # sim_config() in R/sim/simulation_config.R.
 # HOW TO RUN: Rscript --vanilla R/scenarios/scenario_20_5.R   (from the repo root)
@@ -10,4 +11,7 @@
 options(warn = -1)  # silence warnings even if the project .Rprofile was not loaded
 
 source(here::here("R", "pipeline", "load_pipeline.R"))
-run_simulation_scenario(sim_config(h2 = 0.2, Mc = 5), out_dir = here::here("output", "scenario_20_5"))
+RUN_DIR <- run_simulation_scenario(sim_config(h2 = 0.2, Mc = 5), out_dir = here::here("output", "scenario_20_5"))
+
+# Power heatmaps per shape for this run
+source(here::here("R", "05_evaluate_gwas.R"))

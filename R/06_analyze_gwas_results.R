@@ -1,687 +1,219 @@
 # =============================================================================
-# 06_analyze_gwas_results.R — summarise simulated-GWAS results
+# 06_analyze_gwas_results.R — summarise the GWAS results of all scenarios
 # =============================================================================
-# WHAT IT DOES: Loads the causal-SNP ground truth and the simulated GWAS result tables
-#   and summarises, per plasticity index, how the recovered signal compares to truth,
-#   rendering summary heatmaps/plots.
-# REQUIRES:     GWAS result CSVs produced by 04/05 (run a scenario first); the causal
-#               truth text files under the scenario's OUTPUT_BASE.
-# PRODUCES:     Summary heatmaps/plots under OUTPUT_BASE.
-# HOW TO RUN:   setwd("~/PlastQuant"); source(here::here("R", "06_analyze_gwas_results.R"))
+# WHAT IT DOES: Summarises, per plasticity index, how many causal SNPs are found in
+#   every heritability scenario (h2 x causal SNPs per parameter). A parameter is
+#   always the parameter of one shape ("shape: parameter"); its causal SNPs are
+#   searched only in the GWAS of that shape, and a hit on a SNP that is not causal
+#   for that shape is a false positive of that shape. Draws count/fraction heatmaps,
+#   precision and recall per PPI, true/false positives, and PPI coverage summaries.
+# REQUIRES:     The tables of R/scenarios/combine_scenarios.R (run the scenarios first).
+# PRODUCES:     Under COMBINED_DIR: plots/gwas_scenario_summary.pdf,
+#               precision_recall_per_ppi.csv, recall_per_shape_parameter.csv.
+# HOW TO RUN:   Rscript --vanilla R/06_analyze_gwas_results.R   (from the repo root)
 # -----------------------------------------------------------------------------
-# PARAMETERS (edit at the noted line)
-#   PPIs   character vector   which plasticity indices to summarise; edit `PPIs <-`     [COMMON]
-#   GWAS   logical            whether GWAS results are present
+# PARAMETERS — set these before sourcing (guarded defaults)
+#   COMBINED_DIR  path, default output/combined_scenarios   tables of combine_scenarios.R [COMMON]
+#   PPIs          character, default all PPIs in the tables  which plasticity indices to summarise
+#   FOCUS_PPIS    character, default c("RN", "RTR", "FW")    PPI set for the coverage summary
+#   OTHER_PPIS    character, default c("APC", "D_slope", "PSI", "RNN")  second PPI set
 # =============================================================================
 options(warn = -1)  # silence warnings even if the project .Rprofile was not loaded
-## Import causal snp truth data from text files
 library(pheatmap)
+library(ggplot2)
 
-causalsnpstruth <- read.csv(
-  "../causal_snps_truth.csv",
-  header = FALSE,
-  colClasses = c("character", "factor", "numeric"),
-  col.names = c("numSNPS_SNP", "Parameter", "numeric"),
-  stringsAsFactors = TRUE
-)
+if (!exists("COMBINED_DIR")) COMBINED_DIR <- here::here("output", "combined_scenarios")
+if (!exists("FOCUS_PPIS")) FOCUS_PPIS <- c("RN", "RTR", "FW")
+if (!exists("OTHER_PPIS")) OTHER_PPIS <- c("APC", "D_slope", "PSI", "RNN")
 
-causalsnpstruth$run = sub("SNP.*","",causalsnpstruth$numSNPS_SNP)
-unique_run_params = unique(data.frame(causalsnpstruth$run, causalsnpstruth$Parameter))
-for(i in seq_along(unique_run_params[,1])) {
-  current_param_snps = (causalsnpstruth$run == unique_run_params$causalsnpstruth.run[i] & 
-                          causalsnpstruth$Parameter == unique_run_params$causalsnpstruth.Parameter[i])
-  causalsnpstruth$scaled[current_param_snps] = scale(causalsnpstruth$numeric[current_param_snps])
-  causalsnpstruth$total[current_param_snps] = sum(abs(causalsnpstruth$scaled[current_param_snps]))
-}
+## ---- Import the combined tables ----
+detections <- read.csv(file.path(COMBINED_DIR, "detection_counts.csv"), stringsAsFactors = FALSE)
+hits       <- read.csv(file.path(COMBINED_DIR, "gwas_hits.csv"), stringsAsFactors = FALSE)
+truth      <- read.csv(file.path(COMBINED_DIR, "causal_snps_truth.csv"), stringsAsFactors = FALSE)
+p_threshold <- readRDS(file.path(COMBINED_DIR, "settings.rds"))$p_threshold
 
-## ---- Import GWAS result data ---
-gwasresults3plus <- read.csv(
-  "../gwas_results2_significant.csv",
-  header = FALSE,
-  colClasses = c("numeric", "character", "numeric", "factor", "factor", "numeric", "numeric"),
-  col.names = c("Heritability_pct", "numSNPS_SNP", "pVal", "PPI", "RN_type", "log10_pVar", "VarName7"),
-  stringsAsFactors = TRUE
-)
+if (!exists("PPIs")) PPIs <- sort(unique(detections$Score))
+detections <- detections[detections$Score %in% PPIs, ]
+hits <- hits[hits$Score %in% PPIs, ]
 
-## ---- Define constants ----
-RN_param_pairs <- matrix(c(
-  "linear","Slope",
-  "linear","BaseShift",
-  "gaussian","Slope",
-  "gaussian","BaseShift",
-  "gaussian","Amplitude",
-  "gaussian","Width",
-  "gaussian","Center",
-  "sinusoidal","Slope",
-  "sinusoidal","BaseShift",
-  "sinusoidal","Amplitude",
-  "sinusoidal","Frequency",
-  "sinusoidal","Phase",
-  "wave","Slope",
-  "wave","BaseShift",
-  "wave","Amplitude",
-  "wave","Frequency"
-), ncol = 2, byrow = TRUE)
+## ---- Constants: shape-parameter pairs, scenarios ----
+causal_rows <- detections[detections$Parameter != "False_Positives", ]
+fp_rows     <- detections[detections$Parameter == "False_Positives", ]
+RN_param_pairs <- unique(causal_rows[, c("Shape", "Parameter")])
+RN_param_pairs <- RN_param_pairs[order(match(RN_param_pairs$Shape, c("linear", "gaussian", "sinusoidal", "wave")),
+                                       RN_param_pairs$Parameter), ]
+pair_labels <- paste0(RN_param_pairs$Shape, ": ", RN_param_pairs$Parameter)
+shapes  <- unique(RN_param_pairs$Shape)
+numSNPs <- sort(unique(detections$Mc))
+H_vals  <- sort(unique(detections$H2))
+H_pct   <- round(100 * H_vals)
 
-RN_type_indices = list(linear=c(1,2), gaussian=c(3:7), sinusoidal=c(8:12), wave=c(13:16))
-
-PPIs <- c(
-  "APC","CEV","CV_t","D_slope","ESP","ESPI","ESPIID",
-  "EVS","gPi","NRW","PFI","PILSM","PImd","PIR",
-  "PPF","PPi","PQ","PR","PSI","RC","RDPI",
-  "RN","RNN","RPI","RSI","RTR","SI","FW"
-)
-
-numSNPs <- c("5","10","20")
-H_vals <- c(20,40,60)
-
-## ---- Initialize arrays ----
-dims <- c(
-  nrow(RN_param_pairs),
-  length(PPIs),
-  length(numSNPs),
-  length(H_vals)
-)
-
-foundSNPsNum <- array(0, dim = dims)
-foundCausalSNPsNum <- array(0, dim = dims)
-
-foundSNPsLists <- vector("list", prod(dims))
-dim(foundSNPsLists) <- dims
-
-foundCausalSNPsLists <- vector("list", prod(dims))
-dim(foundCausalSNPsLists) <- dims
-
-## ---- Main analysis loop ----
-for (PPI_i in seq_along(PPIs)) {
-  for (nSNP_i in seq_along(numSNPs)) {
-    for (H_i in seq_along(H_vals)) {
-      for (rnp_i in seq_len(nrow(RN_param_pairs))) {
-          ## Filter GWAS results
-        subset_rows <- 
-          gwasresults3plus[
-            gwasresults3plus$PPI == PPIs[PPI_i] &
-              gwasresults3plus$RN_type ==
-              RN_param_pairs[rnp_i,1] &
-              gwasresults3plus$Heritability_pct ==
-              H_vals[H_i] &
-              startsWith(
-                gwasresults3plus$numSNPS_SNP,
-                numSNPs[nSNP_i]
-              ),
-          ]
-        
-        foundSNPsLists[[rnp_i,PPI_i,nSNP_i,H_i]] <- subset_rows
-        foundSNPsNum[rnp_i,PPI_i,nSNP_i,H_i] <- nrow(subset_rows)
-        
-        ## Identify causal SNPs
-        current_causalSNPs <- causalsnpstruth$numSNPS_SNP[causalsnpstruth$Parameter == RN_param_pairs[rnp_i,2]]
-        
-        current_list <- subset_rows
-        causal_rows <- current_list[current_list$numSNPS_SNP %in% current_causalSNPs, ]
-        if (nrow(causal_rows) > 0) {
-          foundCausalSNPsLists[[rnp_i,PPI_i,nSNP_i,H_i]] <- causal_rows
-          foundCausalSNPsNum[rnp_i,PPI_i,nSNP_i,H_i] <- nrow(causal_rows)
-        }
-        
-
-      }
-      ## TODO store false positives already here!, but they need to be per Reaction_norm, not per reaction-norm-parameter!
-      
-    }
-  }
-}
-
-foundCausalSNPs <- data.frame(matrix(NA, ncol=6, nrow = sum(foundCausalSNPsNum)))
-colnames(foundCausalSNPs) = c("rnp_i", "PPI_i", "nSNP_i", "H_i", "numSNPS_SNP", "effect");
-foundSNPs <- data.frame(matrix(NA, ncol=6, nrow = sum(foundSNPsNum)))
-colnames(foundSNPs) = c("rnp_i", "PPI_i", "nSNP_i", "H_i", "numSNPS_SNP", "effect");
-foundRN_SNPs <- data.frame(matrix(NA, ncol=6, nrow = sum(foundSNPsNum)))
-colnames(foundRN_SNPs) = c("rnp_i", "PPI_i", "nSNP_i", "H_i", "numSNPS_SNP", "effect");
-
-
-current_causal_entry = 0;
-current_entry = 0;
-current_RN_entry = 0;
-for (PPI_i in seq_along(PPIs)) {
-  for (nSNP_i in seq_along(numSNPs)) {
-    for (H_i in seq_along(H_vals)) {
-      for (rnp_i in seq_len(nrow(RN_param_pairs))) {
-        if (foundCausalSNPsNum[rnp_i,PPI_i,nSNP_i,H_i] > 0) {
-          for (row_i in seq (foundCausalSNPsNum[rnp_i,PPI_i,nSNP_i,H_i])) {
-            current_causal_entry = current_causal_entry + 1;
-            foundCausalSNPs$rnp_i[current_causal_entry] = rnp_i;
-            foundCausalSNPs$PPI_i[current_causal_entry] = PPI_i;
-            foundCausalSNPs$nSNP_i[current_causal_entry] = nSNP_i;
-            foundCausalSNPs$H_i[current_causal_entry] = H_i;
-            foundCausalSNPs$numSNPS_SNP[current_causal_entry] = foundCausalSNPsLists[[rnp_i, PPI_i, nSNP_i, H_i]]$numSNPS_SNP[row_i];
-            foundCausalSNPs$effect[current_causal_entry] = 
-              causalsnpstruth$scaled[causalsnpstruth$numSNPS_SNP == foundCausalSNPs$numSNPS_SNP[current_causal_entry]];
-          }
-        }
-        if (foundSNPsNum[rnp_i,PPI_i,nSNP_i,H_i] > 0) {
-          for (row_i in seq (foundSNPsNum[rnp_i,PPI_i,nSNP_i,H_i])) {
-            current_entry = current_entry + 1;
-            foundSNPs$rnp_i[current_entry] = rnp_i;
-            foundSNPs$PPI_i[current_entry] = PPI_i;
-            foundSNPs$nSNP_i[current_entry] = nSNP_i;
-            foundSNPs$H_i[current_entry] = H_i;
-            foundSNPs$numSNPS_SNP[current_entry] = foundSNPsLists[[rnp_i, PPI_i, nSNP_i, H_i]]$numSNPS_SNP[row_i];
-            foundSNPs$effect[current_entry] = 0;
-            if (sum(causalsnpstruth$numSNPS_SNP == foundSNPs$numSNPS_SNP[current_entry]) > 0) {
-              # TODO correct formula (with scale (standardized per scenario))
-              foundSNPs$effect[current_entry] = causalsnpstruth$scaled[causalsnpstruth$numSNPS_SNP == foundSNPs$numSNPS_SNP[current_entry]];
-            }
-            if (rnp_i %in% c(1,3,8,13)) {
-              #foundSNPS are identical for all parameters of one simulated RN type
-              #causal SNPs are only found for the exact RN type/parameter combination
-              current_RN_entry = current_RN_entry + 1;
-              foundRN_SNPs$rnp_i[current_RN_entry] = rnp_i;
-              foundRN_SNPs$PPI_i[current_RN_entry] = PPI_i;
-              foundRN_SNPs$nSNP_i[current_RN_entry] = nSNP_i;
-              foundRN_SNPs$H_i[current_RN_entry] = H_i;
-              foundRN_SNPs$numSNPS_SNP[current_RN_entry] = foundSNPsLists[[rnp_i, PPI_i, nSNP_i, H_i]]$numSNPS_SNP[row_i];
-              foundRN_SNPs$effect[current_RN_entry] = 0;
-              if (sum(causalsnpstruth$numSNPS_SNP == foundRN_SNPs$numSNPS_SNP[current_RN_entry]) > 0) {
-                foundRN_SNPs$effect[current_RN_entry] = causalsnpstruth$scaled[causalsnpstruth$numSNPS_SNP == foundRN_SNPs$numSNPS_SNP[current_RN_entry]];
-              }
-
-            }
-          }
-        }
-      }
-    }
-  }
-}
-foundRN_SNPs = foundRN_SNPs[1:current_RN_entry,]
-
-foundCausalSNPsNoPPI = data.frame(foundCausalSNPs$numSNPS_SNP, foundCausalSNPs$H_i, foundCausalSNPs$rnp_i)
-uniqueFoundCausalSNPs = unique(foundCausalSNPsNoPPI)
-
-foundFalseSNPs = foundRN_SNPs[foundRN_SNPs$effect==0,]
-foundFalseSNPsNoPPI = data.frame(foundFalseSNPs$numSNPS_SNP, foundFalseSNPs$H_i, foundFalseSNPs$rnp_i)
-uniqueFoundFalseSNPs = unique(foundFalseSNPsNoPPI)
-
-ppiFoundCausalSNPsMatrix = matrix(FALSE, ncol=length(PPIs), nrow = nrow(uniqueFoundCausalSNPs))
-ppiFoundFalseSNPsMatrix = matrix(FALSE, ncol=length(PPIs), nrow = nrow(uniqueFoundFalseSNPs))
-
-for (iCausal in 1:nrow(uniqueFoundCausalSNPs)) {
-  ppiFoundCausalSNPsMatrix[iCausal, foundCausalSNPs$PPI_i[foundCausalSNPs$rnp_i == uniqueFoundCausalSNPs$foundCausalSNPs.rnp_i[iCausal] &  
-                             foundCausalSNPs$H_i == uniqueFoundCausalSNPs$foundCausalSNPs.H_i[iCausal] & 
-                             foundCausalSNPs$numSNPS_SNP == uniqueFoundCausalSNPs$foundCausalSNPs.numSNPS_SNP[iCausal]]] = TRUE
-}
-
-for (iFalse in 1:nrow(uniqueFoundFalseSNPs)) {
-  ppiFoundFalseSNPsMatrix[iFalse, foundFalseSNPs$PPI_i[foundFalseSNPs$rnp_i == uniqueFoundFalseSNPs$foundFalseSNPs.rnp_i[iFalse] &  
-                            foundFalseSNPs$H_i == uniqueFoundFalseSNPs$foundFalseSNPs.H_i[iFalse] & 
-                            foundFalseSNPs$numSNPS_SNP == uniqueFoundFalseSNPs$foundFalseSNPs.numSNPS_SNP[iFalse]]] = TRUE
-}
-
-sum(rowSums(ppiFoundCausalSNPsMatrix[,c(22,26,28)])==0)
-sum(rowSums(ppiFoundFalseSNPsMatrix[,c(22,26,28)])==0)
-
-colSums(ppiFoundCausalSNPsMatrix[rowSums(ppiFoundCausalSNPsMatrix[,c(22,26,28)])==0,])
-colSums(ppiFoundCausalSNPsMatrix[rowSums(ppiFoundCausalSNPsMatrix[,c(19,22,26,28)])==0,])
-
-colSums(ppiFoundCausalSNPsMatrix[rowSums(ppiFoundCausalSNPsMatrix[,c(2,4,19,22,23,26,28)])==0,])
-
-
-
-## ---- Aggregation ----
-
-causalSNPSum_per_PPI <-
-  apply(
-    foundCausalSNPsNum,
-    2,
-    sum
-  )
-
-PPIs_sorted_i <-
-  order(
-    causalSNPSum_per_PPI,
-    decreasing = TRUE
-  )
-
-causalSNPSum_per_RN_par <-
-  apply(
-    foundCausalSNPsNum,
-    1,
-    sum
-  )
-
-RN_par_sorted_i <-
-  order(
-    causalSNPSum_per_RN_par,
-    decreasing = TRUE
-  )
-
-
-## ---- Create sorted 2D matrix ----
-
-rows_out <-
-  dim(foundCausalSNPsNum)[1] *
-  dim(foundCausalSNPsNum)[3]
-
-cols_out <-
-  dim(foundCausalSNPsNum)[2] *
-  dim(foundCausalSNPsNum)[4]
-
-results_sorted_2d <-
-  matrix(
-    0,
-    nrow = rows_out,
-    ncol = cols_out
-  )
-results_unsorted_2d <-
-  matrix(
-    0,
-    nrow = rows_out,
-    ncol = cols_out
-  )
-
-results_causal_sorted_2d <-
-  matrix(
-    0,
-    nrow = rows_out,
-    ncol = cols_out
-  )
-
-results_causal_fractions_sorted_2d <-
-  matrix(
-    0,
-    nrow = rows_out,
-    ncol = cols_out
-  )
-
-results_causal_unsorted_2d <-
-  matrix(
-    0,
-    nrow = rows_out,
-    ncol = cols_out
-  )
-
-## ---- Labels ----
-
-labels_Y <- character(rows_out)
-labels_unsorted_Y <- character(rows_out)
-
-for (rnp_i in seq_len(nrow(RN_param_pairs))) {
-  for (nSNP_i in seq_along(numSNPs)) {
-    idx <- 3*(rnp_i-1) + nSNP_i
-    labels_Y[idx] <-
-      paste(
-        RN_param_pairs[
-          RN_par_sorted_i[rnp_i],
-          1
-        ],
-        RN_param_pairs[
-          RN_par_sorted_i[rnp_i],
-          2
-        ],
-        numSNPs[nSNP_i]
-      )
-    labels_unsorted_Y<-
-      paste(
-        RN_param_pairs[rnp_i,1],
-        RN_param_pairs[rnp_i,2],
-        numSNPs[nSNP_i]
-      )
-  }
-}
-
-
-labels_X <- character(cols_out)
-labels_unsorted_X <- character(cols_out)
-
-for (PPI_i in seq_along(PPIs)) {
-  for (H_i in seq_along(H_vals)) {
-    idx <- 3*(PPI_i-1) + H_i
-    labels_X[idx] <- paste(PPIs[PPIs_sorted_i[PPI_i]], H_vals[H_i], "% H")
-    labels_unsorted_X[idx] <- paste(PPIs[PPI_i], H_vals[H_i], "% H")
-  }
-}
-
-## ---- Fill 2D matrix ----
+## ---- Arrays: shape-parameter x PPI x Mc x h2 ----
+dims <- c(nrow(RN_param_pairs), length(PPIs), length(numSNPs), length(H_vals))
+foundCausalSNPsNum <- array(0, dim = dims)   # causal SNPs of this shape-parameter found
+foundSNPsNum       <- array(0, dim = dims)   # all hits of this PPI in the GWAS of this shape
+trueSNPsNum        <- array(0, dim = dims)   # causal SNPs of this shape-parameter
 for (rnp_i in seq_len(nrow(RN_param_pairs))) {
   for (PPI_i in seq_along(PPIs)) {
     for (nSNP_i in seq_along(numSNPs)) {
       for (H_i in seq_along(H_vals)) {
-        row_idx <- 3*(rnp_i-1) + nSNP_i
-        col_idx <- 3*(PPI_i-1) + H_i
-        results_causal_sorted_2d[row_idx, col_idx] <-
-          foundCausalSNPsNum[ RN_par_sorted_i[rnp_i], PPIs_sorted_i[PPI_i], nSNP_i, H_i]
-        results_causal_fractions_sorted_2d[row_idx, col_idx] <-
-          foundCausalSNPsNum[ RN_par_sorted_i[rnp_i], PPIs_sorted_i[PPI_i], nSNP_i, H_i]/(as.numeric(numSNPs[nSNP_i])*10)
-        results_causal_unsorted_2d[row_idx, col_idx] <-
-          foundCausalSNPsNum[ rnp_i, PPI_i, nSNP_i, H_i]
-        results_sorted_2d[row_idx, col_idx] <-
-          foundSNPsNum[ RN_par_sorted_i[rnp_i], PPIs_sorted_i[PPI_i], nSNP_i, H_i]
-        results_unsorted_2d[row_idx, col_idx] <-
-          foundSNPsNum[ rnp_i, PPI_i, nSNP_i, H_i]
+        sel <- causal_rows$Shape == RN_param_pairs$Shape[rnp_i] & causal_rows$Parameter == RN_param_pairs$Parameter[rnp_i] &
+          causal_rows$Score == PPIs[PPI_i] & causal_rows$Mc == numSNPs[nSNP_i] & causal_rows$H2 == H_vals[H_i]
+        if (any(sel)) {
+          foundCausalSNPsNum[rnp_i, PPI_i, nSNP_i, H_i] <- causal_rows$Found[sel]
+          trueSNPsNum[rnp_i, PPI_i, nSNP_i, H_i] <- causal_rows$True_SNPs[sel]
+        }
+        hsel <- hits$Type == RN_param_pairs$Shape[rnp_i] & hits$Score == PPIs[PPI_i] &
+          hits$Mc == numSNPs[nSNP_i] & hits$H2 == H_vals[H_i]
+        foundSNPsNum[rnp_i, PPI_i, nSNP_i, H_i] <- length(unique(hits$SNP[hsel]))
       }
     }
   }
 }
 
-
-## ---- Plot heatmap ----
-
-pheatmap(
-  results_sorted_2d,
-  labels_row = labels_Y,
-  labels_col = labels_X,
-  cluster_rows = FALSE,
-  cluster_cols = FALSE,
-)
-
-pheatmap(
-  results_causal_sorted_2d,
-  labels_row = labels_Y,
-  labels_col = labels_X,
-  cluster_rows = FALSE,
-  cluster_cols = FALSE,
-)
-
-pheatmap(
-  results_causal_fractions_sorted_2d,
-  labels_row = labels_Y,
-  labels_col = labels_X,
-  cluster_rows = FALSE,
-  cluster_cols = FALSE,
-)
-
-pheatmap(
-  results_unsorted_2d,
-  labels_row = labels_Y,
-  labels_col = labels_X,
-  cluster_rows = FALSE,
-  cluster_cols = FALSE,
-)
-
-pheatmap(
-  results_causal_unsorted_2d,
-  labels_row = labels_Y,
-  labels_col = labels_X,
-  cluster_rows = FALSE,
-  cluster_cols = FALSE,
-)
- 
-# title(
-#   "causal SNPs with p<1E-3 per scenario, reaction norm parameter, and plasticity index"
-# )
-
-
-## ---- Histogram ----
-
-hist(
-  foundSNPsNum,
-  main =
-    "histogram of all SNPs with p<1E-3 per scenario, reaction norm parameter, and plasticity index"
-)
-
-
-hist(
-  foundCausalSNPsNum,
-  main =
-    "histogram of all SNPs with p<1E-3 per scenario, reaction norm parameter, and plasticity index"
-)
-
-#hist(
-#  foundCausalSNPsNum[foundCausalSNPsNum > 0],0.5:(max(foundCausalSNPsNum)+0.5),
-#  main = "histogram of all SNPs with p<1E-3 per scenario, reaction norm parameter, and plasticity index"
-#)
-
-library(Matrix)
-
-# suppose your sparse matrix is called m
-
-# extract non-zero entries
-sparseCausalResults <- Matrix(results_causal_sorted_2d, sparse = TRUE)
-s = summary(sparseCausalResults)
-sparseCausalData = data.frame(X <- s$j, Y <- s$i, Value <- s$x)   # values;
-
-library(ggplot2)
-
-ggplot(sparseCausalData, aes(x = X, y = Y, size = Value)) +
-  geom_point(shape = 21, fill = "steelblue", alpha = 0.6) +
-  scale_size_area(max_size = 10) +
-  coord_fixed() +
-  theme_minimal()
-
-summedCausalData = rowSums(foundCausalSNPsNum, dims = 2);
-
-s = summary(Matrix(summedCausalData, sparse = TRUE));
-sparseSumData = data.frame(X <- s$j, Y <- s$i, Value <- s$x)   # values;
-ggplot(sparseSumData, aes(x = X, y = Y, size = Value)) +
-  geom_point(shape = 21, fill = "steelblue", alpha = 0.6) +
-  scale_size_area(max_size = 10) +
-  coord_fixed() +
-  theme_minimal() +
-  scale_x_continuous(label = PPIs, breaks=1:length(PPIs)) + 
-  scale_y_continuous(label = apply(RN_param_pairs, 1, paste, collapse = " "), breaks=1:dim(RN_param_pairs)[1])
-
-allPositives = foundSNPsNum;
-allPositivesPerPPIScen = rowSums(allPositives, dims = 2)
-allPositivesPerPPI = colSums(allPositivesPerPPIScen)
-allPositivesPerScen = rowSums(allPositivesPerPPIScen)
-
-allPositivesPerPPISlope = colSums(allPositivesPerPPIScen[c(1,3,8,13),])
-
-allCausals = foundCausalSNPsNum;
-allCausals[,,1,]=50;
-allCausals[,,2,]=100;
-allCausals[,,3,]=200;
-allCausalsPerPPIScen = rowSums(allCausals, dims = 2)
-allCausalsPerPPI = colSums(allCausalsPerPPIScen)
-allCausalsPerScen = rowSums(allCausalsPerPPIScen)
-
-allCausalsPerPPISlope = colSums(allCausalsPerPPIScen[c(1,3,8,13),])
-allCausalsPerPPINoSlope = colSums(allCausalsPerPPIScen[c(2,4:7,9:12,14:16),])
-allCausalsPerPPINoSlopeOrShift = colSums(allCausalsPerPPIScen[c(5:7,10:12,15:16),])
-
-truePositives = foundCausalSNPsNum
-truePositivesPerPPIScen = rowSums(truePositives, dims = 2)
-truePositivesPerPPI = colSums(truePositivesPerPPIScen)
-truePositivesPerScen = rowSums(truePositivesPerPPIScen)
-
-truePositivesPerPPISlope = colSums(truePositivesPerPPIScen[c(1,3,8,13),])
-truePositivesPerPPINoSlope = colSums(truePositivesPerPPIScen[c(2,4:7,9:12,14:16),])
-
-
-falseNegatives = allCausals - truePositives
-
-falsePositivesPerPPI_RN = allPositivesPerPPIScen[c(1,3,8,13),];
-falsePositivesPerPPI_RN[1,]=allPositivesPerPPIScen[1,]-truePositivesPerPPIScen[1,]-truePositivesPerPPIScen[2,];
-falsePositivesPerPPI_RN[2,]=allPositivesPerPPIScen[3,]-truePositivesPerPPIScen[3,]-truePositivesPerPPIScen[4,]-truePositivesPerPPIScen[5,]-truePositivesPerPPIScen[6,]-truePositivesPerPPIScen[7,];
-falsePositivesPerPPI_RN[3,]=allPositivesPerPPIScen[8,]-truePositivesPerPPIScen[8,]-truePositivesPerPPIScen[9,]-truePositivesPerPPIScen[10,]-truePositivesPerPPIScen[11,]-truePositivesPerPPIScen[12,];
-falsePositivesPerPPI_RN[4,]=allPositivesPerPPIScen[13,]-truePositivesPerPPIScen[13,]-truePositivesPerPPIScen[14,]-truePositivesPerPPIScen[15,]-truePositivesPerPPIScen[16,];
-
-falsePositivesPerPPIScen = falsePositivesPerPPI_RN[c(1,1,2,2,2,2,2,3,3,3,3,3,4,4,4,4),]
-falsePositivesPerPPI = colSums(falsePositivesPerPPI_RN)
-falsePositivesPerScen = rowSums(falsePositivesPerPPIScen)
-falsePositivesPerRN = rowSums(falsePositivesPerPPI_RN)
-
-falsePositivesPerPPISlope = colSums(falsePositivesPerPPIScen[c(1,3,8,13),])
-falsePositivesPerPPINoSlope = colSums(falsePositivesPerPPIScen[c(2,4:7,9:12,14:16),])
-
-
-precisionPerPPIScen = truePositivesPerPPIScen / (truePositivesPerPPIScen + falsePositivesPerPPIScen)
-recallPerPPIScen = truePositivesPerPPIScen / allCausalsPerPPIScen
-precisionPerPPI = truePositivesPerPPI / (truePositivesPerPPI + falsePositivesPerPPI)
-recallPerPPI = truePositivesPerPPI / allCausalsPerPPI
-
-precisionPerPPISlope = truePositivesPerPPISlope / (truePositivesPerPPISlope + falsePositivesPerPPISlope)
-recallPerPPISlope = truePositivesPerPPISlope / allCausalsPerPPISlope
-precisionPerPPINoSlope = truePositivesPerPPINoSlope / (truePositivesPerPPINoSlope + falsePositivesPerPPINoSlope)
-recallPerPPINoSlope = truePositivesPerPPINoSlope / allCausalsPerPPINoSlope
-
-# Source - https://stackoverflow.com/a/64298954
-# Posted by Duck
-# Retrieved 2026-05-18, License - CC BY-SA 4.0
-
-#Scaling factor
-sf <- max(precisionPerPPI)/max(recallPerPPI)
-precisionAndRecallPerPPI = c(precisionPerPPI,recallPerPPI*sf)
-dataPPI = c(PPIs,PPIs)
-precisionOrRecall = dataPPI
-precisionOrRecall[seq(28)] = "precision"
-precisionOrRecall[seq(29,56)] = "recall"
-recallPerPPIScaled = recallPerPPI*sf
-
-val_df = data.frame(dataPPI, precisionAndRecallPerPPI, precisionOrRecall)
-
-ggplot(val_df, aes(x = dataPPI, y = precisionAndRecallPerPPI, fill = precisionOrRecall)) +
-  geom_col(position = "dodge") + 
-  scale_y_continuous(sec.axis = ~ ./sf)
-
-sfSlope <- max(precisionPerPPISlope)/max(recallPerPPISlope)
-precisionAndRecallPerPPISlope = c(precisionPerPPISlope,recallPerPPISlope*sfSlope)
-recallPerPPISlopeScaled = recallPerPPISlope*sfSlope
-
-valSlope_df = data.frame(dataPPI, precisionAndRecallPerPPISlope, precisionOrRecall)
-
-ggplot(valSlope_df, aes(x = dataPPI, y = precisionAndRecallPerPPISlope, fill = precisionOrRecall)) +
-  geom_col(position = "dodge") + 
-  scale_y_continuous(sec.axis = ~ ./sfSlope)
-
-
-sfNoSlope <- max(precisionPerPPINoSlope)/max(recallPerPPINoSlope)
-precisionAndRecallPerPPINoSlope = c(precisionPerPPINoSlope,recallPerPPINoSlope*sfNoSlope)
-recallPerPPINoSlopeScaled = recallPerPPINoSlope*sfNoSlope
-
-valNoSlope_df = data.frame(dataPPI, precisionAndRecallPerPPINoSlope, precisionOrRecall)
-
-ggplot(valNoSlope_df, aes(x = dataPPI, y = precisionAndRecallPerPPINoSlope, fill = precisionOrRecall)) +
-  geom_col(position = "dodge") + 
-  scale_y_continuous(sec.axis = ~ ./sfNoSlope)
-
-
-
-
-
-pheatmap(
-  recallPerPPIScen,
-  labels_row = apply(RN_param_pairs, 1, paste, collapse = " "),
-  labels_col = PPIs,
-  cluster_rows = FALSE,
-  cluster_cols = FALSE,
-)
-
-pheatmap(
-  precisionPerPPIScen,
-  labels_row = apply(RN_param_pairs, 1, paste, collapse = " "),
-  labels_col = PPIs,
-  cluster_rows = FALSE,
-  cluster_cols = FALSE,
-)
-
-pheatmap(
-  truePositivesPerPPIScen,
-  labels_row = apply(RN_param_pairs, 1, paste, collapse = " "),
-  labels_col = PPIs,
-  cluster_rows = FALSE,
-  cluster_cols = FALSE,
-)
-
-pheatmap(
-  falsePositivesPerPPIScen,
-  labels_row = apply(RN_param_pairs, 1, paste, collapse = " "),
-  labels_col = PPIs,
-  cluster_rows = FALSE,
-  cluster_cols = FALSE,
-)
-
-temp1 = rbind(truePositivesPerPPIScen, falsePositivesPerPPI_RN)
-true_and_falsePositivesPerPPIScen = temp1[c(1,2,17,3:7,18,8:12,19,13:16,20),]
-
-labels_row1 = apply(RN_param_pairs, 1, paste, collapse = " ")
-labels_row2 = paste(RN_param_pairs[c(1,3,8,13),1], "false positives")
-labels_row_temp = c(labels_row1, labels_row2)
-labels_rows = labels_row_temp[c(1,2,17,3:7,18,8:12,19,13:16,20)]
-
-# move FW to alphabetically correct place
-resorted_PPI_indices = c(seq(8), 28, seq(9,27))
-col1=hcl.colors(26, "RdYlBu")
-col2=hcl.colors(400, "RdYlBu")
-log_true_and_falsePositivesPerPPIScen = log(true_and_falsePositivesPerPPIScen[,resorted_PPI_indices])
-log_true_and_falsePositivesPerPPIScen[log_true_and_falsePositivesPerPPIScen<0]=NA
-pheatmap(
-  log_true_and_falsePositivesPerPPIScen,
-  labels_row = labels_rows,
-  labels_col = PPIs[resorted_PPI_indices],
-  cluster_rows = FALSE,
-  cluster_cols = FALSE,
-  fontsize = 20,
-  gaps_row = c(3,9,15),
-  gaps_col=seq(27),
-  angle_col = 90,
-  legend_breaks = log(c(1,4,10,25,50,100,200)),
-  legend_labels = c(1,4,10,25,50,100,200),
-#  color = c(col1[26:14],col2[200:1])
-)
-
-
-causalsnpstruthNumSNPs = as.numeric(sub("_","",substr(causalsnpstruth$numSNPS_SNP,1,2)))
-# TODO: change to correct formula
-causalSNPsAbsoluteEffectTmp = causalsnpstruth$scaled / causalsnpstruth$total
-# TODO: change to correct formula
-causalSNPsAbsoluteEffect = c(causalSNPsAbsoluteEffectTmp*20, causalSNPsAbsoluteEffectTmp*40, causalSNPsAbsoluteEffectTmp*60)
-
-foundCausalSNPsAbsoluteEffect = foundCausalSNPs$effect * foundCausalSNPs$H_i *20 / c(5,10,20)[foundCausalSNPs$nSNP_i]
-
-hist_all_rel_causals = hist(causalsnpstruth$scaled,seq(-3,3,0.2))
-hist_found_rel_causals = hist(unique(foundCausalSNPs$effect),seq(-3,3,0.2))
-hist_rel_found_ratio = hist_found_rel_causals$counts / hist_all_rel_causals$counts
-barplot(hist_rel_found_ratio)
-
-foundCausalSNPsNoSlopeEffect = foundCausalSNPs$effect[!foundCausalSNPs$rnp_i %in% c(1,3,8,12)]
-
-hist_allCausals = hist(causalSNPsAbsoluteEffect, plot = TRUE, breaks = seq(-30,30,2))
-hist_foundCausals = hist(unique(foundCausalSNPsAbsoluteEffect), plot = TRUE, breaks = seq(-30,30,2))
-hist_foundRatio = hist_foundCausals$counts / hist_allCausals$counts
-barplot(hist_foundRatio)
-
-foundCausalSNPsNoSlopeEffect = foundCausalSNPs$effect[!foundCausalSNPs$rnp_i %in% c(1,3,8,13)]
-hist_all_rel_causals_no_slope = hist(causalsnpstruth$scaled[causalsnpstruth$Parameter != "Slope"],seq(-3,3,0.2))
-
-hist_foundCausalsNoSlope = hist(unique(foundCausalSNPsNoSlopeEffect), plot = TRUE, breaks = seq(-3,3,0.2))
-hist_foundRatioNoSlope = hist_foundCausalsNoSlope$counts / hist_all_rel_causals_no_slope$counts
-barplot(hist_foundRatioNoSlope)
-
-
-
-# consensus: SNPs found by 2+ or|and connected PPIs: precision and recall
-
-
-
-# precision/recall per RN
-
-
-# PPI efficiency: minimal set of PPIs finding all found SNPs
-
-
-# add high-effect recall to precisionAndRecallPerPPI, precisionOrRecall
-
-total_found_causals = sum(rowSums(ppiFoundCausalSNPsMatrix)>0)
-message(paste("Number of all found causal SNPs:",as.character(total_found_causals)))
-
-total_found_causals_slope = sum(rowSums(ppiFoundCausalSNPsMatrix[uniqueFoundCausalSNPs$foundCausalSNPs.rnp_i %in% c(1,3,8,13),])>0)
-message(paste("Number of all found causal SNPs for slope:",as.character(total_found_causals_slope),as.character(100*total_found_causals_slope/total_found_causals),"%"))
-
-total_found_causals_slope_FW_RN_RTR = sum(rowSums(ppiFoundCausalSNPsMatrix[uniqueFoundCausalSNPs$foundCausalSNPs.rnp_i %in% c(1,3,8,13),c(22,26,28)])>0)
-message(paste("Number of all found causal SNPs for slope with FW, RN or RTR:",as.character(total_found_causals_slope_FW_RN_RTR),
-              as.character(100*total_found_causals_slope_FW_RN_RTR/total_found_causals_slope),"%"))
-
-total_found_causals_none_slope = sum(rowSums(ppiFoundCausalSNPsMatrix[!uniqueFoundCausalSNPs$foundCausalSNPs.rnp_i %in% c(1,3,8,13),])>0)
-message(paste("Number of all found causal SNPs for other parameters than slope:",as.character(total_found_causals_none_slope)))
-
-#colSums(ppiFoundCausalSNPsMatrix[rowSums(ppiFoundCausalSNPsMatrix[,c(1,2,4,14,15,19,20,22,26,28)])==0,])
-PPIs[c(1,4,19,23)]
-total_other_found_causals_no_slope = sum(rowSums(ppiFoundCausalSNPsMatrix[!uniqueFoundCausalSNPs$foundCausalSNPs.rnp_i %in% c(1,3,8,13),c(1,4,19,23)])>0)
-
-total_other_found_causals = sum(rowSums(ppiFoundCausalSNPsMatrix[,c(1,4,19,23)])>0)
-total_other_found_false = sum(rowSums(ppiFoundFalseSNPsMatrix[,c(1,4,19,23)])>0)
-
-sum(rowSums(ppiFoundCausalSNPsMatrix[,c(22,26,28)])>2)
-sum(rowSums(ppiFoundFalseSNPsMatrix[,c(22,26,28)])>2)
-
+## ---- Sorted 2D matrices: rows shape-parameter x Mc, columns PPI x h2 ----
+PPIs_sorted_i   <- order(apply(foundCausalSNPsNum, 2, sum), decreasing = TRUE)
+RN_par_sorted_i <- order(apply(foundCausalSNPsNum, 1, sum), decreasing = TRUE)
+
+to_2d <- function(A, row_order = seq_len(dims[1]), col_order = seq_len(dims[2])) {
+  out <- matrix(0, dims[1] * dims[3], dims[2] * dims[4])
+  for (r in seq_len(dims[1])) for (p in seq_len(dims[2])) for (n in seq_len(dims[3])) for (h in seq_len(dims[4])) {
+    out[dims[3] * (r - 1) + n, dims[4] * (p - 1) + h] <- A[row_order[r], col_order[p], n, h]
+  }
+  out
+}
+row_labels <- function(order) as.vector(t(outer(pair_labels[order], paste(numSNPs, "SNPs"), paste)))
+col_labels <- function(order) as.vector(t(outer(PPIs[order], paste0(H_pct, "% h2"), paste)))
+
+fractions <- foundCausalSNPsNum / ifelse(trueSNPsNum > 0, trueSNPsNum, NA)
+
+plots_dir <- file.path(COMBINED_DIR, "plots")
+dir.create(plots_dir, recursive = TRUE, showWarnings = FALSE)
+pdf(file.path(plots_dir, "gwas_scenario_summary.pdf"), width = 16, height = 12)
+
+heat <- function(M, rl, cl, main) {
+  pheatmap(M, labels_row = rl, labels_col = cl, cluster_rows = FALSE, cluster_cols = FALSE, main = main)
+}
+heat(to_2d(foundSNPsNum, RN_par_sorted_i, PPIs_sorted_i), row_labels(RN_par_sorted_i), col_labels(PPIs_sorted_i),
+     paste("All SNPs with p <", p_threshold, "in the GWAS of the shape (sorted)"))
+heat(to_2d(foundCausalSNPsNum, RN_par_sorted_i, PPIs_sorted_i), row_labels(RN_par_sorted_i), col_labels(PPIs_sorted_i),
+     paste("Causal SNPs found, p <", p_threshold, "(sorted)"))
+heat(to_2d(fractions, RN_par_sorted_i, PPIs_sorted_i), row_labels(RN_par_sorted_i), col_labels(PPIs_sorted_i),
+     "Fraction of the causal SNPs found (sorted)")
+heat(to_2d(foundSNPsNum), row_labels(seq_len(dims[1])), col_labels(seq_len(dims[2])),
+     paste("All SNPs with p <", p_threshold, "in the GWAS of the shape"))
+heat(to_2d(foundCausalSNPsNum), row_labels(seq_len(dims[1])), col_labels(seq_len(dims[2])),
+     paste("Causal SNPs found, p <", p_threshold))
+
+## ---- Histograms ----
+hist(foundSNPsNum, main = paste("All SNPs with p <", p_threshold, "per scenario, shape-parameter and PPI"))
+hist(foundCausalSNPsNum, main = paste("Causal SNPs with p <", p_threshold, "per scenario, shape-parameter and PPI"))
+
+## ---- Causal SNPs found, summed over the scenarios ----
+summedCausal <- rowSums(foundCausalSNPsNum, dims = 2)
+bubble <- data.frame(PPI = factor(rep(PPIs, each = dims[1]), levels = PPIs),
+                     Pair = factor(rep(pair_labels, times = dims[2]), levels = rev(pair_labels)),
+                     Found = as.vector(summedCausal))
+print(ggplot(bubble[bubble$Found > 0, ], aes(x = PPI, y = Pair, size = Found)) +
+        geom_point(shape = 21, fill = "steelblue", alpha = 0.6) +
+        scale_size_area(max_size = 10) +
+        labs(x = NULL, y = NULL, title = "Causal SNPs found, summed over all scenarios") +
+        theme_minimal() + theme(axis.text.x = element_text(angle = 90, hjust = 1)))
+
+## ---- True positives, false positives, precision and recall ----
+# per shape-parameter x PPI, summed over the scenarios
+truePositivesPerPPIScen <- rowSums(foundCausalSNPsNum, dims = 2)
+allCausalsPerPPIScen    <- rowSums(trueSNPsNum, dims = 2)
+# false positives are counted per shape (hits on SNPs that are not causal for the shape)
+falsePositivesPerPPI_RN <- t(sapply(shapes, function(s) sapply(PPIs, function(p) {
+  sum(fp_rows$Found[fp_rows$Shape == s & fp_rows$Score == p])
+})))
+if (length(PPIs) == 1) falsePositivesPerPPI_RN <- matrix(falsePositivesPerPPI_RN, ncol = 1)
+dimnames(falsePositivesPerPPI_RN) <- list(shapes, PPIs)
+truePositivesPerRN <- t(sapply(shapes, function(s) colSums(truePositivesPerPPIScen[RN_param_pairs$Shape == s, , drop = FALSE])))
+if (length(PPIs) == 1) truePositivesPerRN <- matrix(truePositivesPerRN, ncol = 1)
+
+truePositivesPerPPI  <- colSums(truePositivesPerPPIScen)
+falsePositivesPerPPI <- colSums(falsePositivesPerPPI_RN)
+allCausalsPerPPI     <- colSums(allCausalsPerPPIScen)
+precisionPerPPI <- truePositivesPerPPI / (truePositivesPerPPI + falsePositivesPerPPI)
+recallPerPPI    <- truePositivesPerPPI / allCausalsPerPPI
+recallPerPPIScen <- truePositivesPerPPIScen / allCausalsPerPPIScen
+dimnames(recallPerPPIScen) <- list(pair_labels, PPIs)
+precisionPerPPI_RN <- truePositivesPerRN / (truePositivesPerRN + falsePositivesPerPPI_RN)
+dimnames(precisionPerPPI_RN) <- list(shapes, PPIs)
+
+write.csv(data.frame(PPI = PPIs, True_Positives = truePositivesPerPPI, False_Positives = falsePositivesPerPPI,
+                     Causal_SNPs = allCausalsPerPPI, Precision = precisionPerPPI, Recall = recallPerPPI),
+          file.path(COMBINED_DIR, "precision_recall_per_ppi.csv"), row.names = FALSE)
+write.csv(data.frame(Shape = rep(RN_param_pairs$Shape, times = dims[2]), Parameter = rep(RN_param_pairs$Parameter, times = dims[2]),
+                     PPI = rep(PPIs, each = dims[1]), Found = as.vector(truePositivesPerPPIScen),
+                     Causal_SNPs = as.vector(allCausalsPerPPIScen), Recall = as.vector(recallPerPPIScen)),
+          file.path(COMBINED_DIR, "recall_per_shape_parameter.csv"), row.names = FALSE)
+
+# precision (left axis) and recall (right axis, scaled) per PPI
+sf <- max(precisionPerPPI, na.rm = TRUE) / max(max(recallPerPPI, na.rm = TRUE), 1e-12)
+val_df <- data.frame(PPI = rep(PPIs, 2), Value = c(precisionPerPPI, recallPerPPI * sf),
+                     Measure = rep(c("precision", "recall"), each = length(PPIs)))
+print(ggplot(val_df, aes(x = PPI, y = Value, fill = Measure)) +
+        geom_col(position = "dodge") +
+        scale_y_continuous(sec.axis = sec_axis(~ . / sf, name = "recall")) +
+        labs(y = "precision", title = "Precision and recall per PPI (all shapes and scenarios)") +
+        theme_minimal() + theme(axis.text.x = element_text(angle = 90, hjust = 1)))
+
+# recall per PPI, one panel per shape-parameter
+rec_df <- data.frame(PPI = rep(PPIs, each = dims[1]), Pair = factor(rep(pair_labels, times = dims[2]), levels = pair_labels),
+                     Recall = as.vector(recallPerPPIScen))
+print(ggplot(rec_df, aes(x = PPI, y = Recall)) + geom_col(fill = "steelblue") +
+        facet_wrap(~Pair) + labs(title = "Recall per PPI, per shape-parameter") +
+        theme_minimal() + theme(axis.text.x = element_text(angle = 90, hjust = 1, size = 5)))
+
+pheatmap(recallPerPPIScen, cluster_rows = FALSE, cluster_cols = FALSE, main = "Recall per shape-parameter and PPI")
+pheatmap(precisionPerPPI_RN, cluster_rows = FALSE, cluster_cols = FALSE, main = "Precision per shape and PPI")
+dimnames(truePositivesPerPPIScen) <- list(pair_labels, PPIs)
+pheatmap(truePositivesPerPPIScen, cluster_rows = FALSE, cluster_cols = FALSE, main = "True positives per shape-parameter and PPI")
+pheatmap(falsePositivesPerPPI_RN, cluster_rows = FALSE, cluster_cols = FALSE, main = "False positives per shape and PPI")
+
+# true positives of every shape-parameter, followed by the false positives of that shape (log scale)
+tp_fp <- do.call(rbind, lapply(shapes, function(s) {
+  rbind(truePositivesPerPPIScen[RN_param_pairs$Shape == s, , drop = FALSE],
+        matrix(falsePositivesPerPPI_RN[s, ], nrow = 1, dimnames = list(paste(s, "false positives"), PPIs)))
+}))
+log_tp_fp <- log(tp_fp)
+log_tp_fp[!is.finite(log_tp_fp) | log_tp_fp < 0] <- NA
+breaks <- c(1, 4, 10, 25, 50, 100, 200)
+if (any(is.finite(log_tp_fp))) {
+  pheatmap(log_tp_fp, cluster_rows = FALSE, cluster_cols = FALSE, fontsize = 12,
+           gaps_row = cumsum(table(factor(RN_param_pairs$Shape, levels = shapes)) + 1)[-length(shapes)],
+           angle_col = 90, legend_breaks = log(breaks), legend_labels = breaks,
+           main = "True positives per shape-parameter and false positives per shape (log scale)")
+}
+dev.off()
+
+## ---- PPI coverage: which causal SNPs are found by which PPIs ----
+# one row per found causal SNP (scenario x shape-parameter x SNP), one column per PPI
+causal_hits <- merge(hits, truth, by.x = c("H2", "Mc", "Type", "SNP"), by.y = c("H2", "Mc", "Shape", "SNP"))
+causal_hits$Key <- paste(causal_hits$H2, causal_hits$Mc, causal_hits$Type, causal_hits$Parameter, causal_hits$SNP)
+keys <- unique(causal_hits[, c("Key", "Type", "Parameter")])
+ppiFoundCausalSNPsMatrix <- matrix(FALSE, nrow(keys), length(PPIs), dimnames = list(keys$Key, PPIs))
+ppiFoundCausalSNPsMatrix[cbind(match(causal_hits$Key, keys$Key), match(causal_hits$Score, PPIs))] <- TRUE
+
+found_by <- function(set, rows = rep(TRUE, nrow(keys))) {
+  set <- intersect(set, PPIs)
+  sum(rowSums(ppiFoundCausalSNPsMatrix[rows, set, drop = FALSE]) > 0)
+}
+total_found_causals <- nrow(keys)
+message("Number of all found causal SNPs: ", total_found_causals)
+message("  found by ", paste(FOCUS_PPIS, collapse = ", "), ": ", found_by(FOCUS_PPIS))
+message("  found by ", paste(OTHER_PPIS, collapse = ", "), ": ", found_by(OTHER_PPIS))
+for (i in seq_len(nrow(RN_param_pairs))) {
+  rows <- keys$Type == RN_param_pairs$Shape[i] & keys$Parameter == RN_param_pairs$Parameter[i]
+  if (!any(rows)) next
+  message("  ", pair_labels[i], ": ", sum(rows), " found; by ", paste(FOCUS_PPIS, collapse = ", "), ": ",
+          found_by(FOCUS_PPIS, rows), " (", round(100 * found_by(FOCUS_PPIS, rows) / sum(rows)), " %)")
+}
+message("Causal SNPs found by none of ", paste(FOCUS_PPIS, collapse = ", "), ", per PPI:")
+print(colSums(ppiFoundCausalSNPsMatrix[rowSums(ppiFoundCausalSNPsMatrix[, intersect(FOCUS_PPIS, PPIs), drop = FALSE]) == 0, , drop = FALSE]))
+
+message("Plots  : ", file.path(plots_dir, "gwas_scenario_summary.pdf"))
+message("Tables : ", file.path(COMBINED_DIR, "precision_recall_per_ppi.csv"), ", recall_per_shape_parameter.csv")
