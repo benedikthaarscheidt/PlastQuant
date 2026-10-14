@@ -70,6 +70,8 @@ measure_norms <- function(norms, n_points, error = TRUE) {
     )
   })
   names(per_shape) <- cfg$shapes
+  # replace an earlier measurement of the same norms, if any
+  norms <- norms[setdiff(names(norms), c("environments", "phenotypes", "mother_curves", "measurement_sd"))]
   c(norms, list(
     environments   = env,
     phenotypes     = lapply(per_shape, `[[`, "phenotypes"),

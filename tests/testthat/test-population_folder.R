@@ -84,3 +84,15 @@ test_that("analyses on dense curves stop when the population has too few points"
   expect_equal(require_population_points(dir, 6), 6L)
   expect_error(require_population_points(new_dir("pop_none"), 6), "no population")
 })
+
+test_that("a saved population is sampled again at other resolutions without new plants", {
+  cfg <- sim_config(h2 = 0.4, Mc = 2, n_per_shape = 5, n_snps = 200, seed = 7)
+  dir <- simulate_population(cfg, new_dir("pop_resample"))
+  pop <- read_population(dir)
+  s6 <- sample_population(dir, 6)
+  expect_equal(s6$phenotypes$linear, pop$phenotypes$linear, tolerance = 1e-12, ignore_attr = TRUE)
+  s3 <- sample_population(dir, 3)
+  expect_equal(s3$environments, c(1, 5.5, 10))
+  expect_equal(unique(s3$phenotypes$gaussian$Genotype), unique(pop$phenotypes$gaussian$Genotype))
+  expect_error(sample_population(new_dir("pop_own_nosim"), 3), "simulated population")
+})
