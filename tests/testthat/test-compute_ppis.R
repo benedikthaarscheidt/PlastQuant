@@ -81,3 +81,18 @@ test_that("factor and numeric genotype IDs keep their scores", {
   expect_equal(sc$slope$Genotype_ID, c("101", "102", "103"))
   expect_equal(sc$slope$Score, c(0.1, 0.2, 0.3), tolerance = 1e-10)
 })
+
+test_that("a population PPI is always computed once on the replicate means, one value per genotype", {
+  x <- toy()
+  d <- x$phenotypes$shapeA
+  d$Trait[d$Replicate == 2] <- d$Trait[d$Replicate == 2] + c(0, 3, 9)[as.integer(sub("G", "", d$Genotype[d$Replicate == 2]))]
+  # the result depends on the whole population: centre each row on the population mean
+  pop_c <- ppi_entry("pop_c", function(Y) rowMeans(Y) - mean(Y), inputs = c(Y = "matrix"), level = "population",
+                     extract = function(res) res)
+  before <- compute_ppis(list(shapeA = d), x$env, list(pop_c = pop_c))$pop_c
+  reps <- compute_ppis(list(shapeA = d), x$env, list(pop_c = pop_c), replicate_handling = "replicates")$pop_c
+  expect_equal(nrow(reps), 3L)
+  expect_equal(reps$Genotype_ID, c("G1", "G2", "G3"))
+  expect_true(all(is.na(reps$Replicate)))
+  expect_equal(reps$Score, before$Score)
+})

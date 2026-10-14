@@ -62,6 +62,9 @@ ppi_per_replicate <- function(entry, phenotypes, environments) {
 #   "mean_before"  replicates are averaged per genotype and environment first,
 #                  then one PPI value per genotype (Replicate = NA); the standard
 #   "replicates"   one PPI value per replicate's reaction norm, kept as separate rows
+# A population-level PPI (FW) needs the reaction norms of the whole population and
+# gives one value per genotype; it is always computed once on the replicate means,
+# also with "replicates" (copies of the same value per replicate would only inflate n).
 compute_ppis <- function(phenotypes, environments, registry = default_ppi_registry(), exclude = NULL,
                          replicate_handling = c("mean_before", "replicates")) {
   replicate_handling <- match.arg(replicate_handling)
@@ -71,7 +74,7 @@ compute_ppis <- function(phenotypes, environments, registry = default_ppi_regist
   lapply(registry, function(entry) {
     do.call(rbind, lapply(names(phenotypes), function(shape) {
       ph <- phenotypes[[shape]]
-      if (replicate_handling == "mean_before") {
+      if (replicate_handling == "mean_before" || entry$level == "population") {
         M <- replicate_means(ph, environments)
         v <- compute_ppi(entry, M, environments)
         return(data.frame(Score = unname(v), Type = shape, Genotype_ID = rownames(M), Replicate = NA_integer_,
