@@ -57,3 +57,27 @@ test_that("replicate handling: averaged before, or one row per replicate", {
   expect_equal(reps$Replicate, rep(1:2, 3))
   expect_error(compute_ppis(x$phenotypes, x$env, reg, replicate_handling = "mean_after"), "should be one of")
 })
+
+test_that("a population-level PPI that errors gives NA with a message", {
+  x <- toy()
+  bad <- list(fw = ppi_entry("fw", function(Y) stop("singular"), inputs = c(Y = "matrix"), level = "population",
+                             extract = function(res) setNames(res$beta, res$genotype)))
+  expect_message(sc <- compute_ppis(x$phenotypes, x$env, bad), "no value for 3 genotype")
+  expect_true(all(is.na(sc$fw$Score)))
+  expect_equal(sc$fw$Genotype_ID, c("G1", "G2", "G3"))
+})
+
+test_that("factor and numeric genotype IDs keep their scores", {
+  x <- toy()
+  d <- x$phenotypes$shapeA
+  d <- d[order(match(d$Genotype, c("G3", "G1", "G2"))), ]
+  d$Genotype <- factor(d$Genotype)
+  sc <- compute_ppis(list(shapeA = d), x$env, reg["slope"], replicate_handling = "replicates")
+  expect_equal(sc$slope$Score[sc$slope$Genotype_ID == "G3"], c(0.3, 0.3), tolerance = 1e-10)
+  expect_equal(sc$slope$Score[sc$slope$Genotype_ID == "G1"], c(0.1, 0.1), tolerance = 1e-10)
+  n <- x$phenotypes$shapeA
+  n$Genotype <- 100 + as.integer(sub("G", "", n$Genotype))
+  sc <- compute_ppis(list(shapeA = n), x$env, reg["slope"])
+  expect_equal(sc$slope$Genotype_ID, c("101", "102", "103"))
+  expect_equal(sc$slope$Score, c(0.1, 0.2, 0.3), tolerance = 1e-10)
+})

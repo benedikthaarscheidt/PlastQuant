@@ -36,7 +36,8 @@ check_pipeline_input <- function(x) {
     if (length(miss)) stop("phenotypes$", s, " lacks column(s): ", paste(miss, collapse = ", "))
     unknown <- if (has_snps) setdiff(unique(as.character(d$Genotype)), rownames(x$snp_matrix)) else character(0)
     if (length(unknown)) stop("phenotypes$", s, ": genotypes not in snp_matrix: ", paste(head(unknown, 5), collapse = ", "))
-    if (!all(d$Environment %in% x$environments)) stop("phenotypes$", s, ": Environment values not in environments")
+    bad_env <- setdiff(unique(d$Environment), x$environments)
+    if (length(bad_env)) stop("phenotypes$", s, ": Environment values not in environments: ", paste(head(bad_env, 5), collapse = ", "))
   }
   if (!is.null(x$truth)) {
     if (!has_snps) stop("truth needs a snp_matrix")

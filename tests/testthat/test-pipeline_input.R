@@ -13,7 +13,7 @@ test_that("own data passes the check", {
 
 test_that("mismatches are reported clearly", {
   o <- own()
-  expect_error(pipeline_input(o$ph, c(5, 10), o$X), "Environment values not in environments")
+  expect_error(pipeline_input(o$ph, c(5, 10), o$X), "Environment values not in environments: 9")
   o$ph$biomass$Genotype[1] <- "var_Z"
   expect_error(pipeline_input(o$ph, c(5, 9), o$X), "genotypes not in snp_matrix: var_Z")
   o <- own()

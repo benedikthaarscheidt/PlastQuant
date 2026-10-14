@@ -4,8 +4,9 @@
 
 # Genotypes x environments matrix of replicate means (rows named by genotype)
 replicate_means <- function(phenotypes, environments) {
-  M <- tapply(phenotypes$Trait, list(phenotypes$Genotype, phenotypes$Environment), mean)
-  M <- M[unique(phenotypes$Genotype), as.character(environments), drop = FALSE]
+  ids <- as.character(phenotypes$Genotype)
+  M <- tapply(phenotypes$Trait, list(ids, phenotypes$Environment), mean)
+  M <- M[unique(ids), as.character(environments), drop = FALSE]
   matrix(M, nrow(M), ncol(M), dimnames = list(rownames(M), NULL))
 }
 
@@ -16,23 +17,28 @@ compute_ppi <- function(entry, M, environments) {
   call_fun <- function(context) {
     args <- c(lapply(entry$inputs, function(key) context[[key]]), entry$args)
     # Warnings of the index functions are silenced as in the rest of the project;
-    # an error gives NA for this genotype instead of stopping the run
+    # an error gives NA instead of stopping the run
     # (some index functions also print progress bars, which are captured)
     res <- NA_real_
-    utils::capture.output(res <- tryCatch(suppressWarnings(do.call(entry$fun, args)), error = function(e) NA_real_))
+    utils::capture.output(res <- tryCatch({
+      out <- suppressWarnings(do.call(entry$fun, args))
+      v <- extract(out)
+      setNames(as.numeric(v), names(v))
+    }, error = function(e) NA_real_))
     res
   }
+  extract <- if (is.null(entry$extract)) first_value else entry$extract
   if (entry$level == "population") {
     res <- call_fun(list(matrix = M, env = environments))
-    values <- if (is.null(entry$extract)) first_value(res) else entry$extract(res)
-    return(values[rownames(M)])
+    values <- if (is.null(names(res))) setNames(rep(NA_real_, nrow(M)), rownames(M)) else res[rownames(M)]
+    names(values) <- rownames(M)
+  } else {
+    context <- list(env = environments, env_index = seq_along(environments), covariate = rep(1, length(environments)))
+    values <- vapply(rownames(M), function(g) {
+      context$trait <- M[g, ]
+      call_fun(context)[1]
+    }, numeric(1))
   }
-  extract <- if (is.null(entry$extract)) first_value else entry$extract
-  context <- list(env = environments, env_index = seq_along(environments), covariate = rep(1, length(environments)))
-  values <- vapply(rownames(M), function(g) {
-    context$trait <- M[g, ]
-    extract(call_fun(context))
-  }, numeric(1))
   n_failed <- sum(is.na(values))
   if (n_failed) message("PPI ", entry$name, ": no value for ", n_failed, " genotype(s)")
   values
@@ -41,7 +47,7 @@ compute_ppi <- function(entry, M, environments) {
 # PPI values of every genotype (rows) and replicate (columns) of one shape:
 # the PPI is computed on each replicate's own reaction norm
 ppi_per_replicate <- function(entry, phenotypes, environments) {
-  ids <- unique(phenotypes$Genotype)
+  ids <- unique(as.character(phenotypes$Genotype))
   reps <- sort(unique(phenotypes$Replicate))
   out <- sapply(reps, function(r) {
     M <- replicate_means(phenotypes[phenotypes$Replicate == r, ], environments)
