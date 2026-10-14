@@ -17,110 +17,142 @@ To change a parameter for a one-off run, edit the value in the script's
 Always run from the project root (`setwd("~/PlastQuant")` or open the `.Rproj`) so
 `here::here()` resolves.
 
+The simulation model, the PPI computation and the GWAS live as plain functions in
+`R/sim`, `R/ppi` and `R/pipeline` (see below); they use no globals. The numbered
+scripts and the analyses keep the guarded-default convention.
+
 ## Dependency map
 
-    01_simulate_genetics ─┐
-    02_reaction_norms_*  ─┴─▶ 03_plasticity_scores ─▶ 04_run_gwas ─▶ 05_evaluate_gwas ─▶ 06_analyze_gwas_results
-                                     │                                                    └▶ 06_analyze_maize_gwas_results
-                                     ├─▶ analysis/summary_stats_vs_scores  (auto-sources 03)
-                                     ├─▶ analysis/clustering_rn_summary_stats  (auto-sources 03)
-                                     ├─▶ analysis/kendall_rank_corr  (auto-sources 03)
-                                     └─▶ analysis/regression_sumstats_dataprep ─▶ analysis/regression_summarystats
+    R/sim (simulation model) ─┬─▶ R/pipeline: run_pipeline / run_simulation_scenario ◀─ scenarios/scenario_<h2>_<Mc>.R
+    R/ppi (PPI registry)     ─┘        (PPIs ─▶ GWAS ─▶ power per shape)
+    R/sim ─▶ 03_plasticity_scores ─▶ 04_run_gwas ─▶ 05_evaluate_gwas ─▶ 06_analyze_gwas_results
+                    │                                                  └▶ 06_analyze_maize_gwas_results
+                    ├─▶ analysis/summary_stats_vs_scores  (auto-sources 03)
+                    ├─▶ analysis/clustering_rn_summary_stats  (auto-sources 03)
+                    ├─▶ analysis/kendall_rank_corr  (auto-sources 03)
+                    └─▶ analysis/regression_sumstats_dataprep ─▶ analysis/regression_summarystats
     figures/*  read outputs written under output/ by the scripts above.
 
-`03_plasticity_scores.R` auto-sources `01` and `02`, so running it (or anything that
-sources it) reruns the upstream simulation. `regression_summarystats.R` requires
+The scenario drivers run the new pipeline directly. `03_plasticity_scores.R` takes its
+reaction norms and SNPs from `simulate_reaction_norms()` and keeps the globals that
+the analyses and figures read. `regression_summarystats.R` requires
 `regression_sumstats_dataprep.R` to have been run first (it reads that script's CSV).
 
 ## Scripts
 
-### R/01_simulate_genetics.R
+### Simulation model, PPIs and pipeline (R/sim, R/ppi, R/pipeline)
 
-```text
-=============================================================================
-01_simulate_genetics.R — simulate SNP genotypes and genetic parameters
-=============================================================================
-WHAT IT DOES: Generates synthetic SNP genotypes for NUM_GENOTYPES individuals with
-  optional nested population structure, assigns causal SNPs and effect sizes to the
-  reaction-norm parameters, and records the ground-truth causal map later used to
-  score GWAS accuracy.
-REQUIRES:     Nothing upstream (pure simulation; reads no external data).
-PRODUCES:     In memory: the genotype matrix and truth table consumed by 02/03.
-              If OUTPUT_BASE is set, writes them under OUTPUT_BASE.
-HOW TO RUN:   setwd("~/PlastQuant"); source(here::here("R", "01_simulate_genetics.R"))
------------------------------------------------------------------------------
-PARAMETERS (edit here)
-  NUM_GENOTYPES         integer, default 80      number of simulated genotypes           [COMMON]
-  GENETIC_VARIANCES     logical/vector, default FALSE  per-parameter genetic variances
-                                                 (FALSE = use built-in defaults)
-  POLY_MODE             "uniform"|"exponential", default "uniform"  causal-effect distribution
-  POLY_STRENGTH         integer 1-5, default 5   genetic-variance strength (5 = full target SD)
-  POLY_COUNTS           integer/vector, default 1  number of causal SNPs per parameter
-  STRUCTURED_POPULATION logical, default FALSE   add nested population structure
-  SEED                  integer, default 42      RNG seed for reproducibility            [COMMON]
-  OUTPUT_BASE           path, default here::here("output","default")  where outputs go
------------------------------------------------------------------------------
-These parameters are supplied by the sourcing script (03_plasticity_scores.R or a
-scenario_*.R driver) or by your R session before sourcing. They are intentionally
-NOT assigned here: the simulation branches on whether SEED / GENETIC_VARIANCES exist
-(see below), so defining them here would change the RNG path. GENETIC_VARIANCES falls
-back to FALSE further down; SEED, when defined, offsets the seeds (leave it unset to
-reproduce the default simulation).
-=============================================================================
-```
+These three folders hold functions only: no global variables, no guarded defaults.
+Every function takes its inputs as arguments and returns its result.
+`source(here::here("R", "pipeline", "load_pipeline.R"))` loads all of them.
 
-### R/02_reaction_norms_linear.R
+| File | Contents |
+|---|---|
+| `R/sim/simulation_config.R` | `sim_config()`: every setting, including all variance components; the study space; the parameters of each shape |
+| `R/sim/snp_genotypes.R` | SNP dosages, disjoint causal SNP sets, SNP score |
+| `R/sim/genetic_values.R` | genetic value of a genotype, repeatability, replicate spread, plant latent values |
+| `R/sim/parameter_mapping.R` | latent value → parameter value |
+| `R/sim/reaction_norm_shapes.R` | raw shapes, normalisation, reaction-norm curve |
+| `R/sim/measurement.R` | measurement error |
+| `R/sim/simulate_reaction_norms.R` | `simulate_reaction_norms(cfg)`: runs the model for every shape |
+| `R/sim/variance_report.R` | realised variance components on the latent and the trait level |
+| `R/ppi/ppi_registry.R` | PPI entries, `register_ppi()`, validation, default registry (28 PPIs) |
+| `R/ppi/compute_ppis.R` | replicate means; `compute_ppis()` with `exclude` |
+| `R/pipeline/pipeline_input.R` | data contract for simulated and own data |
+| `R/pipeline/gwas.R` | kinship matrix; `run_gwas()` per PPI and shape (rrBLUP mixed model) |
+| `R/pipeline/evaluate_power.R` | power per shape against that shape's causal SNPs |
+| `R/pipeline/run_pipeline.R` | `run_pipeline()`, `run_simulation_scenario()` |
+| `R/pipeline/load_pipeline.R` | sources the three folders |
 
-```text
-=============================================================================
-02_reaction_norms_linear.R — generate linear reaction norms
-=============================================================================
-WHAT IT DOES: Builds linear (intercept + slope) reaction norms across environments
-  for each genotype, optionally driven by the simulated genetics from 01.
-REQUIRES:     Genetic parameters from 01_simulate_genetics.R when USE_GENETICS = TRUE
-              (typically sourced upstream by 03_plasticity_scores.R).
-PRODUCES:     In memory: the linear reaction-norm data consumed by 03.
-HOW TO RUN:   Sourced by 03_plasticity_scores.R; or, with 01 already run,
-              setwd("~/PlastQuant"); source(here::here("R", "02_reaction_norms_linear.R"))
------------------------------------------------------------------------------
-PARAMETERS (edit here)
-  USE_GENETICS  logical, default FALSE   use simulated genetics (FALSE = random params)  [COMMON]
-  SEED          integer, default 42      RNG seed                                        [COMMON]
-  OUTPUT_BASE   path, default here::here("output","default")  where outputs go
------------------------------------------------------------------------------
-These parameters are supplied by the sourcing script (03_plasticity_scores.R) or your
-R session. They are intentionally NOT assigned here: the script branches on whether
-SEED / USE_GENETICS exist (USE_GENETICS falls back to FALSE further down; SEED, when
-defined, offsets the RNG seed), so defining them here would change behaviour.
-=============================================================================
-```
+**Simulation.** `simulate_reaction_norms(sim_config(h2, Mc))` does the following:
 
-### R/02_reaction_norms_nonlinear.R
+1. Simulates the SNP matrix and draws the causal SNPs.
+2. Computes, in the order of the model, genetic values, repeatability, plant latent
+   values, parameter values, mother reaction norms and replicates, and measurements,
+   for each of the four shapes (linear, gaussian, sinusoidal, wave).
 
-```text
-=============================================================================
-02_reaction_norms_nonlinear.R — generate nonlinear reaction norms
-=============================================================================
-WHAT IT DOES: Builds nonlinear reaction norms (Gaussian, sinusoidal, and wave
-  shapes) across environments for each genotype, optionally driven by the
-  simulated genetics from 01.
-REQUIRES:     Genetic parameters from 01_simulate_genetics.R when USE_GENETICS = TRUE
-              (typically sourced upstream by 03_plasticity_scores.R).
-PRODUCES:     In memory: the nonlinear reaction-norm data consumed by 03.
-HOW TO RUN:   Sourced by 03_plasticity_scores.R; or, with 01 already run,
-              setwd("~/PlastQuant"); source(here::here("R", "02_reaction_norms_nonlinear.R"))
------------------------------------------------------------------------------
-PARAMETERS (edit here)
-  USE_GENETICS  logical, default FALSE   use simulated genetics (FALSE = random params)  [COMMON]
-  SEED          integer, default 42      RNG seed                                        [COMMON]
-  OUTPUT_BASE   path, default here::here("output","default")  where outputs go
------------------------------------------------------------------------------
-These parameters are supplied by the sourcing script (03_plasticity_scores.R) or your
-R session. They are intentionally NOT assigned here: the script branches on whether
-SEED / USE_GENETICS exist (USE_GENETICS falls back to FALSE further down; SEED, when
-defined, offsets the RNG seed), so defining them here would change behaviour.
-=============================================================================
-```
+All variance settings and their defaults are in `sim_config()`:
+
+- `h2`: share of the latent variance from the causal SNPs.
+- `sigma_L`: scale of the level.
+- `repeatability_beta`: Beta(18, 2).
+- `error_share`: measurement error share, 0.05.
+
+`sim_config()` also holds the remaining settings:
+
+- `n_per_shape` = 200
+- `n_rep` = 3
+- `n_snps` = 200000
+- `n_points` = 6
+- `seed`
+- `study_space`
+
+The same `seed` gives the same SNPs, causal sets, effects and normal draws for every
+`h2`. `variance_report(sim)` shows the realised components:
+
+- On the latent level, the SNP share equals `h2`.
+- On the trait level, it shows SNPs, background, interaction, within genotype and
+  measurement error.
+
+**Scenarios.** Each `R/scenarios/scenario_<pct>_<Mc>.R` is a single call:
+
+    run_simulation_scenario(sim_config(h2 = 0.2, Mc = 5), out_dir = here::here("output", "scenario_20_5"))
+
+It simulates, computes all PPIs, runs the GWAS with the kinship matrix and evaluates
+the power per shape. The first token of the file name is h² in percent; the second
+is the number of causal SNPs per parameter.
+
+**Own data.** Build the input and run it:
+
+    input <- pipeline_input(phenotypes, environments, snp_matrix = X, truth = known)
+    run_pipeline(input, out_dir)
+
+The input arguments:
+
+- `phenotypes`: a named list with one data.frame per shape or trait. Columns:
+  `Genotype`, `Replicate`, `Environment`, `Trait`.
+- `environments`: the environment values.
+- `snp_matrix`: dosages 0/1/2, with genotype IDs as row names.
+- `truth` (optional): known causal SNPs, with columns `Shape`, `Parameter` and `SNP`,
+  e.g. known plasticity genes.
+
+Without SNPs, use `run_pipeline(pipeline_input(phenotypes, environments), out_dir, gwas = FALSE)`.
+This computes the PPIs only.
+
+**PPIs.** Each PPI is one registry entry that declares its inputs:
+
+- `trait`: trait vector
+- `env`: environment values
+- `env_index`
+- `covariate`
+- `matrix`: genotype × environment matrix, at the population level
+
+To add a PPI:
+
+    reg <- register_ppi(default_ppi_registry(),
+                        ppi_entry("Name", fun, inputs = c(trait_values = "trait", env_values = "env")))
+
+To leave PPIs out, pass `exclude = c("CV_t", ...)`. `replicate_handling` controls
+what the GWAS uses:
+
+- `"mean_before"` (default): replicates are averaged before the PPI is computed.
+- `"replicates"`: one PPI value per replicate reaction norm, with the line ID repeated.
+
+**Output of a run** (`out_dir/run_<timestamp>/`):
+
+- Always: `phenotypes.rds`, `ppi_scores.rds`, `ppi_scores/<PPI>.csv` (columns `Score`,
+  `Type`, `Genotype_ID`, `Replicate`).
+- With SNPs: `snp_matrix.rds`.
+- With truth: `truth.csv`.
+- With GWAS: `gwas_results.csv` (`SNP`, `LogP`, `P_Value`, `Score`, `Type`).
+- With truth and GWAS: `gwas_power.csv`, i.e. power per shape, PPI and parameter,
+  Bonferroni 0.05 / number of SNPs. Hits on SNPs that are not causal for that shape
+  count as false positives.
+
+Scenarios also write `variance_latent.csv`, `variance_trait.csv`, `measurement.csv`,
+`mother_parameters.csv`, `mother_curves.rds` and `config.rds`.
+
+**Tests.** `Rscript --vanilla tests/run_tests.R` (from the project root).
 
 ### R/03_plasticity_scores.R
 
@@ -128,36 +160,35 @@ defined, offsets the RNG seed), so defining them here would change behaviour.
 =============================================================================
 03_plasticity_scores.R — compute every plasticity index (pipeline hub)
 =============================================================================
-WHAT IT DOES: Computes every plasticity index (via the ppindices package) for each
-  simulated genotype's reaction norm across the four forms (linear, gaussian,
-  sinusoidal, wave), assembling the `scores_list` consumed by GWAS and analysis.
-  This is the hub: it auto-sources 01 and 02, so running it reruns the upstream
-  simulation.
-REQUIRES:     Auto-sources 01_simulate_genetics.R, 02_reaction_norms_linear.R,
-              02_reaction_norms_nonlinear.R; library(ppindices).
-              When USE_GENETICS = TRUE (the default) the caller MUST set
-              HERITABILITY_5TH, CAUSAL_SNP_NUM and OUTPUT_BASE first (a scenario_*.R
-              driver, or assignments in your R session) — the script stops otherwise.
+WHAT IT DOES: Simulates the population with the model in R/sim (SNPs -> genetic
+  values -> mother norms and replicates -> measurements) and computes every
+  plasticity index (via the ppindices package) for each genotype's reaction norm
+  across the four forms (linear, gaussian, sinusoidal, wave), assembling the
+  `scores_list` consumed by GWAS and analysis.
+REQUIRES:     R/sim, R/ppi, R/pipeline (loaded via R/pipeline/load_pipeline.R);
+              library(ppindices). The caller MUST set H2, CAUSAL_SNP_NUM and
+              OUTPUT_BASE first — the script stops otherwise.
 PRODUCES:     `scores_list` in memory; per-score CSVs under OUTPUT_BASE when SAVE=TRUE.
 HOW TO RUN:   setwd("~/PlastQuant")
-              HERITABILITY_5TH <- 1; CAUSAL_SNP_NUM <- 5
+              H2 <- 0.2; CAUSAL_SNP_NUM <- 5
               OUTPUT_BASE <- here::here("output","my_run")
               source(here::here("R", "03_plasticity_scores.R"))
 -----------------------------------------------------------------------------
-PARAMETERS — set these in a scenario_*.R driver or your R session before sourcing.
-  The defaults below are applied in-script (guarded) at the noted line numbers.
-  USE_GENETICS          logical, default TRUE  use simulated genetics (line 36)        [COMMON]
-  HERITABILITY_5TH      numeric, REQUIRED when USE_GENETICS=TRUE  H^2 of the 5th trait [COMMON]
-  CAUSAL_SNP_NUM        integer, REQUIRED when USE_GENETICS=TRUE  causal SNPs / param  [COMMON]
-  OUTPUT_BASE           path,    REQUIRED when USE_GENETICS=TRUE  output location      [COMMON]
-  NUM_GENOTYPES         integer, default 800   number of genotypes (line 100)
-  N_MEAS_POINTS         integer, default 6     measurement points per reaction norm (line 161)
-  KEEP_REPLICATES       logical, default (see lines 97/179)  keep replicate rows
-  STRUCTURED_POPULATION logical, default FALSE nested population structure (line 98)
-  GENETIC_VARIANCES     logical/vector         per-parameter genetic variances (from 01)
-  POLY_MODE/STRENGTH/COUNTS  causal-effect controls passed through to 01
+PARAMETERS — set these in a driver script or your R session before sourcing.
+  H2                    numeric 0..1, REQUIRED  share of genetic variance from the causal SNPs [COMMON]
+  CAUSAL_SNP_NUM        integer, REQUIRED      causal SNPs per parameter                    [COMMON]
+  OUTPUT_BASE           path,    REQUIRED      output location                              [COMMON]
+  NUM_GENOTYPES         integer, default 800   number of genotypes (divisible by 4)
+  NUM_SNPs              integer, default 200000 number of simulated SNPs
+  N_MEAS_POINTS         integer, default 6     simulated measurement points per reaction norm
+  SEED                  integer, default 1     same seed = same genetics for every H2
+  indices, env          optional               subset of the measurement points and their
+                                               environment values (default: all points)
+  KEEP_REPLICATES       logical, default FALSE keep replicate rows
   GWAS                  logical                run GWAS downstream (read by 04/05/06)
   SAVE                  logical                write per-score CSVs under OUTPUT_BASE
+All other model settings (variance components, study space) are the defaults of
+sim_config() in R/sim/simulation_config.R.
 =============================================================================
 ```
 
@@ -272,20 +303,13 @@ PARAMETERS (edit at the noted line)
 
 ```text
 =============================================================================
-scenario_20_5.R — scenario driver: HERITABILITY_5TH=1, CAUSAL_SNP_NUM=5
+scenario_20_5.R — heritability scenario: h2 = 0.2, 5 causal SNPs per parameter
 =============================================================================
-WHAT IT DOES: Sets the parameters for this scenario, then runs the plasticity-score
-  computation (03_plasticity_scores.R) and the GWAS accuracy evaluation
-  (05_evaluate_gwas.R) end-to-end.
-REQUIRES:     None — self-contained driver. Run from the project root.
-PRODUCES:     Scores + GWAS evaluation under OUTPUT_BASE (output/scenario_20_5/).
-HOW TO RUN:   setwd("~/PlastQuant"); source(here::here("R","scenarios","scenario_20_5.R"))
------------------------------------------------------------------------------
-PARAMETERS (edit here — set UNCONDITIONALLY below so they override script defaults)
-  OUTPUT_BASE           output location for this scenario
-  HERITABILITY_5TH      = 1    heritability setting for the 5th trait          [COMMON]
-  CAUSAL_SNP_NUM        = 5    causal SNPs per parameter                       [COMMON]
-  DO_NOT_PLOT_MAHATTAN  = TRUE  skip Manhattan plots
+Simulates the population (R/sim), computes all PPIs, runs the GWAS and the
+per-shape evaluation, and writes everything to output/scenario_20_5/run_<time>/.
+All other settings (variance components, study space, ...) are the defaults of
+sim_config() in R/sim/simulation_config.R.
+HOW TO RUN: Rscript --vanilla R/scenarios/scenario_20_5.R   (from the repo root)
 =============================================================================
 ```
 
@@ -293,20 +317,13 @@ PARAMETERS (edit here — set UNCONDITIONALLY below so they override script defa
 
 ```text
 =============================================================================
-scenario_20_10.R — scenario driver: HERITABILITY_5TH=1, CAUSAL_SNP_NUM=10
+scenario_20_10.R — heritability scenario: h2 = 0.2, 10 causal SNPs per parameter
 =============================================================================
-WHAT IT DOES: Sets the parameters for this scenario, then runs the plasticity-score
-  computation (03_plasticity_scores.R) and the GWAS accuracy evaluation
-  (05_evaluate_gwas.R) end-to-end.
-REQUIRES:     None — self-contained driver. Run from the project root.
-PRODUCES:     Scores + GWAS evaluation under OUTPUT_BASE (output/scenario_20_10/).
-HOW TO RUN:   setwd("~/PlastQuant"); source(here::here("R","scenarios","scenario_20_10.R"))
------------------------------------------------------------------------------
-PARAMETERS (edit here — set UNCONDITIONALLY below so they override script defaults)
-  OUTPUT_BASE           output location for this scenario
-  HERITABILITY_5TH      = 1    heritability setting for the 5th trait          [COMMON]
-  CAUSAL_SNP_NUM        = 10    causal SNPs per parameter                       [COMMON]
-  DO_NOT_PLOT_MAHATTAN  = TRUE  skip Manhattan plots
+Simulates the population (R/sim), computes all PPIs, runs the GWAS and the
+per-shape evaluation, and writes everything to output/scenario_20_10/run_<time>/.
+All other settings (variance components, study space, ...) are the defaults of
+sim_config() in R/sim/simulation_config.R.
+HOW TO RUN: Rscript --vanilla R/scenarios/scenario_20_10.R   (from the repo root)
 =============================================================================
 ```
 
@@ -314,20 +331,13 @@ PARAMETERS (edit here — set UNCONDITIONALLY below so they override script defa
 
 ```text
 =============================================================================
-scenario_20_20.R — scenario driver: HERITABILITY_5TH=1, CAUSAL_SNP_NUM=20
+scenario_20_20.R — heritability scenario: h2 = 0.2, 20 causal SNPs per parameter
 =============================================================================
-WHAT IT DOES: Sets the parameters for this scenario, then runs the plasticity-score
-  computation (03_plasticity_scores.R) and the GWAS accuracy evaluation
-  (05_evaluate_gwas.R) end-to-end.
-REQUIRES:     None — self-contained driver. Run from the project root.
-PRODUCES:     Scores + GWAS evaluation under OUTPUT_BASE (output/scenario_20_20/).
-HOW TO RUN:   setwd("~/PlastQuant"); source(here::here("R","scenarios","scenario_20_20.R"))
------------------------------------------------------------------------------
-PARAMETERS (edit here — set UNCONDITIONALLY below so they override script defaults)
-  OUTPUT_BASE           output location for this scenario
-  HERITABILITY_5TH      = 1    heritability setting for the 5th trait          [COMMON]
-  CAUSAL_SNP_NUM        = 20    causal SNPs per parameter                       [COMMON]
-  DO_NOT_PLOT_MAHATTAN  = TRUE  skip Manhattan plots
+Simulates the population (R/sim), computes all PPIs, runs the GWAS and the
+per-shape evaluation, and writes everything to output/scenario_20_20/run_<time>/.
+All other settings (variance components, study space, ...) are the defaults of
+sim_config() in R/sim/simulation_config.R.
+HOW TO RUN: Rscript --vanilla R/scenarios/scenario_20_20.R   (from the repo root)
 =============================================================================
 ```
 
@@ -335,20 +345,13 @@ PARAMETERS (edit here — set UNCONDITIONALLY below so they override script defa
 
 ```text
 =============================================================================
-scenario_40_5.R — scenario driver: HERITABILITY_5TH=2, CAUSAL_SNP_NUM=5
+scenario_40_5.R — heritability scenario: h2 = 0.4, 5 causal SNPs per parameter
 =============================================================================
-WHAT IT DOES: Sets the parameters for this scenario, then runs the plasticity-score
-  computation (03_plasticity_scores.R) and the GWAS accuracy evaluation
-  (05_evaluate_gwas.R) end-to-end.
-REQUIRES:     None — self-contained driver. Run from the project root.
-PRODUCES:     Scores + GWAS evaluation under OUTPUT_BASE (output/scenario_40_5/).
-HOW TO RUN:   setwd("~/PlastQuant"); source(here::here("R","scenarios","scenario_40_5.R"))
------------------------------------------------------------------------------
-PARAMETERS (edit here — set UNCONDITIONALLY below so they override script defaults)
-  OUTPUT_BASE           output location for this scenario
-  HERITABILITY_5TH      = 2    heritability setting for the 5th trait          [COMMON]
-  CAUSAL_SNP_NUM        = 5    causal SNPs per parameter                       [COMMON]
-  DO_NOT_PLOT_MAHATTAN  = TRUE  skip Manhattan plots
+Simulates the population (R/sim), computes all PPIs, runs the GWAS and the
+per-shape evaluation, and writes everything to output/scenario_40_5/run_<time>/.
+All other settings (variance components, study space, ...) are the defaults of
+sim_config() in R/sim/simulation_config.R.
+HOW TO RUN: Rscript --vanilla R/scenarios/scenario_40_5.R   (from the repo root)
 =============================================================================
 ```
 
@@ -356,20 +359,13 @@ PARAMETERS (edit here — set UNCONDITIONALLY below so they override script defa
 
 ```text
 =============================================================================
-scenario_40_10.R — scenario driver: HERITABILITY_5TH=2, CAUSAL_SNP_NUM=10
+scenario_40_10.R — heritability scenario: h2 = 0.4, 10 causal SNPs per parameter
 =============================================================================
-WHAT IT DOES: Sets the parameters for this scenario, then runs the plasticity-score
-  computation (03_plasticity_scores.R) and the GWAS accuracy evaluation
-  (05_evaluate_gwas.R) end-to-end.
-REQUIRES:     None — self-contained driver. Run from the project root.
-PRODUCES:     Scores + GWAS evaluation under OUTPUT_BASE (output/scenario_40_10/).
-HOW TO RUN:   setwd("~/PlastQuant"); source(here::here("R","scenarios","scenario_40_10.R"))
------------------------------------------------------------------------------
-PARAMETERS (edit here — set UNCONDITIONALLY below so they override script defaults)
-  OUTPUT_BASE           output location for this scenario
-  HERITABILITY_5TH      = 2    heritability setting for the 5th trait          [COMMON]
-  CAUSAL_SNP_NUM        = 10    causal SNPs per parameter                       [COMMON]
-  DO_NOT_PLOT_MAHATTAN  = TRUE  skip Manhattan plots
+Simulates the population (R/sim), computes all PPIs, runs the GWAS and the
+per-shape evaluation, and writes everything to output/scenario_40_10/run_<time>/.
+All other settings (variance components, study space, ...) are the defaults of
+sim_config() in R/sim/simulation_config.R.
+HOW TO RUN: Rscript --vanilla R/scenarios/scenario_40_10.R   (from the repo root)
 =============================================================================
 ```
 
@@ -377,20 +373,13 @@ PARAMETERS (edit here — set UNCONDITIONALLY below so they override script defa
 
 ```text
 =============================================================================
-scenario_40_20.R — scenario driver: HERITABILITY_5TH=2, CAUSAL_SNP_NUM=20
+scenario_40_20.R — heritability scenario: h2 = 0.4, 20 causal SNPs per parameter
 =============================================================================
-WHAT IT DOES: Sets the parameters for this scenario, then runs the plasticity-score
-  computation (03_plasticity_scores.R) and the GWAS accuracy evaluation
-  (05_evaluate_gwas.R) end-to-end.
-REQUIRES:     None — self-contained driver. Run from the project root.
-PRODUCES:     Scores + GWAS evaluation under OUTPUT_BASE (output/scenario_40_20/).
-HOW TO RUN:   setwd("~/PlastQuant"); source(here::here("R","scenarios","scenario_40_20.R"))
------------------------------------------------------------------------------
-PARAMETERS (edit here — set UNCONDITIONALLY below so they override script defaults)
-  OUTPUT_BASE           output location for this scenario
-  HERITABILITY_5TH      = 2    heritability setting for the 5th trait          [COMMON]
-  CAUSAL_SNP_NUM        = 20    causal SNPs per parameter                       [COMMON]
-  DO_NOT_PLOT_MAHATTAN  = TRUE  skip Manhattan plots
+Simulates the population (R/sim), computes all PPIs, runs the GWAS and the
+per-shape evaluation, and writes everything to output/scenario_40_20/run_<time>/.
+All other settings (variance components, study space, ...) are the defaults of
+sim_config() in R/sim/simulation_config.R.
+HOW TO RUN: Rscript --vanilla R/scenarios/scenario_40_20.R   (from the repo root)
 =============================================================================
 ```
 
@@ -398,20 +387,13 @@ PARAMETERS (edit here — set UNCONDITIONALLY below so they override script defa
 
 ```text
 =============================================================================
-scenario_60_5.R — scenario driver: HERITABILITY_5TH=3, CAUSAL_SNP_NUM=5
+scenario_60_5.R — heritability scenario: h2 = 0.6, 5 causal SNPs per parameter
 =============================================================================
-WHAT IT DOES: Sets the parameters for this scenario, then runs the plasticity-score
-  computation (03_plasticity_scores.R) and the GWAS accuracy evaluation
-  (05_evaluate_gwas.R) end-to-end.
-REQUIRES:     None — self-contained driver. Run from the project root.
-PRODUCES:     Scores + GWAS evaluation under OUTPUT_BASE (output/scenario_60_5/).
-HOW TO RUN:   setwd("~/PlastQuant"); source(here::here("R","scenarios","scenario_60_5.R"))
------------------------------------------------------------------------------
-PARAMETERS (edit here — set UNCONDITIONALLY below so they override script defaults)
-  OUTPUT_BASE           output location for this scenario
-  HERITABILITY_5TH      = 3    heritability setting for the 5th trait          [COMMON]
-  CAUSAL_SNP_NUM        = 5    causal SNPs per parameter                       [COMMON]
-  DO_NOT_PLOT_MAHATTAN  = TRUE  skip Manhattan plots
+Simulates the population (R/sim), computes all PPIs, runs the GWAS and the
+per-shape evaluation, and writes everything to output/scenario_60_5/run_<time>/.
+All other settings (variance components, study space, ...) are the defaults of
+sim_config() in R/sim/simulation_config.R.
+HOW TO RUN: Rscript --vanilla R/scenarios/scenario_60_5.R   (from the repo root)
 =============================================================================
 ```
 
@@ -419,20 +401,13 @@ PARAMETERS (edit here — set UNCONDITIONALLY below so they override script defa
 
 ```text
 =============================================================================
-scenario_60_10.R — scenario driver: HERITABILITY_5TH=3, CAUSAL_SNP_NUM=10
+scenario_60_10.R — heritability scenario: h2 = 0.6, 10 causal SNPs per parameter
 =============================================================================
-WHAT IT DOES: Sets the parameters for this scenario, then runs the plasticity-score
-  computation (03_plasticity_scores.R) and the GWAS accuracy evaluation
-  (05_evaluate_gwas.R) end-to-end.
-REQUIRES:     None — self-contained driver. Run from the project root.
-PRODUCES:     Scores + GWAS evaluation under OUTPUT_BASE (output/scenario_60_10/).
-HOW TO RUN:   setwd("~/PlastQuant"); source(here::here("R","scenarios","scenario_60_10.R"))
------------------------------------------------------------------------------
-PARAMETERS (edit here — set UNCONDITIONALLY below so they override script defaults)
-  OUTPUT_BASE           output location for this scenario
-  HERITABILITY_5TH      = 3    heritability setting for the 5th trait          [COMMON]
-  CAUSAL_SNP_NUM        = 10    causal SNPs per parameter                       [COMMON]
-  DO_NOT_PLOT_MAHATTAN  = TRUE  skip Manhattan plots
+Simulates the population (R/sim), computes all PPIs, runs the GWAS and the
+per-shape evaluation, and writes everything to output/scenario_60_10/run_<time>/.
+All other settings (variance components, study space, ...) are the defaults of
+sim_config() in R/sim/simulation_config.R.
+HOW TO RUN: Rscript --vanilla R/scenarios/scenario_60_10.R   (from the repo root)
 =============================================================================
 ```
 
@@ -440,20 +415,13 @@ PARAMETERS (edit here — set UNCONDITIONALLY below so they override script defa
 
 ```text
 =============================================================================
-scenario_60_20.R — scenario driver: HERITABILITY_5TH=3, CAUSAL_SNP_NUM=20
+scenario_60_20.R — heritability scenario: h2 = 0.6, 20 causal SNPs per parameter
 =============================================================================
-WHAT IT DOES: Sets the parameters for this scenario, then runs the plasticity-score
-  computation (03_plasticity_scores.R) and the GWAS accuracy evaluation
-  (05_evaluate_gwas.R) end-to-end.
-REQUIRES:     None — self-contained driver. Run from the project root.
-PRODUCES:     Scores + GWAS evaluation under OUTPUT_BASE (output/scenario_60_20/).
-HOW TO RUN:   setwd("~/PlastQuant"); source(here::here("R","scenarios","scenario_60_20.R"))
------------------------------------------------------------------------------
-PARAMETERS (edit here — set UNCONDITIONALLY below so they override script defaults)
-  OUTPUT_BASE           output location for this scenario
-  HERITABILITY_5TH      = 3    heritability setting for the 5th trait          [COMMON]
-  CAUSAL_SNP_NUM        = 20    causal SNPs per parameter                       [COMMON]
-  DO_NOT_PLOT_MAHATTAN  = TRUE  skip Manhattan plots
+Simulates the population (R/sim), computes all PPIs, runs the GWAS and the
+per-shape evaluation, and writes everything to output/scenario_60_20/run_<time>/.
+All other settings (variance components, study space, ...) are the defaults of
+sim_config() in R/sim/simulation_config.R.
+HOW TO RUN: Rscript --vanilla R/scenarios/scenario_60_20.R   (from the repo root)
 =============================================================================
 ```
 
@@ -486,13 +454,13 @@ regression_sumstats_dataprep.R — build the summary-stats vs scores table
 WHAT IT DOES: Assembles the table of reaction-norm summary statistics against
   plasticity scores that regression_summarystats.R and several figure scripts consume.
   Auto-sources 03_plasticity_scores.R and analysis/summary_stats_vs_scores.R.
-REQUIRES:     Runs 03 (so it needs HERITABILITY_5TH / CAUSAL_SNP_NUM / OUTPUT_BASE set
+REQUIRES:     Runs 03 (so it needs H2 / CAUSAL_SNP_NUM / OUTPUT_BASE set
               by a scenario or your session, as 03 does).
 PRODUCES:     Regression-input CSV(s) under output/regression_summary_stats/.
 HOW TO RUN:   setwd("~/PlastQuant"); source(here::here("R","analysis","regression_sumstats_dataprep.R"))
 -----------------------------------------------------------------------------
 PARAMETERS (supplied by 03 / a scenario / your session; see 03_plasticity_scores.R)
-  NUM_GENOTYPES, HERITABILITY_5TH, CAUSAL_SNP_NUM, USE_GENETICS, OUTPUT_BASE      [COMMON]
+  NUM_GENOTYPES, H2, CAUSAL_SNP_NUM, OUTPUT_BASE      [COMMON]
 =============================================================================
 ```
 
@@ -528,7 +496,7 @@ kendall_rank_corr.R — Kendall rank correlations between indices
 WHAT IT DOES: Computes Kendall rank correlations between the plasticity indices over
   the chosen sampling intervals and reaction-norm ranges. Auto-sources
   03_plasticity_scores.R when the scores are not already loaded.
-REQUIRES:     03 (so HERITABILITY_5TH / CAUSAL_SNP_NUM / OUTPUT_BASE must be set).
+REQUIRES:     03 (so H2 / CAUSAL_SNP_NUM / OUTPUT_BASE must be set).
 PRODUCES:     Rank-correlation tables (and inputs for downstream figures).
 HOW TO RUN:   setwd("~/PlastQuant"); source(here::here("R","analysis","kendall_rank_corr.R"))
 -----------------------------------------------------------------------------
@@ -570,7 +538,7 @@ WHAT IT DOES: Clusters genotypes / indices on their reaction-norm summary statis
   (k-means, DBSCAN, hierarchical, mclust) and renders the associated heatmaps/plots.
   Auto-sources 03_plasticity_scores.R when scores are not already loaded
   (guarded by the `data_loaded` flag at the top).
-REQUIRES:     03 (so HERITABILITY_5TH / CAUSAL_SNP_NUM / OUTPUT_BASE must be set).
+REQUIRES:     03 (so H2 / CAUSAL_SNP_NUM / OUTPUT_BASE must be set).
 PRODUCES:     Clustering figures under OUTPUT_BASE.
 HOW TO RUN:   setwd("~/PlastQuant"); source(here::here("R","analysis","clustering_rn_summary_stats.R"))
 -----------------------------------------------------------------------------
@@ -590,7 +558,7 @@ WHAT IT DOES: Computes and visualises the relationship between reaction-norm sum
   statistics and the plasticity scores (correlation matrices, distance measures,
   clustering). Auto-sources 03_plasticity_scores.R when scores are not already loaded
   (guarded by the `data_loaded` flag at the top).
-REQUIRES:     03 (so HERITABILITY_5TH / CAUSAL_SNP_NUM / OUTPUT_BASE must be set).
+REQUIRES:     03 (so H2 / CAUSAL_SNP_NUM / OUTPUT_BASE must be set).
 PRODUCES:     Summary-stat vs score figures/tables under OUTPUT_BASE.
 HOW TO RUN:   setwd("~/PlastQuant"); source(here::here("R","analysis","summary_stats_vs_scores.R"))
 -----------------------------------------------------------------------------
@@ -780,7 +748,7 @@ resolution.R — resolution experiment (dataprep + regression combined)
 WHAT IT DOES: Runs, in one pass, what regression_sumstats_dataprep.R and
   regression_summarystats.R do together, for the resolution experiment. Auto-sources
   03_plasticity_scores.R and analysis/summary_stats_vs_scores.R.
-REQUIRES:     03 (so HERITABILITY_5TH / CAUSAL_SNP_NUM / OUTPUT_BASE must be set).
+REQUIRES:     03 (so H2 / CAUSAL_SNP_NUM / OUTPUT_BASE must be set).
 PRODUCES:     Resolution-experiment tables/figures under output/.
 HOW TO RUN:   setwd("~/PlastQuant"); source(here::here("R","figures","resolution.R"))
 -----------------------------------------------------------------------------

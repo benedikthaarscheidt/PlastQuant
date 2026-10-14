@@ -39,10 +39,11 @@ library. Nothing is installed into your system library.
 
 ```
 R/                                pipeline, analysis, figure, and scenario scripts
-  01_simulate_genetics.R          simulate SNP genotypes + genetic parameters
-  02_reaction_norms_linear.R      generate linear reaction norms
-  02_reaction_norms_nonlinear.R   generate Gaussian/sinusoidal/wave reaction norms
-  03_plasticity_scores.R          compute all plasticity indices (uses ppindices)
+  sim/                            simulation model: SNPs -> genetic values -> reaction norms
+                                  -> measurements; all variance settings in sim_config()
+  ppi/                            PPI registry and computation (uses ppindices)
+  pipeline/                       input contract, GWAS, power per shape, pipeline runner
+  03_plasticity_scores.R          simulate (R/sim) and compute all plasticity indices
   03_plasticity_scores_maize.R    same, for the empirical maize dataset
   04_run_gwas.R                   GWAS on the plasticity scores
   05_evaluate_gwas.R              accuracy evaluation of GWAS hits
@@ -59,6 +60,7 @@ output/                           script outputs
   correlation_summary_stats/      committed — correlation inputs for figures
   rank_flops/                     committed — rank-agreement inputs for figures
   scenario_*/  plots/  ...        generated at run time (git-ignored)
+tests/                            unit tests (Rscript --vanilla tests/run_tests.R)
 docs/PIPELINE.md                  detailed per-script reference
 ```
 
@@ -68,22 +70,55 @@ collects all of these plus a cross-script dependency map — start there for det
 
 ## Running the pipeline
 
-Each **scenario** driver sets its parameters and runs the full
-simulate → scores → GWAS → evaluate chain. From the repository root:
+Each **scenario** driver is a single call that simulates the population, computes all
+PPIs, runs the GWAS (rrBLUP mixed model with kinship) and evaluates the power per
+shape. From the repository root:
 
-```r
-setwd("~/PlastQuant")
-source(here::here("R", "scenarios", "scenario_20_5.R"))
+```bash
+Rscript --vanilla R/scenarios/scenario_20_5.R
 ```
 
-Scenario drivers are named `scenario_<H>_<causal_snps>.R`, where the first token maps
-to the `HERITABILITY_5TH` setting (`20`/`40`/`60` → `1`/`2`/`3`) and the second is the
-number of causal SNPs per parameter. `scenario_maize.R` runs the empirical maize
-analysis. Outputs are written under `output/scenario_<...>/`.
+Scenario drivers are named `scenario_<h2>_<causal_snps>.R`. The first token is h² in
+percent (`20`/`40`/`60` → `h2 = 0.2/0.4/0.6`); the second is the number of causal SNPs
+per parameter. Each driver calls
 
-To change a parameter, edit the clearly-marked block at the top of the relevant script
-(or set it in your session before sourcing). You never edit the pipeline internals —
-see each script's header, or `docs/PIPELINE.md`, for the full list of parameters.
+```r
+source(here::here("R", "pipeline", "load_pipeline.R"))
+run_simulation_scenario(sim_config(h2 = 0.2, Mc = 5), out_dir = here::here("output", "scenario_20_5"))
+```
+
+All other settings and their defaults are arguments of `sim_config()` in
+`R/sim/simulation_config.R`:
+
+- variance components (`sigma_L`, `repeatability_beta`, `error_share`)
+- number of genotypes, replicates, SNPs and measurement points
+- seed and study space
+
+The same seed gives the same genetics for every h². Outputs are written to
+`output/scenario_<...>/run_<timestamp>/`, including the realised variance components
+(`variance_latent.csv`, `variance_trait.csv`). `scenario_maize.R` runs the empirical
+maize analysis.
+
+**Own data.** Pass a SNP matrix, reaction norms and, optionally, known causal SNPs:
+
+```r
+source(here::here("R", "pipeline", "load_pipeline.R"))
+input <- pipeline_input(phenotypes, environments, snp_matrix = X, truth = known_snps)
+run_pipeline(input, out_dir = here::here("output", "my_data"))
+```
+
+Without SNPs, use `run_pipeline(pipeline_input(phenotypes, environments), out_dir, gwas = FALSE)`;
+this computes the PPIs only.
+
+**PPIs.** To add a PPI, register it:
+
+```r
+reg <- register_ppi(default_ppi_registry(), ppi_entry("Name", fun, inputs = c(trait_values = "trait", env_values = "env")))
+```
+
+Pass `registry = reg` to the runner. To leave PPIs out, use `exclude = c(...)`.
+
+See `docs/PIPELINE.md` for the data format, the output files and the numbered scripts.
 
 ## Reproducing the figures
 
@@ -98,7 +133,7 @@ source(here::here("R", "figures", "plasticity_score_realisation_plot.R"))
 
 | Figure / artefact                         | Script (`R/figures/`)                       | Needs a scenario run first? |
 |-------------------------------------------|---------------------------------------------|-----------------------------|
-| Reaction-norm overview                    | `plotting_reaction_norms_all.R`             | yes — run `scenario_20_5.R` |
+| Reaction-norm overview                    | `plotting_reaction_norms_all.R`             | not yet adapted to the new simulation (reads the CSVs of the removed reaction-norm generators) |
 | Plasticity-score realisations (simulated) | `plasticity_score_realisation_plot.R`       | no                          |
 | Plasticity-score realisations (maize)     | `plasticity_score_realisation_plot_maize.R` | no                          |
 | Summary-stats correlation panels          | `correlation_summary_stats_PS.R`            | no                          |
@@ -110,8 +145,9 @@ rebuilds `output/regression_summary_stats/`, and the Kendall / resolution script
 (`R/analysis/kendall_*`, `R/figures/resolution.R`) rebuild the correlation and
 rank-agreement CSVs.
 
-> Note: `R/scenarios/combine_scenarios_snps.sh` aggregates per-scenario GWAS CSVs. It
-> uses relative paths and expects to be run from inside `output/`, where the
+> Note: `R/scenarios/combine_scenarios_snps.sh` aggregates the per-scenario GWAS CSVs
+> of the 03 → 04 chain (`gwas_results_mlm_80.csv`), not the output of the new scenario
+> drivers. It uses relative paths and expects to be run from inside `output/`, where the
 > `scenario_*` folders live.
 
 ## Notes
