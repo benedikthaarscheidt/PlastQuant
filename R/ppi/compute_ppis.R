@@ -86,3 +86,19 @@ compute_ppis <- function(phenotypes, environments, registry = default_ppi_regist
     }))
   })
 }
+
+# PPI results (compute_ppis(), replicates averaged) as one table: one row per genotype
+# (Shape, Genotype), one column per PPI; rows ordered by `shapes`, then as computed
+ppi_wide_table <- function(traits, shapes = unique(traits[[1]]$Type)) {
+  first <- traits[[1]]
+  if (any(!is.na(first$Replicate))) stop("ppi_wide_table needs one value per genotype (replicate_handling = \"mean_before\")")
+  key <- unique(first[, c("Type", "Genotype_ID")])
+  key <- key[order(match(key$Type, shapes)), ]
+  out <- data.frame(Shape = key$Type, Genotype = key$Genotype_ID, stringsAsFactors = FALSE)
+  for (p in names(traits)) {
+    d <- traits[[p]]
+    out[[p]] <- d$Score[match(paste(out$Shape, out$Genotype), paste(d$Type, d$Genotype_ID))]
+  }
+  rownames(out) <- NULL
+  out
+}

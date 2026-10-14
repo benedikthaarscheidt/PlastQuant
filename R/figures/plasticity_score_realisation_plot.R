@@ -1,15 +1,18 @@
 # =============================================================================
 # plasticity_score_realisation_plot.R — plasticity-score realisations (simulated)
 # =============================================================================
-# WHAT IT DOES: Plots the realised plasticity scores across genotypes/forms for the
-#   simulated data.
-# REQUIRES:     Score outputs produced by 03_plasticity_scores.R (run a scenario first),
-#               read from under output/.
-# PRODUCES:     Plasticity-score realisation figure(s).
-# HOW TO RUN:   setwd("~/PlastQuant"); source(here::here("R","figures","plasticity_score_realisation_plot.R"))
+# WHAT IT DOES: Plots the realised plasticity scores of a population at its own
+#   sampling resolution: distributions, Kendall-distance clustering per shape and
+#   combined, silhouette choice of k, Mantel tests between the shapes (Figure 2).
+# REQUIRES:     POPULATION_DIR with its PPIs (POPULATION_DIR/ppis/ppi_scores.rds from
+#               run_pipeline(POPULATION_DIR, gwas = FALSE)).
+# PRODUCES:     Figures under POPULATION_DIR/plots/ (figure2_2.pdf, figure2_3.pdf, ...).
+# HOW TO RUN:   setwd("~/PlastQuant")
+#               POPULATION_DIR <- here::here("output", "populations", "ppi_comparison")
+#               source(here::here("R","figures","plasticity_score_realisation_plot.R"))
 # -----------------------------------------------------------------------------
-# PARAMETERS (edit the named input path / selection assignments in the body)
-#   the input score path and any index/form selection are set in the script body.
+# PARAMETERS — set before sourcing
+#   POPULATION_DIR  path, REQUIRED   population folder                                     [COMMON]
 # =============================================================================
 options(warn = -1)  # silence warnings even if the project .Rprofile was not loaded
 
@@ -50,23 +53,22 @@ if (exists("form_ranges") && length(form_ranges) == 3) {
   colnames(scores_list_arr2) = names(scores_list)
   df = data.frame(scores_list_arr2)
   df$Genotype = seq(732)
+  fig_dir <- here::here("output", "plots")
 } else {
-  form_ranges <- list(
-    linear     = 1:20,
-    gaussian   = 21:40,
-    sinusoidal = 41:60,
-    wave       = 61:80
-  )
+  # PPIs of the population at its own sampling resolution
+  if (!exists("POPULATION_DIR")) stop("set POPULATION_DIR (a population folder) first")
+  source(here::here("R", "pipeline", "load_pipeline.R"))
+  ppi_file <- file.path(POPULATION_DIR, "ppis", "ppi_scores.rds")
+  if (!file.exists(ppi_file)) stop("no PPIs in ", POPULATION_DIR, " (run run_pipeline(POPULATION_DIR, gwas = FALSE) first)")
+  wide <- ppi_wide_table(readRDS(ppi_file), shapes = c("linear", "gaussian", "sinusoidal", "wave"))
+  form_ranges <- split(seq_len(nrow(wide)), factor(wide$Shape, levels = unique(wide$Shape)))
 
-  df <- read_csv(here::here("output", "regression_summary_stats", "regression_data_full_interval_10_indices_1_11_21_31_41_50.csv"))
+  df <- data.frame(Genotype = seq_len(nrow(wide)), wide[, setdiff(names(wide), c("Shape", "Genotype"))], check.names = FALSE)
   na_counts <- colSums(is.na(df))
 
-  # keep only columns with zero NAs (there are some in the case of 1 and 2 samples across the environmental gradient as the RN and RNN cannot be calculated in this scenario)
+  # keep only columns with zero NAs (RN and RNN cannot be calculated with very few sampling points)
   df <- df[ , na_counts == 0]
-
-  df <- df %>% rename(Genotype = names(df)[1])
-  stat_cols <- c("min","max","mean","median","slope","range","variance","mean_lower","mean_upper")
-  df <- df[, !colnames(df) %in% stat_cols, drop = FALSE]
+  fig_dir <- population_subdir(POPULATION_DIR, "plots")
 }
 
 scores_long <- df %>%
@@ -97,7 +99,7 @@ make_plot <- function(metric_name) {
 plots   <- lapply(unique(scores_long$Metric), make_plot)
 combined <- wrap_plots(plots, ncol = 4) 
 print(combined)
-ggsave(create.dir = TRUE, here::here("output", "plots", "plasticity_scores_histograms.pdf"), combined, width = 6.3, height = 5,
+ggsave(create.dir = TRUE, file.path(fig_dir, "plasticity_scores_histograms.pdf"), combined, width = 6.3, height = 5,
        dpi = 900, units = "in", device = "pdf")
 
 
@@ -130,7 +132,7 @@ pp=ggplot(scores_long_trimmed, aes(x = Metric, y = Score)) +
   )
 print(pp)
 
-ggsave(create.dir = TRUE, here::here("output", "plots", "plasticity_scores_boxplots.pdf"), pp, width = 6.3, height = 5,
+ggsave(create.dir = TRUE, file.path(fig_dir, "plasticity_scores_boxplots.pdf"), pp, width = 6.3, height = 5,
        dpi = 900, units = "in", device = "pdf")
 
 ##########################################################
@@ -350,12 +352,12 @@ sep_panel <- (plot_comb | plots_sep[[2]]) /
 
 print(sep_panel)
 ggsave(create.dir = TRUE, 
-  here::here("output", "plots", "plasticity_scores_dendrograms.pdf"),
+  file.path(fig_dir, "plasticity_scores_dendrograms.pdf"),
   sep_panel,
   width = 6.3, height = 5, dpi = 900, units = "in", device = "pdf")
 
 ggsave(create.dir = TRUE, 
-  here::here("output", "plots", "dendrogram_linear.pdf"),
+  file.path(fig_dir, "dendrogram_linear.pdf"),
   plots_sep[[1]],
   width = 6.3, height = 4, dpi = 900, units = "in", device = "pdf")
 
@@ -435,7 +437,7 @@ coord_fixed() +
 print(tbl_obs_plot)
 
 ggsave(create.dir = TRUE, 
-  here::here("output", "plots", "plasticity_scores_mantel_table.pdf"),
+  file.path(fig_dir, "plasticity_scores_mantel_table.pdf"),
   tbl_obs_plot,
   width = 6.3, height = 5, dpi = 900, units = "in", device = "pdf"
 )
@@ -471,7 +473,7 @@ BBBCCC
 print(final_fig3)
 
 ggsave(create.dir = TRUE, 
-  here::here("output", "plots", "figure2_2.pdf"),
+  file.path(fig_dir, "figure2_2.pdf"),
   final_fig3,
   width = 6.3, height = 8, dpi = 900, units = "in", device = "pdf"
 )
@@ -505,7 +507,7 @@ BBBBCC
   )
 
 ggsave(create.dir = TRUE, 
-  here::here("output", "plots", "figure2_3.pdf"),
+  file.path(fig_dir, "figure2_3.pdf"),
   final_fig4,
   width = 6.3, height = 8, dpi = 900, units = "in", device = "pdf"
 )
@@ -556,7 +558,7 @@ CCDD
 }
 
 ggsave(create.dir = TRUE, 
-  here::here("output", "plots", "dendro_supp.pdf"),
+  file.path(fig_dir, "dendro_supp.pdf"),
   final_fig7,
   width = 6.3, height = 6, dpi = 900, units = "in", device = "pdf"
 )

@@ -124,3 +124,18 @@ sample_size_mixed_model <- function(tables) {
                       ifelse(abs(out$estimate) < 0.001 | out$p.adj >= 0.05, "robust", "sample-size-sensitive"))
   out
 }
+
+# The population's PPIs (ppis/ppi_scores.rds) and the nine summary statistics of its
+# replicate-mean reaction norms, at the population's own sampling resolution: one row
+# per genotype (Shape, Genotype, PPIs..., statistics...)
+population_score_table <- function(dir) {
+  ppi_file <- file.path(dir, "ppis", "ppi_scores.rds")
+  if (!file.exists(ppi_file)) stop("no PPIs in ", dir, " (run run_pipeline(dir, gwas = FALSE) first)")
+  pop <- read_population(dir)
+  wide <- ppi_wide_table(readRDS(ppi_file), shapes = names(pop$phenotypes))
+  stats <- do.call(rbind, lapply(names(pop$phenotypes), function(s) {
+    cbind(Shape = s, summary_statistics(replicate_means(pop$phenotypes[[s]], pop$environments), pop$environments),
+          stringsAsFactors = FALSE)
+  }))
+  cbind(wide, stats[match(paste(wide$Shape, wide$Genotype), paste(stats$Shape, stats$Genotype)), summary_stat_names])
+}

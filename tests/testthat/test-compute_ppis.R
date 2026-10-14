@@ -96,3 +96,15 @@ test_that("a population PPI is always computed once on the replicate means, one 
   expect_true(all(is.na(reps$Replicate)))
   expect_equal(reps$Score, before$Score)
 })
+
+test_that("PPI results as a wide table: one row per genotype, one column per PPI, rows by shape", {
+  traits <- list(
+    RN = data.frame(Score = c(1, 2, 3), Type = c("wave", "linear", "linear"), Genotype_ID = c("G9", "G1", "G2"), Replicate = NA),
+    CV = data.frame(Score = c(30, 10, 20), Type = c("wave", "linear", "linear"), Genotype_ID = c("G9", "G1", "G2"), Replicate = NA)
+  )
+  w <- ppi_wide_table(traits, shapes = c("linear", "wave"))
+  expect_equal(names(w), c("Shape", "Genotype", "RN", "CV"))
+  expect_equal(w$Genotype, c("G1", "G2", "G9"))
+  expect_equal(w$CV, c(10, 20, 30))
+  expect_error(ppi_wide_table(lapply(traits, function(d) transform(d, Replicate = 1L))), "one value per genotype")
+})

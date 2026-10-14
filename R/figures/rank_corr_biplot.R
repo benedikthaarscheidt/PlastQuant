@@ -3,12 +3,19 @@
 # =============================================================================
 # WHAT IT DOES: Builds the rank-correlation biplot of the plasticity indices (also used
 #   as a helper by plasticity_score_realisation_plot_maize.R).
-# REQUIRES:     Rank-correlation inputs produced upstream (read from under output/).
-# PRODUCES:     Rank-correlation biplot figure.
-# HOW TO RUN:   setwd("~/PlastQuant"); source(here::here("R","figures","rank_corr_biplot.R"))
+#   Includes the top-k overlap of the most plastic genotypes between indices (Figure 3).
+# REQUIRES:     Simulated data: POPULATION_DIR with its PPIs (ppis/ppi_scores.rds from
+#               run_pipeline(POPULATION_DIR, gwas = FALSE)); the PPIs and summary statistics
+#               are those of the population's own sampling resolution.
+#               Maize (form_ranges of length 3): data/maize_scores_list.rds.
+# PRODUCES:     POPULATION_DIR/plots/plasticity_comprehensive_analysis/ (PDF and CSV tables);
+#               maize: output/plasticity_comprehensive_analysis_maize/.
+# HOW TO RUN:   setwd("~/PlastQuant")
+#               POPULATION_DIR <- here::here("output", "populations", "ppi_comparison")
+#               source(here::here("R","figures","rank_corr_biplot.R"))
 # -----------------------------------------------------------------------------
-# PARAMETERS (edit the named input path / selection assignments in the body)
-#   the input path and index selection are set in the script body.
+# PARAMETERS
+#   POPULATION_DIR  path, REQUIRED for simulated data                                       [COMMON]
 # =============================================================================
 options(warn = -1)  # silence warnings even if the project .Rprofile was not loaded
 
@@ -50,22 +57,23 @@ maize_pool_all <- !is_maize || is.null(maize_trait) || identical(maize_trait, "a
 
 # Always resolve the output directory inside this project. Set unconditionally so a
 # stray `output_dir` left over in the R session can never redirect writes elsewhere.
+# Simulated data: the PPIs of the population POPULATION_DIR at its own resolution.
+if (!is_maize) {
+  if (!exists("POPULATION_DIR")) stop("set POPULATION_DIR (a population folder) first")
+  source(here::here("R", "pipeline", "load_pipeline.R"))
+}
 output_dir <- if (is_maize) {
   here::here("output", "plasticity_comprehensive_analysis_maize")
 } else {
-  here::here("output", "plasticity_comprehensive_analysis")
+  file.path(POPULATION_DIR, "plots", "plasticity_comprehensive_analysis")
 }
 dir.create(output_dir, recursive = TRUE, showWarnings = FALSE)
-
-regression_data_path <- here::here("output", "regression_summary_stats", "regression_data_full_interval_10_indices_1_11_21_31_41_50.csv")
 maize_scores_path    <- here::here("data", "maize_scores_list.rds")
 
 tau_threshold <- 0.8
 topk_values <- c(3, 5, 10, 15, 20)
 AGREE_THR_FULL <- 1.00
 
-sumstats_ps_cols <- 2:29
-sumstats_stat_from <- 30
 # ======================================================
 
 # ===================== UTILITIES ======================
@@ -89,36 +97,6 @@ scale_fill_div_pub <- function(lim = c(-1,1)) {
 
 scale_color_disc_pub <- function() scale_color_manual(values = scales::hue_pal(l = 55)(10))
 scale_fill_disc_pub <- function() scale_fill_manual(values = scales::hue_pal(l = 55)(10))
-
-load_regression_data <- function(data_path) {
-  if (!file.exists(data_path)) {
-    stop("Regression data file not found: ", data_path)
-  }
-  
-  df <- read_csv(data_path, show_col_types = FALSE)
-  
-  plasticity_scores <- df[, sumstats_ps_cols] %>%
-    dplyr::select(where(is.numeric)) %>%       # <--- Added dplyr::
-    as.matrix()
-  
-  summary_stats <- df[, sumstats_stat_from:ncol(df)] %>%
-    dplyr::select(where(is.numeric)) %>%       # <--- Added dplyr::
-    as.matrix()
-  
-  if ("...1" %in% colnames(df)) {
-    rownames(plasticity_scores) <- df$`...1`
-    rownames(summary_stats) <- df$`...1`
-  } else {
-    rownames(plasticity_scores) <- paste0("Genotype_", 1:nrow(plasticity_scores))
-    rownames(summary_stats) <- paste0("Genotype_", 1:nrow(summary_stats))
-  }
-  
-  return(list(
-    plasticity_scores = plasticity_scores,
-    summary_stats = summary_stats,
-    genotype_names = rownames(plasticity_scores)
-  ))
-}
 
 # CORRECTED: Proper correlation computations
 compute_correlations <- function(plasticity_scores) {
@@ -455,10 +433,12 @@ main <- function() {
     summary_stats <- matrix(numeric(0), nrow = nrow(plasticity_scores), ncol = 0,
                             dimnames = list(rownames(plasticity_scores), NULL))
   } else {
-    cat("Loading regression data...\n")
-    data <- load_regression_data(regression_data_path)
-    plasticity_scores <- data$plasticity_scores
-    summary_stats <- data$summary_stats
+    cat("Loading the PPIs and summary statistics of ", POPULATION_DIR, "\n", sep = "")
+    tab <- population_score_table(POPULATION_DIR)
+    ppi_cols <- setdiff(names(tab), c("Shape", "Genotype", summary_stat_names))
+    plasticity_scores <- as.matrix(tab[, ppi_cols])
+    summary_stats <- as.matrix(tab[, summary_stat_names])
+    rownames(plasticity_scores) <- rownames(summary_stats) <- paste(tab$Shape, tab$Genotype, sep = "_")
   }
 
   cat("Data loaded:\n")
