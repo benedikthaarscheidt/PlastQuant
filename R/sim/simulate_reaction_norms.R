@@ -44,14 +44,18 @@ simulate_norms <- function(cfg) {
 }
 
 # Sample the reaction norms of simulate_norms() at n_points equidistant points
-# t_j = (j - 1) / (n_points - 1), environments 1 + 9 t, and add measurement error with
+# t_j = (j - 1) / (n_points - 1), or at given points t in [0, 1] (e.g. a sub-range of
+# the gradient), environments 1 + 9 t, and add measurement error with
 # error share cfg$error_share of the trait variance at these points (error = FALSE:
 # the noise-free values). The error comes from its own stream (seed + 2), so the same
 # design always gives the same measurements.
-measure_norms <- function(norms, n_points, error = TRUE) {
+measure_norms <- function(norms, n_points = NULL, error = TRUE, t = NULL) {
   cfg <- norms$config
-  if (n_points < 2) stop("n_points must be at least 2")
-  t <- (seq_len(n_points) - 1) / (n_points - 1)
+  if (is.null(t)) {
+    if (is.null(n_points) || n_points < 2) stop("n_points must be at least 2")
+    t <- (seq_len(n_points) - 1) / (n_points - 1)
+  }
+  if (length(t) < 2 || any(t < 0 | t > 1)) stop("t must lie in [0, 1] with at least 2 points")
   env <- 1 + 9 * t
   set.seed(cfg$seed + 2)
   per_shape <- lapply(cfg$shapes, function(shape) {

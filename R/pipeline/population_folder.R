@@ -166,10 +166,10 @@ require_population_points <- function(dir, n) {
 }
 
 # The reaction norms of a simulated population, sampled again at n_points equidistant
-# points (same genotypes and plants; see measure_norms()). Own data cannot be
+# points or at given points t in [0, 1] (same genotypes and plants; see measure_norms()). Own data cannot be
 # resampled: its reaction norms are only known at the measured environments.
-sample_population <- function(dir, n_points, error = TRUE) {
+sample_population <- function(dir, n_points = NULL, error = TRUE, t = NULL) {
   sim_file <- file.path(dir, "data", "simulation.rds")
   if (!file.exists(sim_file)) stop(dir, " is not a simulated population (no data/simulation.rds); own data cannot be resampled")
-  measure_norms(readRDS(sim_file), n_points, error)
+  measure_norms(readRDS(sim_file), n_points, error, t)
 }

@@ -53,3 +53,14 @@ test_that("the reaction norms are generated once and can be sampled at any numbe
   expect_true(all(m11$measurement_sd > 0))
   expect_false(isTRUE(all.equal(m11$measurement_sd, measure_norms(norms, 3)$measurement_sd)))
 })
+
+test_that("the norms can be sampled at explicit points t, e.g. a sub-range of the gradient", {
+  cfg <- sim_config(h2 = 0.4, Mc = 2, n_per_shape = 6, n_snps = 300, seed = 5)
+  norms <- simulate_norms(cfg)
+  t <- c(0, 0.25, 0.5)
+  m <- measure_norms(norms, t = t, error = FALSE)
+  expect_equal(m$environments, 1 + 9 * t)
+  full <- measure_norms(norms, 5, error = FALSE)          # t = 0, .25, .5, .75, 1
+  expect_equal(m$phenotypes$gaussian$Trait, full$phenotypes$gaussian$Trait[full$phenotypes$gaussian$Environment %in% (1 + 9 * t)])
+  expect_error(measure_norms(norms, t = c(0.5, 1.2)), "t must lie in")
+})
