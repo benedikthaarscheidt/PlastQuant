@@ -2,7 +2,7 @@
 # combine_scenarios.R — collect the populations of several scenarios into one table set
 # =============================================================================
 
-# population_dirs: population folders of run_simulation_scenario() (one per scenario).
+# population_dirs: population folders of the scenario drivers (one per scenario, with gwas/).
 # Returns a list of tables, each with the columns H2 and Mc of its scenario:
 #   hits         GWAS results with P_Value < p_threshold (SNP, LogP, P_Value, Score, Type)
 #   truth        causal SNPs (Shape, Parameter, SNP, Effect)

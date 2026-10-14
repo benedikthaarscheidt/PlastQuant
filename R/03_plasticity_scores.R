@@ -152,7 +152,7 @@ if (!file.exists(file.path(POPULATION_DIR, "data", "config.rds"))) {
 }
 sim <- read_population(POPULATION_DIR)
 if (!all(c("linear", "gaussian", "sinusoidal", "wave") %in% names(sim$phenotypes))) {
-  stop("03 needs a simulated population with the four shapes; for own data use run_pipeline()")
+  stop("03 needs a simulated population with the four shapes; for own data use compute_population_ppis()")
 }
 # A population is fixed once simulated: settings given for a different one are an error
 for (chk in list(c("H2", "h2"), c("CAUSAL_SNP_NUM", "Mc"), c("N_MEAS_POINTS", "n_points"), c("SEED", "seed"))) {

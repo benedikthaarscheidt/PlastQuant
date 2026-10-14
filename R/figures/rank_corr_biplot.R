@@ -5,7 +5,7 @@
 #   as a helper by plasticity_score_realisation_plot_maize.R).
 #   Includes the top-k overlap of the most plastic genotypes between indices (Figure 3).
 # REQUIRES:     Simulated data: POPULATION_DIR with its PPIs (ppis/ppi_scores.rds from
-#               run_pipeline(POPULATION_DIR, gwas = FALSE)); the PPIs and summary statistics
+#               compute_population_ppis(POPULATION_DIR)); the PPIs and summary statistics
 #               are those of the population's own sampling resolution.
 #               Maize (form_ranges of length 3): data/maize_scores_list.rds.
 # PRODUCES:     POPULATION_DIR/plots/plasticity_comprehensive_analysis/ (PDF and CSV tables);

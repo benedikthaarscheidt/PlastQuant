@@ -7,7 +7,7 @@
 #   shape is a false positive). Draws one power heatmap per shape plus an overview.
 # REQUIRES:     A population folder with GWAS results and a truth table
 #               (gwas/gwas_results.csv, data/truth.csv), e.g. from a scenario_*.R driver
-#               or run_pipeline() on own data with known causal SNPs.
+#               or run_population_gwas() on own data with known causal SNPs.
 # PRODUCES:     POPULATION_DIR/gwas/gwas_accuracy_summary.csv and
 #               POPULATION_DIR/plots/gwas_power_heatmap.pdf.
 # HOW TO RUN:   setwd("~/PlastQuant")

@@ -125,12 +125,12 @@ sample_size_mixed_model <- function(tables) {
   out
 }
 
-# The population's PPIs (ppis/ppi_scores.rds) and the nine summary statistics of its
+# The population's PPIs (ppis/ppi_scores.rds of compute_population_ppis()) and the nine summary statistics of its
 # replicate-mean reaction norms, at the population's own sampling resolution: one row
 # per genotype (Shape, Genotype, PPIs..., statistics...)
 population_score_table <- function(dir) {
   ppi_file <- file.path(dir, "ppis", "ppi_scores.rds")
-  if (!file.exists(ppi_file)) stop("no PPIs in ", dir, " (run run_pipeline(dir, gwas = FALSE) first)")
+  if (!file.exists(ppi_file)) stop("no PPIs in ", dir, " (run compute_population_ppis(dir) first)")
   pop <- read_population(dir)
   wide <- ppi_wide_table(readRDS(ppi_file), shapes = names(pop$phenotypes))
   stats <- do.call(rbind, lapply(names(pop$phenotypes), function(s) {

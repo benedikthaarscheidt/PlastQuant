@@ -12,7 +12,10 @@
 options(warn = -1)  # silence warnings even if the project .Rprofile was not loaded
 
 source(here::here("R", "pipeline", "load_pipeline.R"))
-POPULATION_DIR <- run_simulation_scenario(sim_config(h2 = 0.6, Mc = 10), here::here("output", "populations", "scenario_60_10"))
+POPULATION_DIR <- here::here("output", "populations", "scenario_60_10")
+simulate_population(sim_config(h2 = 0.6, Mc = 10), POPULATION_DIR)   # reaction norms -> data/, variance/
+compute_population_ppis(POPULATION_DIR)                       # PPIs -> ppis/
+run_population_gwas(POPULATION_DIR)                           # GWAS of the PPIs -> gwas/
 
 # Power heatmaps per shape of this population
 source(here::here("R", "05_evaluate_gwas.R"))

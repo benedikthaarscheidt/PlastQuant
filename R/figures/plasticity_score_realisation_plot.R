@@ -5,7 +5,7 @@
 #   sampling resolution: distributions, Kendall-distance clustering per shape and
 #   combined, silhouette choice of k, Mantel tests between the shapes (Figure 2).
 # REQUIRES:     POPULATION_DIR with its PPIs (POPULATION_DIR/ppis/ppi_scores.rds from
-#               run_pipeline(POPULATION_DIR, gwas = FALSE)).
+#               compute_population_ppis(POPULATION_DIR)).
 # PRODUCES:     Figures under POPULATION_DIR/plots/ (figure2_2.pdf, figure2_3.pdf, ...).
 # HOW TO RUN:   setwd("~/PlastQuant")
 #               POPULATION_DIR <- here::here("output", "populations", "ppi_comparison")
@@ -59,7 +59,7 @@ if (exists("form_ranges") && length(form_ranges) == 3) {
   if (!exists("POPULATION_DIR")) stop("set POPULATION_DIR (a population folder) first")
   source(here::here("R", "pipeline", "load_pipeline.R"))
   ppi_file <- file.path(POPULATION_DIR, "ppis", "ppi_scores.rds")
-  if (!file.exists(ppi_file)) stop("no PPIs in ", POPULATION_DIR, " (run run_pipeline(POPULATION_DIR, gwas = FALSE) first)")
+  if (!file.exists(ppi_file)) stop("no PPIs in ", POPULATION_DIR, " (run compute_population_ppis(POPULATION_DIR) first)")
   wide <- ppi_wide_table(readRDS(ppi_file), shapes = c("linear", "gaussian", "sinusoidal", "wave"))
   form_ranges <- split(seq_len(nrow(wide)), factor(wide$Shape, levels = unique(wide$Shape)))
 

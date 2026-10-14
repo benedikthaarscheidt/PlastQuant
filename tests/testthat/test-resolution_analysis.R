@@ -66,8 +66,8 @@ test_that("mixed model: effect of the number of points on a PPI after the summar
 test_that("score table of a population at its own resolution: stored PPIs and summary statistics", {
   dir <- file.path(tempdir(), "score_pop"); unlink(dir, recursive = TRUE)
   simulate_population(sim_config(h2 = 0.4, Mc = 2, n_per_shape = 5, n_snps = 200), dir)
-  expect_error(population_score_table(dir), "run_pipeline")
-  suppressMessages(run_pipeline(dir, registry = default_ppi_registry()[c("RN", "CV_t")], gwas = FALSE))
+  expect_error(population_score_table(dir), "compute_population_ppis")
+  suppressMessages(compute_population_ppis(dir, registry = default_ppi_registry()[c("RN", "CV_t")]))
   tab <- population_score_table(dir)
   expect_equal(names(tab), c("Shape", "Genotype", "RN", "CV_t", summary_stat_names))
   expect_equal(nrow(tab), 20L)
