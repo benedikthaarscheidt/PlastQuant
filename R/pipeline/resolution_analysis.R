@@ -3,9 +3,9 @@
 #                         resolutions, and how their relation to the summary
 #                         statistics depends on the number of sampling points
 # =============================================================================
-# The reaction norms of a simulated population are sampled again at every resolution
+# The reaction norms of a simulated population are sampled again at every design
 # (sample_population(): same genotypes and plants, new measurement), so differences
-# between resolutions come from the sampling only.
+# between designs come from the sampling only.
 
 summary_stat_names <- c("min", "max", "mean", "median", "slope", "range", "variance", "mean_lower", "mean_upper")
 
@@ -48,13 +48,58 @@ resolution_table <- function(measured, registry = default_ppi_registry()) {
   }))
 }
 
-# The simulated population in dir sampled at every number of points in n_points;
-# a named list of resolution_table()s ("n<points>")
-resolution_tables <- function(dir, n_points, registry = default_ppi_registry()) {
-  setNames(lapply(n_points, function(n) {
-    message("Resolution: ", n, " sampling points")
-    resolution_table(sample_population(dir, n), registry)
-  }), paste0("n", n_points))
+# Sampling designs as in the earlier analyses: the points start, start + interval, ...
+# and end of a grid of grid_length points (end is always included)
+grid_design <- function(start, end, interval) unique(c(seq(start, end, by = interval), end))
+
+# Grid indices -> points t in [0, 1] of the gradient (environment 1 + 9 t)
+design_points <- function(indices, grid_length) (indices - 1) / (grid_length - 1)
+
+# Table in the regression-data layout read by the analyses and figures: first column
+# the genotype (<shape>_<genotype>), then one column per PPI, then the summary statistics
+regression_data_table <- function(tab) {
+  out <- tab[, c(ppi_columns(tab), summary_stat_names)]
+  rownames(out) <- paste(tab$Shape, tab$Genotype, sep = "_")
+  out
+}
+
+# For every range (named c(start, end) on the grid) and sampling interval: sample the
+# reaction norms of the simulated population in dir at that design (same genotypes and
+# plants), compute the PPIs and summary statistics and write
+# folder/regression_data_<range>_interval_<interval>_indices_<i1_i2_...>.csv.
+# Returns the file paths.
+write_regression_data <- function(dir, range_list, intervals, folder, registry = default_ppi_registry(),
+                                   grid_length = 50) {
+  dir.create(folder, recursive = TRUE, showWarnings = FALSE)
+  files <- c()
+  for (range_name in names(range_list)) {
+    for (interval in intervals) {
+      idx <- grid_design(range_list[[range_name]][1], range_list[[range_name]][2], interval)
+      message("Design ", range_name, ", interval ", interval, ": ", length(idx), " sampling points")
+      tab <- resolution_table(sample_population(dir, t = design_points(idx, grid_length)), registry)
+      f <- file.path(folder, paste0("regression_data_", range_name, "_interval_", interval, "_indices_",
+                                    paste(idx, collapse = "_"), ".csv"))
+      write.csv(regression_data_table(tab), f)
+      files <- c(files, f)
+    }
+  }
+  files
+}
+
+# The regression-data tables of one range in folder, as tables for the analyses
+# (Shape, Genotype, N_points, PPIs, statistics), ordered by the number of points
+read_regression_tables <- function(folder, range = "full") {
+  files <- list.files(folder, pattern = paste0("^regression_data_", range, "_interval_.*_indices_.*\\.csv$"), full.names = TRUE)
+  if (!length(files)) stop("no regression_data_", range, "_* tables in ", folder, " (run regression_sumstats_dataprep.R first)")
+  n <- vapply(files, function(f) length(strsplit(sub(".*_indices_(.*)\\.csv$", "\\1", basename(f)), "_")[[1]]), integer(1))
+  files <- files[order(n)]; n <- sort(n)
+  tabs <- lapply(seq_along(files), function(k) {
+    d <- read.csv(files[k], check.names = FALSE, stringsAsFactors = FALSE)
+    out <- data.frame(Shape = rep("", nrow(d)), Genotype = d[[1]], N_points = rep(n[k], nrow(d)),
+                      stringsAsFactors = FALSE)
+    cbind(out, d[, -1, drop = FALSE], row.names = NULL)
+  })
+  setNames(tabs, paste0("n", n))
 }
 
 ppi_columns <- function(tab) setdiff(names(tab), c("Shape", "Genotype", "N_points", summary_stat_names))
