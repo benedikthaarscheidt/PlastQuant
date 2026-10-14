@@ -10,9 +10,14 @@
 # =============================================================================
 
 variance_report <- function(sim, n_mc = 2000) {
-  cfg <- sim$config
-  latent <- do.call(rbind, lapply(cfg$shapes, function(s) {
-    lat <- sim$latent[[s]]
+  c(list(latent = latent_variance(sim)), trait_variance(sim, n_mc))
+}
+
+# Latent level: needs only the reaction norms (simulate_norms() or a measured simulation)
+latent_variance <- function(norms) {
+  cfg <- norms$config
+  do.call(rbind, lapply(cfg$shapes, function(s) {
+    lat <- norms$latent[[s]]
     do.call(rbind, lapply(reaction_norm_parameters(cfg, s), function(theta) {
       data.frame(
         Shape = s, Parameter = theta, target_h2 = cfg$h2,
@@ -22,9 +27,16 @@ variance_report <- function(sim, n_mc = 2000) {
       )
     }))
   }))
+}
+
+# Trait level of one measurement of the norms (measure_norms()): the decomposition at its
+# sampling points, the measurement error and the number of negative values
+trait_variance <- function(measured, n_mc = 2000) {
+  cfg <- measured$config
+  t <- (measured$environments - 1) / 9
   trait <- do.call(rbind, lapply(cfg$shapes, function(s) {
-    d <- trait_variance_decomposition(cfg, s, n_mc)
-    me <- sim$measurement_sd[[s]]^2
+    d <- trait_variance_decomposition(cfg, s, n_mc, t)
+    me <- measured$measurement_sd[[s]]^2
     total <- d$total + me
     data.frame(
       Shape = s,
@@ -35,17 +47,17 @@ variance_report <- function(sim, n_mc = 2000) {
   }))
   measurement <- data.frame(
     Shape = cfg$shapes,
-    sigma_e = sim$measurement_sd[cfg$shapes],
-    n_negative = vapply(cfg$shapes, function(s) sum(sim$phenotypes[[s]]$Trait < 0), integer(1)),
+    sigma_e = unname(measured$measurement_sd[cfg$shapes]),
+    n_negative = vapply(cfg$shapes, function(s) sum(measured$phenotypes[[s]]$Trait < 0), integer(1)),
     row.names = NULL
   )
-  list(latent = latent, trait = trait, measurement = measurement)
+  list(trait = trait, measurement = measurement)
 }
 
 # Monte Carlo (pick-freeze) decomposition of Var(y(t)) averaged over the measurement
-# points, for a large population drawn from the same model (n_mc genotypes).
-trait_variance_decomposition <- function(cfg, shape, n_mc = 2000) {
-  t <- (seq_len(cfg$n_points) - 1) / (cfg$n_points - 1)
+# points t (default: cfg$n_points equidistant points), for a large population drawn
+# from the same model (n_mc genotypes).
+trait_variance_decomposition <- function(cfg, shape, n_mc = 2000, t = (seq_len(cfg$n_points) - 1) / (cfg$n_points - 1)) {
   traits <- c(reaction_norm_parameters(cfg, shape), "V")
   draw <- function() setNames(lapply(traits, function(x) rnorm(n_mc)), traits)
   curves <- function(S, B, Z) {
