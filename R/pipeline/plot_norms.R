@@ -20,9 +20,9 @@ true_norm_curves <- function(norms, shape, ids, n_grid = 200) {
         long_table(pp$Genotype, pp$Replicate, 1 + 9 * t, Yp))
 }
 
-# One page per shape: all mother norms (grey) and, for the genotypes at the 10, 50 and
-# 90 % quantile of the amplitude a, the mother norm (solid) and the replicate plants
-# (dashed). Writes a PDF to file.
+# One page per shape: for the genotypes at the 10, 50 and 90 % quantile of the
+# amplitude a, the mother norm (solid) and the replicate plants (dashed). Writes a PDF
+# to file.
 plot_true_norms <- function(norms, file, n_grid = 200) {
   cfg <- norms$config
   cols <- c("#1b9e77", "#d95f02", "#7570b3")
@@ -32,16 +32,9 @@ plot_true_norms <- function(norms, file, n_grid = 200) {
     mp <- norms$mother_parameters[norms$mother_parameters$Shape == shape, ]
     picked <- mp$Genotype[unique(vapply(stats::quantile(mp$a, c(0.1, 0.5, 0.9)),
                                         function(q) which.min(abs(mp$a - q)), integer(1)))]
-    all_mothers <- true_norm_curves(norms, shape, mp$Genotype, n_grid)
-    all_mothers <- all_mothers[all_mothers$Replicate == 0, ]
     sel <- true_norm_curves(norms, shape, picked, n_grid)
-    graphics::plot(range(all_mothers$Environment), range(c(all_mothers$Trait, sel$Trait)), type = "n",
-                   xlab = "Environment", ylab = "Trait value",
-                   main = paste0(shape, ": true reaction norms (", nrow(mp), " genotypes)"))
-    for (g in unique(all_mothers$Genotype)) {
-      d <- all_mothers[all_mothers$Genotype == g, ]
-      graphics::lines(d$Environment, d$Trait, col = "grey85")
-    }
+    graphics::plot(range(sel$Environment), range(sel$Trait), type = "n",
+                   xlab = "Environment", ylab = "Trait value", main = paste0(shape, ": true reaction norms"))
     for (k in seq_along(picked)) {
       for (r in sort(unique(sel$Replicate[sel$Genotype == picked[k]]))) {
         d <- sel[sel$Genotype == picked[k] & sel$Replicate == r, ]
