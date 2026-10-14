@@ -6,6 +6,7 @@
 #   data/              the population itself (no measurements)
 #     norms.rds              true mother and replicate reaction norms (simulated only)
 #     mother_parameters.csv, plant_parameters.csv, config.rds          (simulated only)
+#     reaction_norms.pdf     plot of the true norms                      (simulated only)
 #     snp_matrix.csv         Genotype, then one column per SNP, dosages 0/1/2 (optional;
 #                            simulated populations store snp_matrix.rds)
 #     kinship.csv            Genotype, then one column per genotype (optional; otherwise
