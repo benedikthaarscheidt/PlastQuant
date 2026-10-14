@@ -11,13 +11,17 @@
 #   study_space         range and distribution of every bounded parameter
 # =============================================================================
 
-# Shape parameters of each reaction-norm shape (besides level L and plasticity a)
+# Shape parameters of each reaction-norm shape (besides level L and plasticity a):
+#   c    centre of the peak on [0, 1]
+#   w    width of the peak
+#   k    frequency (cycles over [0, 1])
+#   psi  phase of the sine
 shape_parameters <- function() {
   list(
-    linear     = character(0),
-    gaussian   = c("c", "w"),
-    sinusoidal = c("k", "psi"),
-    wave       = c("k", "c", "w")
+    linear     = character(0),        # only L and a
+    gaussian   = c("c", "w"),         # peak at c with width w
+    sinusoidal = c("k", "psi"),       # sine with frequency k and phase psi
+    wave       = c("k", "c", "w")     # sine of frequency k under a Gaussian envelope at c, width w
   )
 }
 
@@ -35,16 +39,18 @@ default_study_space <- function() {
   )
 }
 
-sim_config <- function(h2, Mc,
-                       n_per_shape = 200,
-                       n_rep = 3,
-                       n_snps = 200000,
-                       n_points = 6,
-                       seed = 1,
-                       sigma_L = 0.1,
-                       repeatability_beta = c(18, 2),
-                       error_share = 0.05,
-                       study_space = default_study_space()) {
+sim_config <- function(h2,                                  # share of the latent genetic variance from the causal SNPs (0..1)
+                       Mc,                                  # causal SNPs per parameter (and for V) of every shape
+                       n_per_shape = 200,                   # genotypes (lines) per shape
+                       n_rep = 3,                           # replicate plants per genotype
+                       n_snps = 200000,                     # simulated SNPs (causal + neutral)
+                       n_points = 6,                        # measurement points per reaction norm; environments 1 + 9 t
+                       seed = 1,                            # seed for the genetics; seed + 1 for all other normal draws
+                       sigma_L = 0.1,                       # SD of ln(L): spread of the level, L = exp(sigma_L * ell)
+                       repeatability_beta = c(18, 2),       # Beta shape of the repeatability rho over genotypes (mean 0.9)
+                       error_share = 0.05,                  # measurement error as share of the trait variance
+                       study_space = default_study_space()  # range and distribution of every bounded parameter
+                       ) {
   if (!(is.numeric(h2) && length(h2) == 1 && h2 >= 0 && h2 <= 1)) stop("h2 must be in [0, 1]")
   if (Mc < 1) stop("Mc must be at least 1")
   if (n_rep < 1) stop("n_rep must be at least 1")
