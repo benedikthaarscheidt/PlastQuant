@@ -1,29 +1,45 @@
 # =============================================================================
 # population_steps.R — the steps on a population folder
 # =============================================================================
-# A population folder holds the population in data/ (see population_folder.R) and
-# everything computed from it. Each step reads what it needs from the folder and
-# (re)writes only its own subfolder:
-#   simulate_population(cfg, dir)    -> data/, variance/   reaction norms and their sampling
-#   compute_population_ppis(dir)     -> ppis/              plasticity indices
-#   run_population_gwas(dir)         -> gwas/              GWAS of the PPIs (optional, needs SNPs)
-# The figure and analysis scripts read data/ and ppis/ and write plots/ and analyses/.
+# A population folder holds the population in data/ (see population_folder.R) and one
+# subfolder per sampling resolution. Each step reads what it needs and (re)writes only
+# its own folder:
+#   simulate_population(cfg, dir)     -> data/, variance/      true mother and replicate norms
+#   sample_resolution(dir, n)         -> n_<n>/data/, n_<n>/variance/   measurement at n points
+#   compute_population_ppis(res_dir)  -> n_<n>/ppis/           plasticity indices
+#   run_population_gwas(res_dir)      -> n_<n>/gwas/           GWAS of the PPIs (optional, needs SNPs)
+# The figure and analysis scripts read a resolution folder (RESOLUTION_DIR) and write its
+# plots/ and analyses/; scripts across resolutions read all n_* folders of POPULATION_DIR.
 
-# Simulate a population and save it as a population folder: data/ and variance/
+# Simulate the true reaction norms of a population and save them as a population
+# folder: data/ (norms, parameters, SNPs, truth, settings) and variance/ (latent level)
 simulate_population <- function(cfg, dir) {
-  sim <- simulate_reaction_norms(cfg)
-  write_population(sim, dir)
-  vr <- variance_report(sim)
+  norms <- simulate_norms(cfg)
+  write_population(norms, dir)
   unlink(file.path(dir, "variance"), recursive = TRUE)
   var_dir <- population_subdir(dir, "variance")
-  write.csv(vr$latent, file.path(var_dir, "variance_latent.csv"), row.names = FALSE)
-  write.csv(vr$trait, file.path(var_dir, "variance_trait.csv"), row.names = FALSE)
-  write.csv(vr$measurement, file.path(var_dir, "measurement.csv"), row.names = FALSE)
+  write.csv(latent_variance(norms), file.path(var_dir, "variance_latent.csv"), row.names = FALSE)
   message("Population written to ", dir)
   dir
 }
 
-# PPIs of the population in dir/data -> dir/ppis (<PPI>.csv and ppi_scores.rds).
+# Measure the population's norms at n_points equidistant points: the resolution folder
+# dir/n_<n_points> with data/ and variance/ (trait level, measurement error). An earlier
+# folder of this resolution is replaced, including its results. Returns its path.
+sample_resolution <- function(dir, n_points) {
+  measured <- sample_population(dir, n_points)
+  res_dir <- resolution_path(dir, n_points)
+  unlink(res_dir, recursive = TRUE)
+  write_resolution(measured, res_dir)
+  tv <- trait_variance(measured)
+  var_dir <- population_subdir(res_dir, "variance")
+  write.csv(tv$trait, file.path(var_dir, "variance_trait.csv"), row.names = FALSE)
+  write.csv(tv$measurement, file.path(var_dir, "measurement.csv"), row.names = FALSE)
+  message("Resolution written to ", res_dir)
+  res_dir
+}
+
+# PPIs of a resolution folder (its data/) -> dir/ppis (<PPI>.csv and ppi_scores.rds).
 # replicate_handling: "mean_before" (replicates averaged before the PPI) or
 # "replicates" (one value per replicate reaction norm; see compute_ppis()).
 compute_population_ppis <- function(dir, registry = default_ppi_registry(), exclude = NULL,
@@ -39,14 +55,14 @@ compute_population_ppis <- function(dir, registry = default_ppi_registry(), excl
   dir
 }
 
-# GWAS of every PPI in dir/ppis against the SNPs in dir/data -> dir/gwas/gwas_results.csv
-# (kinship from data/kinship.csv if present, otherwise from the SNPs); with a truth
-# table also the power per shape -> dir/gwas/gwas_power.csv
+# GWAS of every PPI in the resolution folder's ppis/ against the population's SNPs ->
+# dir/gwas/gwas_results.csv (kinship from the population's data/kinship.csv if present,
+# otherwise from the SNPs); with a truth table also the power per shape -> gwas_power.csv
 run_population_gwas <- function(dir) {
   ppi_file <- file.path(dir, "ppis", "ppi_scores.rds")
   if (!file.exists(ppi_file)) stop("no PPIs in ", dir, " (run compute_population_ppis(dir) first)")
   pop <- read_population(dir)
-  if (is.null(pop$snp_matrix)) stop("the GWAS needs a SNP matrix in ", file.path(dir, "data"), " (snp_matrix.csv)")
+  if (is.null(pop$snp_matrix)) stop("the GWAS needs a SNP matrix in ", file.path(pop$population_dir, "data"), " (snp_matrix.csv)")
   traits <- readRDS(ppi_file)
   unlink(file.path(dir, "gwas"), recursive = TRUE)
   gwas_dir <- population_subdir(dir, "gwas")

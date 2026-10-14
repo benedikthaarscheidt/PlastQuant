@@ -19,27 +19,33 @@ test_that("a sampling design is the old index selection on a grid of 50 points",
   expect_equal(design_points(c(1, 25), 50), c(0, 24 / 49))
 })
 
-test_that("the same population is sampled at every design; tables in the regression-data layout", {
+test_that("all resolutions of one population: sampled, PPIs and summary statistics in their n_* folders", {
   dir <- file.path(tempdir(), "res_pop"); unlink(dir, recursive = TRUE)
-  simulate_population(sim_config(h2 = 0.4, Mc = 2, n_per_shape = 6, n_snps = 200, n_points = 6), dir)
+  simulate_population(sim_config(h2 = 0.4, Mc = 2, n_per_shape = 6, n_snps = 200), dir)
   reg <- default_ppi_registry()[c("RN", "CV_t")]
-  folder <- file.path(dir, "analyses", "regression_summary_stats")
-  files <- suppressMessages(write_regression_data(dir, list(full = c(1, 50)), c(49, 10), folder, reg))
-  expect_equal(basename(files), c("regression_data_full_interval_49_indices_1_50.csv",
-                                  "regression_data_full_interval_10_indices_1_11_21_31_41_50.csv"))
-  tab <- read.csv(files[2], check.names = FALSE)
-  expect_equal(names(tab), c("", "RN", "CV_t", summary_stat_names))
-  expect_equal(nrow(tab), 24L)
-  expect_equal(tab[[1]][1], "linear_Genotype_1")
-  # read back for the analyses: one table per design, with its number of points
-  tabs <- read_regression_tables(folder)
-  expect_equal(names(tabs), c("n2", "n6"))
+  res <- suppressMessages(compute_resolutions(dir, c(3, 6), reg))
+  expect_equal(basename(res), c("n_3", "n_6"))
+  for (r in res) expect_true(all(file.exists(file.path(r, c("data/environments.csv", "ppis/ppi_scores.rds",
+                                                             "analyses/summary_statistics.csv")))))
+  # a resolution that already has its PPIs is not computed again
+  stamp <- file.mtime(file.path(res[2], "ppis", "ppi_scores.rds"))
+  Sys.sleep(1.1)
+  suppressMessages(compute_resolutions(dir, 6, reg))
+  expect_equal(file.mtime(file.path(res[2], "ppis", "ppi_scores.rds")), stamp)
+
+  tabs <- resolution_score_tables(dir)
+  expect_equal(names(tabs), c("n3", "n6"))
   expect_equal(unique(tabs$n6$N_points), 6)
-  expect_equal(tabs$n6$RN, tab$RN)
-  # the same genotypes as the population (its norms are only sampled again)
-  pop <- read_population(dir)
-  ids <- unlist(lapply(names(pop$phenotypes), function(sh) paste(sh, unique(pop$phenotypes[[sh]]$Genotype), sep = "_")))
-  expect_setequal(tab[[1]], ids)
+  expect_equal(tabs$n3$Genotype, tabs$n6$Genotype)
+  expect_true(all(c("Shape", "Genotype", "N_points", "RN", "CV_t", summary_stat_names) %in% names(tabs$n6)))
+  expect_equal(names(resolution_score_tables(dir, n_points = 6)), "n6")
+  # the PPIs are those of the resolution folder
+  rn <- readRDS(file.path(res[2], "ppis", "ppi_scores.rds"))$RN
+  expect_equal(tabs$n6$RN, rn$Score[match(paste(tabs$n6$Shape, tabs$n6$Genotype), paste(rn$Type, rn$Genotype_ID))])
+  # layout of the earlier regression-data tables: genotype, scores, statistics
+  legacy <- as_regression_data(tabs$n6)
+  expect_equal(names(legacy), c("Genotype", "RN", "CV_t", summary_stat_names))
+  expect_equal(legacy$Genotype[1], "linear_Genotype_1")
 })
 
 toy_tables <- function(n_set = c(2, 4, 6, 8), n_gen = 40, seed = 1) {
@@ -79,12 +85,13 @@ test_that("mixed model: effect of the number of points on a PPI after the summar
   expect_true(all(c("std.error", "t.value", "p.value", "p.adj", "ci_lower", "ci_upper") %in% names(mm)))
 })
 
-test_that("score table of a population at its own resolution: stored PPIs and summary statistics", {
+test_that("score table of one resolution: stored PPIs and summary statistics", {
   dir <- file.path(tempdir(), "score_pop"); unlink(dir, recursive = TRUE)
   simulate_population(sim_config(h2 = 0.4, Mc = 2, n_per_shape = 5, n_snps = 200), dir)
-  expect_error(population_score_table(dir), "compute_population_ppis")
-  suppressMessages(compute_population_ppis(dir, registry = default_ppi_registry()[c("RN", "CV_t")]))
-  tab <- population_score_table(dir)
+  res <- sample_resolution(dir, 6)
+  expect_error(population_score_table(res), "compute_population_ppis")
+  suppressMessages(compute_population_ppis(res, registry = default_ppi_registry()[c("RN", "CV_t")]))
+  tab <- population_score_table(res)
   expect_equal(names(tab), c("Shape", "Genotype", "RN", "CV_t", summary_stat_names))
   expect_equal(nrow(tab), 20L)
   expect_equal(unique(tab$Shape), c("linear", "gaussian", "sinusoidal", "wave"))
