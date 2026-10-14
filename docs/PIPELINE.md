@@ -23,17 +23,24 @@ scripts and the analyses keep the guarded-default convention.
 
 ## Dependency map
 
-    R/sim (simulation model) ─┬─▶ R/pipeline: run_pipeline / run_simulation_scenario ◀─ scenarios/scenario_<h2>_<Mc>.R
+    R/sim (simulation model) ─┬─▶ R/pipeline: run_simulation_scenario ◀─ scenarios/scenario_<h2>_<Mc>.R
     R/ppi (PPI registry)     ─┘        (PPIs ─▶ GWAS ─▶ power per shape)
-    R/sim ─▶ 03_plasticity_scores ─▶ 04_run_gwas ─▶ 05_evaluate_gwas ─▶ 06_analyze_gwas_results
-                    │                                                  └▶ 06_analyze_maize_gwas_results
+                                              │
+                                              ├─▶ 05_evaluate_gwas  (power heatmaps of one run; sourced by the drivers)
+                                              └─▶ scenarios/combine_scenarios ─▶ 06_analyze_gwas_results
+    R/sim ─▶ 03_plasticity_scores ─▶ 04_run_gwas
                     ├─▶ analysis/summary_stats_vs_scores  (auto-sources 03)
                     ├─▶ analysis/clustering_rn_summary_stats  (auto-sources 03)
                     ├─▶ analysis/kendall_rank_corr  (auto-sources 03)
                     └─▶ analysis/regression_sumstats_dataprep ─▶ analysis/regression_summarystats
-    figures/*  read outputs written under output/ by the scripts above.
+    03_plasticity_scores_maize ─▶ 04_run_gwas (scenario_maize) ─▶ 06_analyze_maize_gwas_results
+    figures/*  read outputs written under output/ by the scripts above
+               (plotting_reaction_norms_all reads a run of scenario_20_5).
 
-The scenario drivers run the new pipeline directly. `03_plasticity_scores.R` takes its
+The scenario drivers run the new pipeline directly and then 05 for the power heatmaps;
+`combine_scenarios.R` collects all scenario runs for 06. The power of a parameter is
+always evaluated within its shape: its causal SNPs are searched only in the GWAS of
+that shape, and a hit on a SNP that is not causal for the shape is a false positive. `03_plasticity_scores.R` takes its
 reaction norms and SNPs from `simulate_reaction_norms()` and keeps the globals that
 the analyses and figures read. `regression_summarystats.R` requires
 `regression_sumstats_dataprep.R` to have been run first (it reads that script's CSV).
@@ -62,6 +69,7 @@ Every function takes its inputs as arguments and returns its result.
 | `R/pipeline/gwas.R` | kinship matrix; `run_gwas()` per PPI and shape (rrBLUP mixed model) |
 | `R/pipeline/evaluate_power.R` | power per shape against that shape's causal SNPs |
 | `R/pipeline/run_pipeline.R` | `run_pipeline()`, `run_simulation_scenario()` |
+| `R/pipeline/combine_scenarios.R` | `combine_scenario_runs()` (newest run of every scenario), `detection_counts()` per shape |
 | `R/pipeline/load_pipeline.R` | sources the three folders |
 
 **Simulation.** `simulate_reaction_norms(sim_config(h2, Mc))` does the following:
@@ -125,7 +133,9 @@ This computes the PPIs only.
 - `env`: environment values
 - `env_index`
 - `covariate`
-- `matrix`: genotype × environment matrix, at the population level
+- `matrix`: genotype × environment matrix, at the population level (FW). A
+  population-level PPI is always computed once on the replicate means and gives one
+  value per genotype, also with `replicate_handling = "replicates"`.
 
 To add a PPI:
 
@@ -210,7 +220,6 @@ PARAMETERS (edit the named assignment near the top / set in your session)
   OUTPUT_BASE           path, default output/scenario_maize  where outputs go; edit `OUTPUT_BASE <-`
   NUM_GENOTYPES         integer, default 800  guarded default (from data if provided)
   NUM_SNPs              integer, default 200000  guarded default
-  USE_GENETICS          logical, default TRUE  guarded further down
   KEEP_REPLICATES / STRUCTURED_POPULATION / GENETIC_VARIANCES  guarded defaults below
 =============================================================================
 ```
@@ -242,19 +251,23 @@ PARAMETERS (edit at the noted line)
 
 ```text
 =============================================================================
-05_evaluate_gwas.R — GWAS accuracy evaluation
+05_evaluate_gwas.R — GWAS accuracy evaluation, per reaction-norm shape
 =============================================================================
-WHAT IT DOES: Compares GWAS hits against the simulated ground-truth causal SNPs to
-  quantify how well each plasticity index recovers the true signal. Produces 5 power
-  heatmaps: one combined (all forms) plus one per reaction-norm form.
-REQUIRES:     GWAS results from 04_run_gwas.R — this script auto-sources 04 (which in
-              turn needs 03). Reads the GWAS results CSV under OUTPUT_BASE.
-PRODUCES:     5 power-heatmap PDFs under OUTPUT_BASE/plots.
-HOW TO RUN:   setwd("~/PlastQuant"); source(here::here("R", "05_evaluate_gwas.R"))
+WHAT IT DOES: Compares the GWAS hits of one run against the simulated causal SNPs.
+  Every shape is evaluated against its own causal SNPs only, so the power of a
+  parameter is always the power within one shape (a hit on a causal SNP of another
+  shape is a false positive). Draws one power heatmap per shape plus an overview.
+REQUIRES:     A run folder written by run_simulation_scenario() / run_pipeline()
+              (gwas_results.csv, truth.csv, config.rds), e.g. by a scenario_*.R driver.
+PRODUCES:     RUN_DIR/gwas_accuracy_summary.csv and RUN_DIR/plots/gwas_power_heatmap.pdf.
+HOW TO RUN:   setwd("~/PlastQuant")
+              OUTPUT_BASE <- here::here("output", "scenario_20_5")   # newest run is used
+              source(here::here("R", "05_evaluate_gwas.R"))
 -----------------------------------------------------------------------------
-PARAMETERS (edit at the noted line)
-  alpha   numeric, default 0.05   significance threshold; edit the `alpha <-` assignment  [COMMON]
-  GWAS    logical (from caller)    whether GWAS was run upstream
+PARAMETERS — set these before sourcing (guarded defaults)
+  RUN_DIR      path, default newest run_* in OUTPUT_BASE    run folder to evaluate  [COMMON]
+  OUTPUT_BASE  path                                         scenario folder (if no RUN_DIR)
+  ALPHA        numeric, default 0.05                        Bonferroni level: P < ALPHA / n_SNPs
 =============================================================================
 ```
 
@@ -262,19 +275,24 @@ PARAMETERS (edit at the noted line)
 
 ```text
 =============================================================================
-06_analyze_gwas_results.R — summarise simulated-GWAS results
+06_analyze_gwas_results.R — summarise the GWAS results of all scenarios
 =============================================================================
-WHAT IT DOES: Loads the causal-SNP ground truth and the simulated GWAS result tables
-  and summarises, per plasticity index, how the recovered signal compares to truth,
-  rendering summary heatmaps/plots.
-REQUIRES:     GWAS result CSVs produced by 04/05 (run a scenario first); the causal
-              truth text files under the scenario's OUTPUT_BASE.
-PRODUCES:     Summary heatmaps/plots under OUTPUT_BASE.
-HOW TO RUN:   setwd("~/PlastQuant"); source(here::here("R", "06_analyze_gwas_results.R"))
+WHAT IT DOES: Summarises, per plasticity index, how many causal SNPs are found in
+  every heritability scenario (h2 x causal SNPs per parameter). A parameter is
+  always the parameter of one shape ("shape: parameter"); its causal SNPs are
+  searched only in the GWAS of that shape, and a hit on a SNP that is not causal
+  for that shape is a false positive of that shape. Draws count/fraction heatmaps,
+  precision and recall per PPI, true/false positives, and PPI coverage summaries.
+REQUIRES:     The tables of R/scenarios/combine_scenarios.R (run the scenarios first).
+PRODUCES:     Under COMBINED_DIR: plots/gwas_scenario_summary.pdf,
+              precision_recall_per_ppi.csv, recall_per_shape_parameter.csv.
+HOW TO RUN:   Rscript --vanilla R/06_analyze_gwas_results.R   (from the repo root)
 -----------------------------------------------------------------------------
-PARAMETERS (edit at the noted line)
-  PPIs   character vector   which plasticity indices to summarise; edit `PPIs <-`     [COMMON]
-  GWAS   logical            whether GWAS results are present
+PARAMETERS — set these before sourcing (guarded defaults)
+  COMBINED_DIR  path, default output/combined_scenarios   tables of combine_scenarios.R [COMMON]
+  PPIs          character, default all PPIs in the tables  which plasticity indices to summarise
+  FOCUS_PPIS    character, default c("RN", "RTR", "FW")    PPI set for the coverage summary
+  OTHER_PPIS    character, default c("APC", "D_slope", "PSI", "RNN")  second PPI set
 =============================================================================
 ```
 
@@ -306,7 +324,8 @@ PARAMETERS (edit at the noted line)
 scenario_20_5.R — heritability scenario: h2 = 0.2, 5 causal SNPs per parameter
 =============================================================================
 Simulates the population (R/sim), computes all PPIs, runs the GWAS and the
-per-shape evaluation, and writes everything to output/scenario_20_5/run_<time>/.
+per-shape evaluation, writes everything to output/scenario_20_5/run_<time>/
+and draws the power heatmaps (05_evaluate_gwas.R).
 All other settings (variance components, study space, ...) are the defaults of
 sim_config() in R/sim/simulation_config.R.
 HOW TO RUN: Rscript --vanilla R/scenarios/scenario_20_5.R   (from the repo root)
@@ -320,7 +339,8 @@ HOW TO RUN: Rscript --vanilla R/scenarios/scenario_20_5.R   (from the repo root)
 scenario_20_10.R — heritability scenario: h2 = 0.2, 10 causal SNPs per parameter
 =============================================================================
 Simulates the population (R/sim), computes all PPIs, runs the GWAS and the
-per-shape evaluation, and writes everything to output/scenario_20_10/run_<time>/.
+per-shape evaluation, writes everything to output/scenario_20_10/run_<time>/
+and draws the power heatmaps (05_evaluate_gwas.R).
 All other settings (variance components, study space, ...) are the defaults of
 sim_config() in R/sim/simulation_config.R.
 HOW TO RUN: Rscript --vanilla R/scenarios/scenario_20_10.R   (from the repo root)
@@ -334,7 +354,8 @@ HOW TO RUN: Rscript --vanilla R/scenarios/scenario_20_10.R   (from the repo root
 scenario_20_20.R — heritability scenario: h2 = 0.2, 20 causal SNPs per parameter
 =============================================================================
 Simulates the population (R/sim), computes all PPIs, runs the GWAS and the
-per-shape evaluation, and writes everything to output/scenario_20_20/run_<time>/.
+per-shape evaluation, writes everything to output/scenario_20_20/run_<time>/
+and draws the power heatmaps (05_evaluate_gwas.R).
 All other settings (variance components, study space, ...) are the defaults of
 sim_config() in R/sim/simulation_config.R.
 HOW TO RUN: Rscript --vanilla R/scenarios/scenario_20_20.R   (from the repo root)
@@ -348,7 +369,8 @@ HOW TO RUN: Rscript --vanilla R/scenarios/scenario_20_20.R   (from the repo root
 scenario_40_5.R — heritability scenario: h2 = 0.4, 5 causal SNPs per parameter
 =============================================================================
 Simulates the population (R/sim), computes all PPIs, runs the GWAS and the
-per-shape evaluation, and writes everything to output/scenario_40_5/run_<time>/.
+per-shape evaluation, writes everything to output/scenario_40_5/run_<time>/
+and draws the power heatmaps (05_evaluate_gwas.R).
 All other settings (variance components, study space, ...) are the defaults of
 sim_config() in R/sim/simulation_config.R.
 HOW TO RUN: Rscript --vanilla R/scenarios/scenario_40_5.R   (from the repo root)
@@ -362,7 +384,8 @@ HOW TO RUN: Rscript --vanilla R/scenarios/scenario_40_5.R   (from the repo root)
 scenario_40_10.R — heritability scenario: h2 = 0.4, 10 causal SNPs per parameter
 =============================================================================
 Simulates the population (R/sim), computes all PPIs, runs the GWAS and the
-per-shape evaluation, and writes everything to output/scenario_40_10/run_<time>/.
+per-shape evaluation, writes everything to output/scenario_40_10/run_<time>/
+and draws the power heatmaps (05_evaluate_gwas.R).
 All other settings (variance components, study space, ...) are the defaults of
 sim_config() in R/sim/simulation_config.R.
 HOW TO RUN: Rscript --vanilla R/scenarios/scenario_40_10.R   (from the repo root)
@@ -376,7 +399,8 @@ HOW TO RUN: Rscript --vanilla R/scenarios/scenario_40_10.R   (from the repo root
 scenario_40_20.R — heritability scenario: h2 = 0.4, 20 causal SNPs per parameter
 =============================================================================
 Simulates the population (R/sim), computes all PPIs, runs the GWAS and the
-per-shape evaluation, and writes everything to output/scenario_40_20/run_<time>/.
+per-shape evaluation, writes everything to output/scenario_40_20/run_<time>/
+and draws the power heatmaps (05_evaluate_gwas.R).
 All other settings (variance components, study space, ...) are the defaults of
 sim_config() in R/sim/simulation_config.R.
 HOW TO RUN: Rscript --vanilla R/scenarios/scenario_40_20.R   (from the repo root)
@@ -390,7 +414,8 @@ HOW TO RUN: Rscript --vanilla R/scenarios/scenario_40_20.R   (from the repo root
 scenario_60_5.R — heritability scenario: h2 = 0.6, 5 causal SNPs per parameter
 =============================================================================
 Simulates the population (R/sim), computes all PPIs, runs the GWAS and the
-per-shape evaluation, and writes everything to output/scenario_60_5/run_<time>/.
+per-shape evaluation, writes everything to output/scenario_60_5/run_<time>/
+and draws the power heatmaps (05_evaluate_gwas.R).
 All other settings (variance components, study space, ...) are the defaults of
 sim_config() in R/sim/simulation_config.R.
 HOW TO RUN: Rscript --vanilla R/scenarios/scenario_60_5.R   (from the repo root)
@@ -404,7 +429,8 @@ HOW TO RUN: Rscript --vanilla R/scenarios/scenario_60_5.R   (from the repo root)
 scenario_60_10.R — heritability scenario: h2 = 0.6, 10 causal SNPs per parameter
 =============================================================================
 Simulates the population (R/sim), computes all PPIs, runs the GWAS and the
-per-shape evaluation, and writes everything to output/scenario_60_10/run_<time>/.
+per-shape evaluation, writes everything to output/scenario_60_10/run_<time>/
+and draws the power heatmaps (05_evaluate_gwas.R).
 All other settings (variance components, study space, ...) are the defaults of
 sim_config() in R/sim/simulation_config.R.
 HOW TO RUN: Rscript --vanilla R/scenarios/scenario_60_10.R   (from the repo root)
@@ -418,7 +444,8 @@ HOW TO RUN: Rscript --vanilla R/scenarios/scenario_60_10.R   (from the repo root
 scenario_60_20.R — heritability scenario: h2 = 0.6, 20 causal SNPs per parameter
 =============================================================================
 Simulates the population (R/sim), computes all PPIs, runs the GWAS and the
-per-shape evaluation, and writes everything to output/scenario_60_20/run_<time>/.
+per-shape evaluation, writes everything to output/scenario_60_20/run_<time>/
+and draws the power heatmaps (05_evaluate_gwas.R).
 All other settings (variance components, study space, ...) are the defaults of
 sim_config() in R/sim/simulation_config.R.
 HOW TO RUN: Rscript --vanilla R/scenarios/scenario_60_20.R   (from the repo root)
@@ -432,16 +459,40 @@ HOW TO RUN: Rscript --vanilla R/scenarios/scenario_60_20.R   (from the repo root
 scenario_maize.R — scenario driver: empirical maize dataset
 =============================================================================
 WHAT IT DOES: Sets the parameters for the empirical maize analysis and runs the GWAS
-  accuracy evaluation (05_evaluate_gwas.R). The maize score computation
-  (03_plasticity_scores_maize.R) is available but sourced separately.
+  on the maize scores (04_run_gwas.R). The maize score computation
+  (03_plasticity_scores_maize.R) is available but sourced separately. There is no
+  simulated truth for maize, so 05_evaluate_gwas.R does not apply.
 REQUIRES:     None to launch — self-contained driver. Uses data/maize_scores_list.rds
               and the maize datasets under data/A-Datasets/.
-PRODUCES:     Maize GWAS evaluation under OUTPUT_BASE (output/scenario_maize/).
+PRODUCES:     Maize GWAS results under OUTPUT_BASE (output/scenario_maize/).
 HOW TO RUN:   setwd("~/PlastQuant"); source(here::here("R","scenarios","scenario_maize.R"))
 -----------------------------------------------------------------------------
 PARAMETERS (edit here — set UNCONDITIONALLY below so they override script defaults)
   OUTPUT_BASE           output location for the maize run
   DO_NOT_PLOT_MAHATTAN  = TRUE  skip Manhattan plots
+=============================================================================
+```
+
+### R/scenarios/combine_scenarios.R
+
+```text
+=============================================================================
+combine_scenarios.R — collect the heritability scenarios into one table set
+=============================================================================
+WHAT IT DOES: Takes the newest run of every scenario_<h2>_<Mc> folder, keeps the
+  GWAS hits below P_THRESHOLD and the causal SNPs (both tagged with H2 and Mc), and
+  counts the found causal SNPs per scenario, shape, parameter and PPI. Every shape
+  is evaluated against its own causal SNPs only (see detection_counts()).
+REQUIRES:     Scenario runs written by R/scenarios/scenario_*.R.
+PRODUCES:     Under OUT_DIR: gwas_hits.csv, causal_snps_truth.csv, tested.csv,
+              detection_counts.csv, runs.csv (read by 06_analyze_gwas_results.R).
+HOW TO RUN:   Rscript --vanilla R/scenarios/combine_scenarios.R   (from the repo root)
+-----------------------------------------------------------------------------
+PARAMETERS — set these before sourcing (guarded defaults)
+  SCENARIO_ROOT  path, default output/                   folder with the scenario_* folders
+  SCENARIOS      character, default all scenario_<h2>_<Mc> folders in SCENARIO_ROOT
+  P_THRESHOLD    numeric, default 1e-3                   P value below which a SNP is a hit [COMMON]
+  OUT_DIR        path, default output/combined_scenarios where the tables are written
 =============================================================================
 ```
 
@@ -691,16 +742,21 @@ PARAMETERS (edit the named assignment near the top of the script)
 =============================================================================
 plotting_reaction_norms_all.R — reaction-norm overview figure
 =============================================================================
-WHAT IT DOES: Assembles the reaction-norm overview figure: genotype line plots plus
-  histograms of the trait distribution.
-REQUIRES:     all_combined_data.csv written by a scenario run under
-              output/<scenario>/synthetic_data/... (a scenario must be run first).
-PRODUCES:     Reaction-norm overview figure PDF.
+WHAT IT DOES: Assembles the reaction-norm overview figure: per shape the mother
+  reaction norms of selected genotypes (smooth curve from the simulated mother
+  parameters), their replicate measurements (dashed) and replicate range (ribbon),
+  plus histograms of the measured trait values.
+REQUIRES:     A scenario run (phenotypes.rds, mother_parameters.csv, config.rds),
+              by default the newest run of output/scenario_20_5 (run that scenario first).
+PRODUCES:     output/plots/reaction_norms_final_figure.pdf,
+              reaction_norms_final_figure_panels.pdf, p_combined.pdf.
 HOW TO RUN:   setwd("~/PlastQuant"); source(here::here("R","figures","plotting_reaction_norms_all.R"))
 -----------------------------------------------------------------------------
-PARAMETERS (edit the named assignment near the top of the script)
-  the input all_combined_data path (read via read_csv at the top)                        [COMMON]
-  ylim   numeric length-2  y-axis limits for the line plots
+PARAMETERS — set these before sourcing (guarded defaults)
+  RUN_DIR         path, default newest run of output/scenario_20_5   input run      [COMMON]
+  PLOT_GENOTYPES  list shape -> genotype IDs, default: the genotypes at the 10/50/90 %
+                  quantile of the amplitude a of each shape (3 per panel)
+  N_CURVE_POINTS  integer, default 200   points of the smooth mother curves
 =============================================================================
 ```
 

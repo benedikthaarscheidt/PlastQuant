@@ -40,8 +40,8 @@ options(warn = -1)  # silence warnings even if the project .Rprofile was not loa
 #            score across the four genotype forms (linear, gaussian, sinusoidal, wave).
 #
 # Steps:
-#   1. Source the five score‐definition files (1_2.R, 2.R, 3.R, 4.R, 5.R) plus
-#      the linear and nonlinear norms generators.
+#   1. Source the five score‐definition files (1_2.R, 2.R, 3.R, 4.R, 5.R) and
+#      simulate the reaction norms with the model in R/sim.
 #   2. Define default globals (indices, interval, env, Covariate, type_labels) and
 #      only override them if already defined in the calling environment (which happens when the script is launched from the resolution.R file).
 #   3. Ensure the raw reaction‐norm data frames (gaussian_data, sinusoidal_data,

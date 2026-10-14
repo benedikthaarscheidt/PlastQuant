@@ -46,10 +46,11 @@ R/                                pipeline, analysis, figure, and scenario scrip
   03_plasticity_scores.R          simulate (R/sim) and compute all plasticity indices
   03_plasticity_scores_maize.R    same, for the empirical maize dataset
   04_run_gwas.R                   GWAS on the plasticity scores
-  05_evaluate_gwas.R              accuracy evaluation of GWAS hits
-  06_analyze_gwas_results.R       summarise simulated-GWAS results
+  05_evaluate_gwas.R              power per shape of one scenario run (heatmaps)
+  06_analyze_gwas_results.R       summarise the GWAS results of all scenarios
   06_analyze_maize_gwas_results.R summarise maize-GWAS results
-  scenarios/                      per-scenario driver scripts + scenario_maize.R
+  scenarios/                      per-scenario driver scripts, scenario_maize.R,
+                                  combine_scenarios.R (collects all scenario runs)
   analysis/                       regression / rank-correlation / clustering summaries
   figures/                        figure-producing scripts
 data/                             committed input datasets
@@ -96,8 +97,20 @@ All other settings and their defaults are arguments of `sim_config()` in
 
 The same seed gives the same genetics for every h². Outputs are written to
 `output/scenario_<...>/run_<timestamp>/`, including the realised variance components
-(`variance_latent.csv`, `variance_trait.csv`). `scenario_maize.R` runs the empirical
-maize analysis.
+(`variance_latent.csv`, `variance_trait.csv`). Each driver then sources
+`05_evaluate_gwas.R`, which writes the power per shape and parameter
+(`gwas_accuracy_summary.csv`) and the heatmaps (`plots/gwas_power_heatmap.pdf`). A
+parameter's power is always computed within its shape. A hit on a causal SNP of another
+shape counts as a false positive.
+
+To compare the scenarios, collect their newest runs and summarise them:
+
+```bash
+Rscript --vanilla R/scenarios/combine_scenarios.R    # tables in output/combined_scenarios/
+Rscript --vanilla R/06_analyze_gwas_results.R        # plots and precision/recall tables
+```
+
+`scenario_maize.R` runs the GWAS on the empirical maize scores.
 
 **Own data.** Pass a SNP matrix, reaction norms and, optionally, known causal SNPs:
 
@@ -116,7 +129,9 @@ this computes the PPIs only.
 reg <- register_ppi(default_ppi_registry(), ppi_entry("Name", fun, inputs = c(trait_values = "trait", env_values = "env")))
 ```
 
-Pass `registry = reg` to the runner. To leave PPIs out, use `exclude = c(...)`.
+Pass `registry = reg` to the runner. To leave PPIs out, use `exclude = c(...)`. FW is
+the one PPI computed on the whole population's reaction norms. It is always computed
+once on the replicate means and gives one value per genotype.
 
 See `docs/PIPELINE.md` for the data format, the output files and the numbered scripts.
 
@@ -133,7 +148,7 @@ source(here::here("R", "figures", "plasticity_score_realisation_plot.R"))
 
 | Figure / artefact                         | Script (`R/figures/`)                       | Needs a scenario run first? |
 |-------------------------------------------|---------------------------------------------|-----------------------------|
-| Reaction-norm overview                    | `plotting_reaction_norms_all.R`             | not yet adapted to the new simulation (reads the CSVs of the removed reaction-norm generators) |
+| Reaction-norm overview                    | `plotting_reaction_norms_all.R`             | yes — run `scenario_20_5.R` |
 | Plasticity-score realisations (simulated) | `plasticity_score_realisation_plot.R`       | no                          |
 | Plasticity-score realisations (maize)     | `plasticity_score_realisation_plot_maize.R` | no                          |
 | Summary-stats correlation panels          | `correlation_summary_stats_PS.R`            | no                          |
@@ -144,11 +159,6 @@ The committed datasets can be regenerated: `R/analysis/regression_sumstats_datap
 rebuilds `output/regression_summary_stats/`, and the Kendall / resolution scripts
 (`R/analysis/kendall_*`, `R/figures/resolution.R`) rebuild the correlation and
 rank-agreement CSVs.
-
-> Note: `R/scenarios/combine_scenarios_snps.sh` aggregates the per-scenario GWAS CSVs
-> of the 03 → 04 chain (`gwas_results_mlm_80.csv`), not the output of the new scenario
-> drivers. It uses relative paths and expects to be run from inside `output/`, where the
-> `scenario_*` folders live.
 
 ## Notes
 

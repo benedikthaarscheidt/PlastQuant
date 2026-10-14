@@ -13,7 +13,6 @@
 #   OUTPUT_BASE           path, default output/scenario_maize  where outputs go; edit `OUTPUT_BASE <-`
 #   NUM_GENOTYPES         integer, default 800  guarded default (from data if provided)
 #   NUM_SNPs              integer, default 200000  guarded default
-#   USE_GENETICS          logical, default TRUE  guarded further down
 #   KEEP_REPLICATES / STRUCTURED_POPULATION / GENETIC_VARIANCES  guarded defaults below
 # =============================================================================
 options(warn = -1)  # silence warnings even if the project .Rprofile was not loaded
@@ -104,7 +103,6 @@ library(ppindices)
 # -----------------------------------------------------------------------------
 # ENABLE GENETICS AND GENERATE DATA
 # -----------------------------------------------------------------------------
-# USE_GENETICS is already set above (default TRUE, or FALSE if set before sourcing)
 if (!exists("KEEP_REPLICATES")) KEEP_REPLICATES <- FALSE
 if (!exists("STRUCTURED_POPULATION")) STRUCTURED_POPULATION <- FALSE
 if (!exists("GENETIC_VARIANCES")) GENETIC_VARIANCES <- FALSE
