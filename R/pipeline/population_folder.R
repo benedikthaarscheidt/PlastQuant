@@ -153,3 +153,14 @@ read_population <- function(dir) {
   pop$name <- basename(normalizePath(dir))
   pop
 }
+
+# Stop unless the population in dir has at least n measurement points (for analyses
+# that subsample a dense curve)
+require_population_points <- function(dir, n) {
+  env_file <- file.path(dir, "data", "environments.csv")
+  if (!file.exists(env_file)) stop("no population in ", dir, " (simulate_population() or place own data in data/)")
+  have <- nrow(read.csv(env_file))
+  if (have < n) stop("this analysis needs a population with at least ", n, " measurement points; ",
+                     dir, " has ", have, " (simulate one with sim_config(..., n_points = ", n, "))")
+  invisible(have)
+}

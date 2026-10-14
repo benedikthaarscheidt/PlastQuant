@@ -4,11 +4,13 @@
 # WHAT IT DOES: Computes Kendall rank correlations between the plasticity indices over
 #   the chosen sampling intervals and reaction-norm ranges. Auto-sources
 #   03_plasticity_scores.R when the scores are not already loaded.
-# REQUIRES:     03 (so H2 / CAUSAL_SNP_NUM / OUTPUT_BASE must be set).
-# PRODUCES:     Rank-correlation tables (and inputs for downstream figures).
+# REQUIRES:     POPULATION_DIR: a simulated population folder with at least
+#               global_initial_length (50) measurement points (03 is sourced on it).
+# PRODUCES:     Rank-correlation tables under POPULATION_DIR/analyses/rank_flops/.
 # HOW TO RUN:   setwd("~/PlastQuant"); source(here::here("R","analysis","kendall_rank_corr.R"))
 # -----------------------------------------------------------------------------
 # PARAMETERS (edit the named assignment near the top of the script)
+#   POPULATION_DIR        path, REQUIRED                  population folder               [COMMON]
 #   sampling_intervals    integer vector, default c(10)   measurement intervals to test   [COMMON]
 #   global_initial_length integer, default 50             full reaction-norm length
 #   range_list            list, default list(full=c(1,50)) sub-ranges to evaluate
@@ -84,7 +86,11 @@ pair_tau <- function(df_long, i, j) {
   dplyr::tibble(score_i = i, score_j = j, correlation = est, p_value = pval, n_common = nrow(ab))
 }
 
-out_dir <- path.expand(here::here("output", "rank_flops"))
+# Needs a population with dense curves (indices up to global_initial_length)
+if (!exists("POPULATION_DIR")) stop("set POPULATION_DIR: a simulated population with at least ", global_initial_length, " measurement points")
+source(here::here("R", "pipeline", "load_pipeline.R"))
+require_population_points(POPULATION_DIR, global_initial_length)
+out_dir <- file.path(POPULATION_DIR, "analyses", "rank_flops")
 dir.create(out_dir, showWarnings = FALSE, recursive = TRUE)
 
 for (range_name in names(range_list)) {

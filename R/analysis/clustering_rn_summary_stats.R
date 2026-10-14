@@ -5,8 +5,8 @@
 #   (k-means, DBSCAN, hierarchical, mclust) and renders the associated heatmaps/plots.
 #   Auto-sources 03_plasticity_scores.R when scores are not already loaded
 #   (guarded by the `data_loaded` flag at the top).
-# REQUIRES:     03 (so H2 / CAUSAL_SNP_NUM / OUTPUT_BASE must be set).
-# PRODUCES:     Clustering figures under OUTPUT_BASE.
+# REQUIRES:     03 (so POPULATION_DIR must be set: a simulated population folder).
+# PRODUCES:     Clustering figures under POPULATION_DIR/analyses/clustering/.
 # HOW TO RUN:   setwd("~/PlastQuant"); source(here::here("R","analysis","clustering_rn_summary_stats.R"))
 # -----------------------------------------------------------------------------
 # PARAMETERS: inherits 03's parameters via the auto-source; clustering knobs are set
@@ -19,6 +19,8 @@ if (!exists("data_loaded") || !data_loaded) {
   source(here::here("R", "03_plasticity_scores.R"))
   data_loaded = TRUE
 }
+clustering_dir <- file.path(POPULATION_DIR, "analyses", "clustering")
+dir.create(clustering_dir, recursive = TRUE, showWarnings = FALSE)
 
 
 
@@ -498,7 +500,7 @@ compute_ARI_matrix <- function(plasticity_clusters, summary_clusters) {
 results <- compare_clustering(rn_matrix_list, scores_list, genotype_forms,
                               k_scores = 2, k_summary = 2,
                               global = FALSE,
-                              pdf_file = "clustering_combined_local.pdf",
+                              pdf_file = file.path(clustering_dir, "clustering_combined_local.pdf"),
                               return_results = TRUE)
 
 # For a specific genotype form (e.g., "form1"), extract the clustering results:
@@ -519,7 +521,7 @@ global=compare_clustering(
   k_scores = 2,
   k_summary = 2,
   global = TRUE,
-  pdf_file = "clustering_combined_global.pdf"
+  pdf_file = file.path(clustering_dir, "clustering_combined_global.pdf")
 )
 
 print(global)

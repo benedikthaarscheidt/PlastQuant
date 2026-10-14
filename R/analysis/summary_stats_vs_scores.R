@@ -5,8 +5,8 @@
 #   statistics and the plasticity scores (correlation matrices, distance measures,
 #   clustering). Auto-sources 03_plasticity_scores.R when scores are not already loaded
 #   (guarded by the `data_loaded` flag at the top).
-# REQUIRES:     03 (so H2 / CAUSAL_SNP_NUM / OUTPUT_BASE must be set).
-# PRODUCES:     Summary-stat vs score figures/tables under OUTPUT_BASE.
+# REQUIRES:     03 (so POPULATION_DIR must be set: a simulated population folder).
+# PRODUCES:     Summary-stat vs score figures under POPULATION_DIR/analyses/summary_stats_vs_scores/.
 # HOW TO RUN:   setwd("~/PlastQuant"); source(here::here("R","analysis","summary_stats_vs_scores.R"))
 # -----------------------------------------------------------------------------
 # PARAMETERS: inherits 03's parameters via the auto-source; analysis knobs are set in the
@@ -184,7 +184,9 @@ compute_summary_stats <- function(rn_matrix) {
 # Compute nine summary statistics for each row (genotype) in a reaction norm matrix.
 compare_summary_stats_with_scores <- function(rn_matrix_list, scores_list, genotype_forms,
                                               global = FALSE,
-                                              measures = c("kendall"), n_perm = 999) {
+                                              measures = c("kendall"), n_perm = 999,
+                                              out_dir = file.path(POPULATION_DIR, "analyses", "summary_stats_vs_scores")) {
+  dir.create(out_dir, recursive = TRUE, showWarnings = FALSE)
   # Define the nine summary statistics.
   stat_names <- c("min", "max", "mean", "median", "slope", "range", "variance", "mean_lower", "mean_upper")
   score_names <- names(scores_list)
@@ -210,7 +212,7 @@ compare_summary_stats_with_scores <- function(rn_matrix_list, scores_list, genot
   
   if (!global) {
     message("Performing LOCAL (per genotype form) analysis...")
-    pdf("scores_vs_summary_stats_local.pdf", width = 10, height = 8)
+    pdf(file.path(out_dir, "scores_vs_summary_stats_local.pdf"), width = 10, height = 8)
     
     for (meth in measures) {
       for (form in genotype_forms) {
@@ -356,7 +358,7 @@ compare_summary_stats_with_scores <- function(rn_matrix_list, scores_list, genot
     # Define symbols for each genotype form.
     formSymbols <- c(linear = 16, gaussian = 17, sinusoidal = 18, wave = 15)
     
-    pdf("scores_vs_summary_stats_global.pdf", width = 12, height = 8)
+    pdf(file.path(out_dir, "scores_vs_summary_stats_global.pdf"), width = 12, height = 8)
     
     for (meth in measures) {
       message("Global Analysis - Method: ", meth)

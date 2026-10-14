@@ -76,3 +76,11 @@ test_that("format errors name the file and what is wrong", {
   write.csv(data.frame(ID = "a", E1 = 1), file.path(dir, "data", "traits", "height.csv"), row.names = FALSE)
   expect_error(read_population(dir), "height.csv.*Genotype")
 })
+
+test_that("analyses on dense curves stop when the population has too few points", {
+  dir <- write_population(simulate_reaction_norms(sim_config(h2 = 0.4, Mc = 2, n_per_shape = 4, n_snps = 200)),
+                          new_dir("pop_points"))
+  expect_error(require_population_points(dir, 50), "at least 50 measurement points.*has 6")
+  expect_equal(require_population_points(dir, 6), 6L)
+  expect_error(require_population_points(new_dir("pop_none"), 6), "no population")
+})

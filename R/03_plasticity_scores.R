@@ -1,33 +1,35 @@
 # =============================================================================
 # 03_plasticity_scores.R — compute every plasticity index (pipeline hub)
 # =============================================================================
-# WHAT IT DOES: Simulates the population with the model in R/sim (SNPs -> genetic
-#   values -> mother norms and replicates -> measurements) and computes every
-#   plasticity index (via the ppindices package) for each genotype's reaction norm
-#   across the four forms (linear, gaussian, sinusoidal, wave), assembling the
-#   `scores_list` consumed by GWAS and analysis.
+# WHAT IT DOES: Loads a simulated population from its population folder (or first
+#   simulates one into it with the model in R/sim) and computes every plasticity index
+#   (via the ppindices package) for each genotype's reaction norm across the four forms
+#   (linear, gaussian, sinusoidal, wave), assembling the `scores_list` consumed by GWAS
+#   and analysis. Everything it writes goes to POPULATION_DIR/analyses/scores/.
 # REQUIRES:     R/sim, R/ppi, R/pipeline (loaded via R/pipeline/load_pipeline.R);
-#               library(ppindices). The caller MUST set H2, CAUSAL_SNP_NUM and
-#               OUTPUT_BASE first — the script stops otherwise.
-# PRODUCES:     `scores_list` in memory; per-score CSVs under OUTPUT_BASE when SAVE=TRUE.
+#               library(ppindices). The caller MUST set POPULATION_DIR; if that folder
+#               holds no population yet, also H2 and CAUSAL_SNP_NUM.
+# PRODUCES:     `scores_list` in memory; outputs under POPULATION_DIR/analyses/scores/.
 # HOW TO RUN:   setwd("~/PlastQuant")
-#               H2 <- 0.2; CAUSAL_SNP_NUM <- 5
-#               OUTPUT_BASE <- here::here("output","my_run")
+#               POPULATION_DIR <- here::here("output", "populations", "my_population")
+#               H2 <- 0.2; CAUSAL_SNP_NUM <- 5      # only needed to simulate a new population
 #               source(here::here("R", "03_plasticity_scores.R"))
 # -----------------------------------------------------------------------------
 # PARAMETERS — set these in a driver script or your R session before sourcing.
-#   H2                    numeric 0..1, REQUIRED  share of genetic variance from the causal SNPs [COMMON]
-#   CAUSAL_SNP_NUM        integer, REQUIRED      causal SNPs per parameter                    [COMMON]
-#   OUTPUT_BASE           path,    REQUIRED      output location                              [COMMON]
+#   POPULATION_DIR        path,    REQUIRED      population folder (simulated population)     [COMMON]
+# Only used to simulate a new population into POPULATION_DIR (must match an existing one):
+#   H2                    numeric 0..1           share of genetic variance from the causal SNPs [COMMON]
+#   CAUSAL_SNP_NUM        integer                causal SNPs per parameter                    [COMMON]
 #   NUM_GENOTYPES         integer, default 800   number of genotypes (divisible by 4)
 #   NUM_SNPs              integer, default 200000 number of simulated SNPs
 #   N_MEAS_POINTS         integer, default 6     simulated measurement points per reaction norm
 #   SEED                  integer, default 1     same seed = same genetics for every H2
+# Always:
 #   indices, env          optional               subset of the measurement points and their
 #                                                environment values (default: all points)
 #   KEEP_REPLICATES       logical, default FALSE keep replicate rows
 #   GWAS                  logical                run GWAS downstream (read by 04/05/06)
-#   SAVE                  logical                write per-score CSVs under OUTPUT_BASE
+#   SAVE                  logical                write per-score CSVs under analyses/scores/
 # All other model settings (variance components, study space) are the defaults of
 # sim_config() in R/sim/simulation_config.R.
 # =============================================================================
@@ -74,9 +76,12 @@ if (exists("USE_GENETICS") && !USE_GENETICS) {
 if (exists("HERITABILITY_5TH") && !exists("H2")) {
   stop("HERITABILITY_5TH was replaced by H2: the share of genetic variance from the causal SNPs (0..1), e.g. H2 <- 0.2")
 }
-if (!exists("H2") || !exists("CAUSAL_SNP_NUM") || !exists("OUTPUT_BASE")) {
-  stop("H2, CAUSAL_SNP_NUM and OUTPUT_BASE need to be set in the sourcing script")
+if (!exists("POPULATION_DIR")) {
+  stop("POPULATION_DIR needs to be set: the population folder whose scores are computed ",
+       "(set H2 and CAUSAL_SNP_NUM as well to simulate a new population into it)")
 }
+# All outputs of this script belong to the population
+OUTPUT_BASE <- file.path(POPULATION_DIR, "analyses", "scores")
 
 if (!dir.exists(paste(OUTPUT_BASE,"/plots",sep=""))) dir.create(paste(OUTPUT_BASE,"/plots",sep=""), recursive = TRUE)
 
@@ -124,22 +129,39 @@ library(ppindices)
 
 
 # -----------------------------------------------------------------------------
-# SIMULATE THE POPULATION
+# LOAD (OR FIRST SIMULATE) THE POPULATION
 # -----------------------------------------------------------------------------
 if (!exists("KEEP_REPLICATES")) KEEP_REPLICATES <- FALSE
-if (!exists("NUM_GENOTYPES")) NUM_GENOTYPES <- 800
-if (!exists("NUM_SNPs")) NUM_SNPs <- 200000
-if (!exists("N_MEAS_POINTS")) N_MEAS_POINTS <- 6
-if (!exists("SEED")) SEED <- 1
-if (NUM_GENOTYPES %% 4 != 0) stop("NUM_GENOTYPES must be divisible by 4 (one block per shape)")
 
 # Reaction norms come from the simulation model in R/sim:
 # SNPs -> genetic values -> mother norms and replicates -> measurements
 source(here::here("R", "pipeline", "load_pipeline.R"))
-sim <- simulate_reaction_norms(sim_config(
-  h2 = H2, Mc = CAUSAL_SNP_NUM, n_per_shape = NUM_GENOTYPES / 4,
-  n_snps = NUM_SNPs, n_points = N_MEAS_POINTS, seed = SEED
-))
+if (!file.exists(file.path(POPULATION_DIR, "data", "config.rds"))) {
+  if (!exists("H2") || !exists("CAUSAL_SNP_NUM")) {
+    stop(POPULATION_DIR, " holds no simulated population yet; set H2 and CAUSAL_SNP_NUM to simulate one into it")
+  }
+  if (!exists("NUM_GENOTYPES")) NUM_GENOTYPES <- 800
+  if (!exists("NUM_SNPs")) NUM_SNPs <- 200000
+  if (!exists("N_MEAS_POINTS")) N_MEAS_POINTS <- 6
+  if (!exists("SEED")) SEED <- 1
+  if (NUM_GENOTYPES %% 4 != 0) stop("NUM_GENOTYPES must be divisible by 4 (one block per shape)")
+  simulate_population(sim_config(
+    h2 = H2, Mc = CAUSAL_SNP_NUM, n_per_shape = NUM_GENOTYPES / 4,
+    n_snps = NUM_SNPs, n_points = N_MEAS_POINTS, seed = SEED
+  ), POPULATION_DIR)
+}
+sim <- read_population(POPULATION_DIR)
+if (!all(c("linear", "gaussian", "sinusoidal", "wave") %in% names(sim$phenotypes))) {
+  stop("03 needs a simulated population with the four shapes; for own data use run_pipeline()")
+}
+# A population is fixed once simulated: settings given for a different one are an error
+for (chk in list(c("H2", "h2"), c("CAUSAL_SNP_NUM", "Mc"), c("N_MEAS_POINTS", "n_points"), c("SEED", "seed"))) {
+  if (exists(chk[1]) && get(chk[1]) != sim$config[[chk[2]]]) {
+    stop(chk[1], " = ", get(chk[1]), " but the population in ", POPULATION_DIR, " was simulated with ",
+         chk[2], " = ", sim$config[[chk[2]]], "; use another POPULATION_DIR")
+  }
+}
+N_MEAS_POINTS <- length(sim$environments)
 snp_matrix <- sim$snp_matrix
 params_df <- sim$mother_parameters
 truth_df <- sim$truth
