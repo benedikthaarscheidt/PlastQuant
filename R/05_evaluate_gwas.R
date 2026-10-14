@@ -5,8 +5,8 @@
 #   Every shape is evaluated against its own causal SNPs only, so the power of a
 #   parameter is always the power within one shape (a hit on a causal SNP of another
 #   shape is a false positive). Draws one power heatmap per shape plus an overview.
-# REQUIRES:     A run folder written by run_simulation_scenario() / run_pipeline()
-#               (gwas_results.csv, truth.csv, config.rds), e.g. by a scenario_*.R driver.
+# REQUIRES:     A run folder written by run_simulation_scenario() or by run_pipeline()
+#               with a truth table (gwas_results.csv, truth.csv; config.rds if simulated).
 # PRODUCES:     RUN_DIR/gwas_accuracy_summary.csv and RUN_DIR/plots/gwas_power_heatmap.pdf.
 # HOW TO RUN:   setwd("~/PlastQuant")
 #               OUTPUT_BASE <- here::here("output", "scenario_20_5")   # newest run is used
@@ -33,8 +33,10 @@ if (!exists("ALPHA")) ALPHA <- 0.05
 message("Evaluating GWAS of: ", RUN_DIR)
 gwas_res <- read.csv(file.path(RUN_DIR, "gwas_results.csv"), stringsAsFactors = FALSE)
 truth    <- read.csv(file.path(RUN_DIR, "truth.csv"), stringsAsFactors = FALSE)
-cfg      <- readRDS(file.path(RUN_DIR, "config.rds"))
 n_snps   <- length(unique(gwas_res$SNP))
+# Simulation settings exist only for simulated runs (own data has no config.rds)
+cfg_file <- file.path(RUN_DIR, "config.rds")
+cfg      <- if (file.exists(cfg_file)) readRDS(cfg_file) else NULL
 
 # -----------------------------------------------------------------------------
 # 2. Power per shape, parameter and PPI (Bonferroni)
@@ -44,9 +46,9 @@ power <- power[, c("Shape", "Score", "Parameter", "True_SNPs", "Found", "Power")
 write.csv(power, file.path(RUN_DIR, "gwas_accuracy_summary.csv"), row.names = FALSE)
 
 subtitle_base <- paste0(
-  "h2 = ", cfg$h2, ", ", cfg$Mc, " causal SNPs per parameter, ",
-  cfg$n_per_shape, " genotypes per shape, ", n_snps, " SNPs",
-  "  (Bonferroni P < ", format(ALPHA / n_snps, digits = 2, scientific = TRUE), ")"
+  if (!is.null(cfg)) paste0("h2 = ", cfg$h2, ", ", cfg$Mc, " causal SNPs per parameter, ",
+                            cfg$n_per_shape, " genotypes per shape, "),
+  n_snps, " SNPs  (Bonferroni P < ", format(ALPHA / n_snps, digits = 2, scientific = TRUE), ")"
 )
 
 # -----------------------------------------------------------------------------

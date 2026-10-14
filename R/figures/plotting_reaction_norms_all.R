@@ -6,12 +6,15 @@
 #   the mother reaction norms of selected genotypes (smooth curve from the mother
 #   parameters), their replicate measurements (dashed) and replicate range (ribbon),
 #   plus histograms of the measured trait values.
-# REQUIRES:     Nothing upstream (simulates its own data; no GWAS).
+# REQUIRES:     Nothing upstream (simulates its own data; no GWAS). If a simulation
+#               `sim` (from simulate_reaction_norms()) exists in the session, that one
+#               is drawn instead.
 # PRODUCES:     output/plots/reaction_norms_final_figure.pdf,
 #               reaction_norms_final_figure_panels.pdf, p_combined.pdf.
 # HOW TO RUN:   setwd("~/PlastQuant"); source(here::here("R","figures","plotting_reaction_norms_all.R"))
 # -----------------------------------------------------------------------------
 # PARAMETERS — set these before sourcing (guarded defaults)
+#   sim             optional, output of simulate_reaction_norms() to draw   [COMMON]
 #   H2              numeric, default 0.4    SNP share of the latent variance           [COMMON]
 #   CAUSAL_SNP_NUM  integer, default 5      causal SNPs per parameter
 #   NUM_GENOTYPES   integer, default 800    genotypes (divisible by 4, one block per shape)
@@ -37,8 +40,10 @@ if (!exists("NUM_SNPs")) NUM_SNPs <- 2000
 if (!exists("SEED")) SEED <- 1
 if (!exists("N_CURVE_POINTS")) N_CURVE_POINTS <- 200
 
-sim <- simulate_reaction_norms(sim_config(h2 = H2, Mc = CAUSAL_SNP_NUM, n_per_shape = NUM_GENOTYPES / 4,
-                                          n_snps = NUM_SNPs, seed = SEED))
+if (!exists("sim")) {
+  sim <- simulate_reaction_norms(sim_config(h2 = H2, Mc = CAUSAL_SNP_NUM, n_per_shape = NUM_GENOTYPES / 4,
+                                            n_snps = NUM_SNPs, seed = SEED))
+}
 phenotypes <- sim$phenotypes
 mother_par <- sim$mother_parameters
 cfg        <- sim$config

@@ -257,8 +257,8 @@ WHAT IT DOES: Compares the GWAS hits of one run against the simulated causal SNP
   Every shape is evaluated against its own causal SNPs only, so the power of a
   parameter is always the power within one shape (a hit on a causal SNP of another
   shape is a false positive). Draws one power heatmap per shape plus an overview.
-REQUIRES:     A run folder written by run_simulation_scenario() / run_pipeline()
-              (gwas_results.csv, truth.csv, config.rds), e.g. by a scenario_*.R driver.
+REQUIRES:     A run folder written by run_simulation_scenario() or by run_pipeline()
+              with a truth table (gwas_results.csv, truth.csv; config.rds if simulated).
 PRODUCES:     RUN_DIR/gwas_accuracy_summary.csv and RUN_DIR/plots/gwas_power_heatmap.pdf.
 HOW TO RUN:   setwd("~/PlastQuant")
               OUTPUT_BASE <- here::here("output", "scenario_20_5")   # newest run is used
@@ -747,12 +747,15 @@ WHAT IT DOES: Simulates a population with the model in R/sim (independent of the
   the mother reaction norms of selected genotypes (smooth curve from the mother
   parameters), their replicate measurements (dashed) and replicate range (ribbon),
   plus histograms of the measured trait values.
-REQUIRES:     Nothing upstream (simulates its own data; no GWAS).
+REQUIRES:     Nothing upstream (simulates its own data; no GWAS). If a simulation
+              `sim` (from simulate_reaction_norms()) exists in the session, that one
+              is drawn instead.
 PRODUCES:     output/plots/reaction_norms_final_figure.pdf,
               reaction_norms_final_figure_panels.pdf, p_combined.pdf.
 HOW TO RUN:   setwd("~/PlastQuant"); source(here::here("R","figures","plotting_reaction_norms_all.R"))
 -----------------------------------------------------------------------------
 PARAMETERS — set these before sourcing (guarded defaults)
+  sim             optional, output of simulate_reaction_norms() to draw   [COMMON]
   H2              numeric, default 0.4    SNP share of the latent variance           [COMMON]
   CAUSAL_SNP_NUM  integer, default 5      causal SNPs per parameter
   NUM_GENOTYPES   integer, default 800    genotypes (divisible by 4, one block per shape)
