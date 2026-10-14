@@ -29,3 +29,10 @@ test_that("invalid settings fail with a clear message", {
   expect_error(sim_config(h2 = 0.4, Mc = 5, n_rep = 0), "n_rep must be at least 1")
   expect_error(sim_config(h2 = 0.4, Mc = 5, error_share = 1), "error_share")
 })
+
+test_that("a config without the shape parameters is an error, not a silent L/a-only model", {
+  cfg <- list(shapes = c("linear", "gaussian"), Mc = 4, n_snps = 100)
+  expect_error(reaction_norm_parameters(cfg, "gaussian"), "sim_config")
+  expect_error(draw_causal_snps(cfg), "sim_config")
+  expect_error(reaction_norm_parameters(sim_config(h2 = 0.4, Mc = 5), "parabola"), "unknown shape: parabola")
+})

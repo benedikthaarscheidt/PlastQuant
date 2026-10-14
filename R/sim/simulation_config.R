@@ -60,4 +60,8 @@ sim_config <- function(h2, Mc,
 }
 
 # All parameters of a reaction norm of the given shape: level, plasticity, shape
-reaction_norm_parameters <- function(cfg, shape) c("L", "a", cfg$shape_parameters[[shape]])
+reaction_norm_parameters <- function(cfg, shape) {
+  if (is.null(cfg$shape_parameters)) stop("cfg has no shape_parameters; build the settings with sim_config()")
+  if (!shape %in% names(cfg$shape_parameters)) stop("unknown shape: ", shape)
+  c("L", "a", cfg$shape_parameters[[shape]])
+}
