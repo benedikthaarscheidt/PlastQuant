@@ -148,7 +148,7 @@ source(here::here("R", "figures", "plasticity_score_realisation_plot.R"))
 
 | Figure / artefact                         | Script (`R/figures/`)                       | Needs a scenario run first? |
 |-------------------------------------------|---------------------------------------------|-----------------------------|
-| Reaction-norm overview                    | `plotting_reaction_norms_all.R`             | yes — run `scenario_20_5.R` |
+| Reaction-norm overview                    | `plotting_reaction_norms_all.R`             | no (simulates its own population) |
 | Plasticity-score realisations (simulated) | `plasticity_score_realisation_plot.R`       | no                          |
 | Plasticity-score realisations (maize)     | `plasticity_score_realisation_plot_maize.R` | no                          |
 | Summary-stats correlation panels          | `correlation_summary_stats_PS.R`            | no                          |

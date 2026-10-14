@@ -34,8 +34,8 @@ scripts and the analyses keep the guarded-default convention.
                     ├─▶ analysis/kendall_rank_corr  (auto-sources 03)
                     └─▶ analysis/regression_sumstats_dataprep ─▶ analysis/regression_summarystats
     03_plasticity_scores_maize ─▶ 04_run_gwas (scenario_maize) ─▶ 06_analyze_maize_gwas_results
-    figures/*  read outputs written under output/ by the scripts above
-               (plotting_reaction_norms_all reads a run of scenario_20_5).
+    figures/*  read outputs written under output/ by the scripts above;
+               plotting_reaction_norms_all simulates its own population (R/sim).
 
 The scenario drivers run the new pipeline directly and then 05 for the power heatmaps;
 `combine_scenarios.R` collects all scenario runs for 06. The power of a parameter is
@@ -742,18 +742,22 @@ PARAMETERS (edit the named assignment near the top of the script)
 =============================================================================
 plotting_reaction_norms_all.R — reaction-norm overview figure
 =============================================================================
-WHAT IT DOES: Assembles the reaction-norm overview figure: per shape the mother
-  reaction norms of selected genotypes (smooth curve from the simulated mother
+WHAT IT DOES: Simulates a population with the model in R/sim (independent of the
+  heritability scenarios) and assembles the reaction-norm overview figure: per shape
+  the mother reaction norms of selected genotypes (smooth curve from the mother
   parameters), their replicate measurements (dashed) and replicate range (ribbon),
   plus histograms of the measured trait values.
-REQUIRES:     A scenario run (phenotypes.rds, mother_parameters.csv, config.rds),
-              by default the newest run of output/scenario_20_5 (run that scenario first).
+REQUIRES:     Nothing upstream (simulates its own data; no GWAS).
 PRODUCES:     output/plots/reaction_norms_final_figure.pdf,
               reaction_norms_final_figure_panels.pdf, p_combined.pdf.
 HOW TO RUN:   setwd("~/PlastQuant"); source(here::here("R","figures","plotting_reaction_norms_all.R"))
 -----------------------------------------------------------------------------
 PARAMETERS — set these before sourcing (guarded defaults)
-  RUN_DIR         path, default newest run of output/scenario_20_5   input run      [COMMON]
+  H2              numeric, default 0.4    SNP share of the latent variance           [COMMON]
+  CAUSAL_SNP_NUM  integer, default 5      causal SNPs per parameter
+  NUM_GENOTYPES   integer, default 800    genotypes (divisible by 4, one block per shape)
+  NUM_SNPs        integer, default 2000   simulated SNPs (only the curves are used here)
+  SEED            integer, default 1
   PLOT_GENOTYPES  list shape -> genotype IDs, default: the genotypes at the 10/50/90 %
                   quantile of the amplitude a of each shape (3 per panel)
   N_CURVE_POINTS  integer, default 200   points of the smooth mother curves

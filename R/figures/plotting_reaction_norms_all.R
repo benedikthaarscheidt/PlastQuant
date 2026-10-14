@@ -1,18 +1,22 @@
 # =============================================================================
 # plotting_reaction_norms_all.R — reaction-norm overview figure
 # =============================================================================
-# WHAT IT DOES: Assembles the reaction-norm overview figure: per shape the mother
-#   reaction norms of selected genotypes (smooth curve from the simulated mother
+# WHAT IT DOES: Simulates a population with the model in R/sim (independent of the
+#   heritability scenarios) and assembles the reaction-norm overview figure: per shape
+#   the mother reaction norms of selected genotypes (smooth curve from the mother
 #   parameters), their replicate measurements (dashed) and replicate range (ribbon),
 #   plus histograms of the measured trait values.
-# REQUIRES:     A scenario run (phenotypes.rds, mother_parameters.csv, config.rds),
-#               by default the newest run of output/scenario_20_5 (run that scenario first).
+# REQUIRES:     Nothing upstream (simulates its own data; no GWAS).
 # PRODUCES:     output/plots/reaction_norms_final_figure.pdf,
 #               reaction_norms_final_figure_panels.pdf, p_combined.pdf.
 # HOW TO RUN:   setwd("~/PlastQuant"); source(here::here("R","figures","plotting_reaction_norms_all.R"))
 # -----------------------------------------------------------------------------
 # PARAMETERS — set these before sourcing (guarded defaults)
-#   RUN_DIR         path, default newest run of output/scenario_20_5   input run      [COMMON]
+#   H2              numeric, default 0.4    SNP share of the latent variance           [COMMON]
+#   CAUSAL_SNP_NUM  integer, default 5      causal SNPs per parameter
+#   NUM_GENOTYPES   integer, default 800    genotypes (divisible by 4, one block per shape)
+#   NUM_SNPs        integer, default 2000   simulated SNPs (only the curves are used here)
+#   SEED            integer, default 1
 #   PLOT_GENOTYPES  list shape -> genotype IDs, default: the genotypes at the 10/50/90 %
 #                   quantile of the amplitude a of each shape (3 per panel)
 #   N_CURVE_POINTS  integer, default 200   points of the smooth mother curves
@@ -26,11 +30,18 @@ source(here::here("R", "pipeline", "load_pipeline.R"))
 
 ############## load
 
-if (!exists("RUN_DIR")) RUN_DIR <- latest_run_dir(here::here("output", "scenario_20_5"))
+if (!exists("H2")) H2 <- 0.4
+if (!exists("CAUSAL_SNP_NUM")) CAUSAL_SNP_NUM <- 5
+if (!exists("NUM_GENOTYPES")) NUM_GENOTYPES <- 800
+if (!exists("NUM_SNPs")) NUM_SNPs <- 2000
+if (!exists("SEED")) SEED <- 1
 if (!exists("N_CURVE_POINTS")) N_CURVE_POINTS <- 200
-phenotypes <- readRDS(file.path(RUN_DIR, "phenotypes.rds"))
-mother_par <- read.csv(file.path(RUN_DIR, "mother_parameters.csv"), stringsAsFactors = FALSE)
-cfg        <- readRDS(file.path(RUN_DIR, "config.rds"))
+
+sim <- simulate_reaction_norms(sim_config(h2 = H2, Mc = CAUSAL_SNP_NUM, n_per_shape = NUM_GENOTYPES / 4,
+                                          n_snps = NUM_SNPs, seed = SEED))
+phenotypes <- sim$phenotypes
+mother_par <- sim$mother_parameters
+cfg        <- sim$config
 
 shape_label <- c(linear = "Linear", gaussian = "Gaussian", sinusoidal = "Sinusoidal", wave = "Wave")
 shape_levels <- c("Gaussian", "Sinusoidal", "Wave", "Linear")
