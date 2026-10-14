@@ -4,7 +4,7 @@
 # WHAT IT DOES: Runs, in one pass, what regression_sumstats_dataprep.R and
 #   regression_summarystats.R do together, for the resolution experiment. Auto-sources
 #   03_plasticity_scores.R and analysis/summary_stats_vs_scores.R.
-# REQUIRES:     03 (so HERITABILITY_5TH / CAUSAL_SNP_NUM / OUTPUT_BASE must be set).
+# REQUIRES:     03 (so H2 / CAUSAL_SNP_NUM / OUTPUT_BASE must be set).
 # PRODUCES:     Resolution-experiment tables/figures under output/.
 # HOW TO RUN:   setwd("~/PlastQuant"); source(here::here("R","figures","resolution.R"))
 # -----------------------------------------------------------------------------
@@ -112,10 +112,10 @@ for (range_name in names(range_list)) {
     global_traits <- length(indices)
     traits <- global_traits  
     env=seq_along(indices)
-    # The resolution experiment runs without genetics; set these unconditionally so
-    # 03 does not stop (and never writes outside the project via a stale OUTPUT_BASE).
-    USE_GENETICS <- FALSE
-    OUTPUT_BASE  <- here::here("output", "no_genetics_output")
+    # Reaction norms from the simulation model; only the curves are used here, so a
+    # small SNP panel is enough. The indices refer to a curve of global_initial_length points.
+    H2 <- 0.4; CAUSAL_SNP_NUM <- 5; NUM_SNPs <- 2000; N_MEAS_POINTS <- global_initial_length
+    OUTPUT_BASE <- here::here("output", "resolution_simulation")
     # Source the processing script that uses the globals.
     source(here::here("R", "03_plasticity_scores.R"))
     source(here::here("R", "analysis", "summary_stats_vs_scores.R"))

@@ -5,7 +5,7 @@
 #   (k-means, DBSCAN, hierarchical, mclust) and renders the associated heatmaps/plots.
 #   Auto-sources 03_plasticity_scores.R when scores are not already loaded
 #   (guarded by the `data_loaded` flag at the top).
-# REQUIRES:     03 (so HERITABILITY_5TH / CAUSAL_SNP_NUM / OUTPUT_BASE must be set).
+# REQUIRES:     03 (so H2 / CAUSAL_SNP_NUM / OUTPUT_BASE must be set).
 # PRODUCES:     Clustering figures under OUTPUT_BASE.
 # HOW TO RUN:   setwd("~/PlastQuant"); source(here::here("R","analysis","clustering_rn_summary_stats.R"))
 # -----------------------------------------------------------------------------

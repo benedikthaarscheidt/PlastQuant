@@ -4,13 +4,13 @@
 # WHAT IT DOES: Assembles the table of reaction-norm summary statistics against
 #   plasticity scores that regression_summarystats.R and several figure scripts consume.
 #   Auto-sources 03_plasticity_scores.R and analysis/summary_stats_vs_scores.R.
-# REQUIRES:     Runs 03 (so it needs HERITABILITY_5TH / CAUSAL_SNP_NUM / OUTPUT_BASE set
+# REQUIRES:     Runs 03 (so it needs H2 / CAUSAL_SNP_NUM / OUTPUT_BASE set
 #               by a scenario or your session, as 03 does).
 # PRODUCES:     Regression-input CSV(s) under output/regression_summary_stats/.
 # HOW TO RUN:   setwd("~/PlastQuant"); source(here::here("R","analysis","regression_sumstats_dataprep.R"))
 # -----------------------------------------------------------------------------
 # PARAMETERS (supplied by 03 / a scenario / your session; see 03_plasticity_scores.R)
-#   NUM_GENOTYPES, HERITABILITY_5TH, CAUSAL_SNP_NUM, USE_GENETICS, OUTPUT_BASE      [COMMON]
+#   NUM_GENOTYPES, H2, CAUSAL_SNP_NUM, OUTPUT_BASE      [COMMON]
 # =============================================================================
 options(warn = -1)  # silence warnings even if the project .Rprofile was not loaded
 
@@ -43,14 +43,16 @@ options(warn = -1)  # silence warnings even if the project .Rprofile was not loa
 #       regression_data_<range>_interval_<interval>_indices_<indices>.csv
 #     containing columns = all score values + all summary‐stat predictors.
 
-# ---- Genetics configuration -----------------------------------------------
-# Set USE_GENETICS = FALSE to skip SNP simulation entirely.
-# Reaction norms are then generated with purely random parameters (no causal
-# variants, no heritability). Set to TRUE to run the full genetic pipeline
-# (requires HERITABILITY_5TH, CAUSAL_SNP_NUM, and OUTPUT_BASE).
-USE_GENETICS  <- FALSE
-OUTPUT_BASE   <- here::here("output", "no_genetics_output")
-NUM_GENOTYPES <- 200   # must be divisible by 4; keep small for fast runs
+# ---- Simulation configuration ---------------------------------------------
+# Reaction norms come from the simulation model (always with SNPs). Only the curves
+# are used here, so a small SNP panel is enough. N_MEAS_POINTS = 50 is the dense
+# curve that the sampling `indices` below refer to.
+H2             <- 0.4
+CAUSAL_SNP_NUM <- 5
+NUM_SNPs       <- 2000
+N_MEAS_POINTS  <- 50
+OUTPUT_BASE    <- here::here("output", "summary_stats_simulation")
+NUM_GENOTYPES  <- 200   # must be divisible by 4; keep small for fast runs
 # ---------------------------------------------------------------------------
 
 ensure_dir_exists <- function(file_path) {

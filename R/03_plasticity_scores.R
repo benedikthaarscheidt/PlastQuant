@@ -1,38 +1,35 @@
 # =============================================================================
 # 03_plasticity_scores.R — compute every plasticity index (pipeline hub)
 # =============================================================================
-# WHAT IT DOES: Computes every plasticity index (via the ppindices package) for each
-#   simulated genotype's reaction norm across the four forms (linear, gaussian,
-#   sinusoidal, wave), assembling the `scores_list` consumed by GWAS and analysis.
-#   This is the hub: it auto-sources 01 and 02, so running it reruns the upstream
-#   simulation.
-# REQUIRES:     Auto-sources 01_simulate_genetics.R, 02_reaction_norms_linear.R,
-#               02_reaction_norms_nonlinear.R; library(ppindices).
-#               When USE_GENETICS = TRUE (the default) the caller MUST set
-#               HERITABILITY_5TH, CAUSAL_SNP_NUM and OUTPUT_BASE first (a scenario_*.R
-#               driver, or assignments in your R session) — the script stops otherwise.
+# WHAT IT DOES: Simulates the population with the model in R/sim (SNPs -> genetic
+#   values -> mother norms and replicates -> measurements) and computes every
+#   plasticity index (via the ppindices package) for each genotype's reaction norm
+#   across the four forms (linear, gaussian, sinusoidal, wave), assembling the
+#   `scores_list` consumed by GWAS and analysis.
+# REQUIRES:     R/sim, R/ppi, R/pipeline (loaded via R/pipeline/load_pipeline.R);
+#               library(ppindices). The caller MUST set H2, CAUSAL_SNP_NUM and
+#               OUTPUT_BASE first — the script stops otherwise.
 # PRODUCES:     `scores_list` in memory; per-score CSVs under OUTPUT_BASE when SAVE=TRUE.
 # HOW TO RUN:   setwd("~/PlastQuant")
-#               HERITABILITY_5TH <- 1; CAUSAL_SNP_NUM <- 5
+#               H2 <- 0.2; CAUSAL_SNP_NUM <- 5
 #               OUTPUT_BASE <- here::here("output","my_run")
 #               source(here::here("R", "03_plasticity_scores.R"))
 # -----------------------------------------------------------------------------
-# PARAMETERS — set these in a scenario_*.R driver or your R session before sourcing.
-#   The defaults below are applied in-script (guarded) at the noted line numbers.
-#   USE_GENETICS          logical, default TRUE  use simulated genetics (line 36)        [COMMON]
-#   HERITABILITY_5TH      numeric, REQUIRED when USE_GENETICS=TRUE  H^2 of the 5th trait [COMMON]
-#   CAUSAL_SNP_NUM        integer, REQUIRED when USE_GENETICS=TRUE  causal SNPs / param  [COMMON]
-#   OUTPUT_BASE           path,    REQUIRED when USE_GENETICS=TRUE  output location      [COMMON]
-#   NUM_GENOTYPES         integer, default 800   number of genotypes (line 100)
-#   N_MEAS_POINTS         integer, default 6     measurement points per reaction norm (line 161)
-#   KEEP_REPLICATES       logical, default (see lines 97/179)  keep replicate rows
-#   RESIDUAL_VAR          numeric, default 0     variance of iid residual error added to every
-#                                                observation before averaging (0 = none)
-#   STRUCTURED_POPULATION logical, default FALSE nested population structure (line 98)
-#   GENETIC_VARIANCES     logical/vector         per-parameter genetic variances (from 01)
-#   POLY_MODE/STRENGTH/COUNTS  causal-effect controls passed through to 01
+# PARAMETERS — set these in a driver script or your R session before sourcing.
+#   H2                    numeric 0..1, REQUIRED  share of genetic variance from the causal SNPs [COMMON]
+#   CAUSAL_SNP_NUM        integer, REQUIRED      causal SNPs per parameter                    [COMMON]
+#   OUTPUT_BASE           path,    REQUIRED      output location                              [COMMON]
+#   NUM_GENOTYPES         integer, default 800   number of genotypes (divisible by 4)
+#   NUM_SNPs              integer, default 200000 number of simulated SNPs
+#   N_MEAS_POINTS         integer, default 6     simulated measurement points per reaction norm
+#   SEED                  integer, default 1     same seed = same genetics for every H2
+#   indices, env          optional               subset of the measurement points and their
+#                                                environment values (default: all points)
+#   KEEP_REPLICATES       logical, default FALSE keep replicate rows
 #   GWAS                  logical                run GWAS downstream (read by 04/05/06)
 #   SAVE                  logical                write per-score CSVs under OUTPUT_BASE
+# All other model settings (variance components, study space) are the defaults of
+# sim_config() in R/sim/simulation_config.R.
 # =============================================================================
 options(warn = -1)  # silence warnings even if the project .Rprofile was not loaded
 # Original notes:
@@ -71,16 +68,14 @@ options(warn = -1)  # silence warnings even if the project .Rprofile was not loa
 #   indices, interval, env, Covariate, type_labels,
 #   gaussian_data, sinusoidal_data, wave_data, linear_data
 
-if (!exists("USE_GENETICS")) USE_GENETICS <- TRUE
-
-if (USE_GENETICS) {
-  if (!exists("HERITABILITY_5TH") || !exists("CAUSAL_SNP_NUM") || !exists("OUTPUT_BASE")) {
-    stop("HERITABILITY_5TH, CAUSAL_SNP_NUM and OUTPUT_BASE need to be set in the sourcing script")
-  }
-} else {
-  if (!exists("OUTPUT_BASE")) OUTPUT_BASE <- here::here("output", "no_genetics_output")
-  if (!exists("HERITABILITY_5TH")) HERITABILITY_5TH <- 0
-  if (!exists("CAUSAL_SNP_NUM")) CAUSAL_SNP_NUM <- 0
+if (exists("USE_GENETICS") && !USE_GENETICS) {
+  stop("USE_GENETICS was removed: simulated reaction norms always come with SNPs. Set H2 and CAUSAL_SNP_NUM.")
+}
+if (exists("HERITABILITY_5TH") && !exists("H2")) {
+  stop("HERITABILITY_5TH was replaced by H2: the share of genetic variance from the causal SNPs (0..1), e.g. H2 <- 0.2")
+}
+if (!exists("H2") || !exists("CAUSAL_SNP_NUM") || !exists("OUTPUT_BASE")) {
+  stop("H2, CAUSAL_SNP_NUM and OUTPUT_BASE need to be set in the sourcing script")
 }
 
 if (!dir.exists(paste(OUTPUT_BASE,"/plots",sep=""))) dir.create(paste(OUTPUT_BASE,"/plots",sep=""), recursive = TRUE)
@@ -129,76 +124,36 @@ library(ppindices)
 
 
 # -----------------------------------------------------------------------------
-# ENABLE GENETICS AND GENERATE DATA
+# SIMULATE THE POPULATION
 # -----------------------------------------------------------------------------
-# USE_GENETICS is already set above (default TRUE, or FALSE if set before sourcing)
 if (!exists("KEEP_REPLICATES")) KEEP_REPLICATES <- FALSE
-if (!exists("STRUCTURED_POPULATION")) STRUCTURED_POPULATION <- FALSE
-if (!exists("GENETIC_VARIANCES")) GENETIC_VARIANCES <- FALSE
 if (!exists("NUM_GENOTYPES")) NUM_GENOTYPES <- 800
 if (!exists("NUM_SNPs")) NUM_SNPs <- 200000
+if (!exists("N_MEAS_POINTS")) N_MEAS_POINTS <- 6
+if (!exists("SEED")) SEED <- 1
+if (NUM_GENOTYPES %% 4 != 0) stop("NUM_GENOTYPES must be divisible by 4 (one block per shape)")
 
-# --- Simulation Configuration ---
-
-if (USE_GENETICS) {
-  # Total number of genotypes (must be divisible by 4)
-  POLY_COUNTS <- list(
-    Slope = CAUSAL_SNP_NUM,
-    BaseShift = CAUSAL_SNP_NUM,
-    Amplitude = CAUSAL_SNP_NUM,
-    Width = CAUSAL_SNP_NUM,
-    Center = CAUSAL_SNP_NUM,
-    Frequency = CAUSAL_SNP_NUM,
-    Phase = CAUSAL_SNP_NUM,
-    VE = 0,
-    VS = 0
-  )
-
-  # Scale 1-5: How strongly genetics affects the parameter (Scales the Genetic SD)
-  # 5 = Full SD (High Heritability), 1 = 20% SD (Low Heritability)
-  POLY_STRENGTH <- list(
-    Slope = HERITABILITY_5TH,
-    BaseShift = HERITABILITY_5TH,
-    Amplitude = HERITABILITY_5TH,
-    Width = HERITABILITY_5TH,
-    Center = HERITABILITY_5TH,
-    Frequency = HERITABILITY_5TH,
-    Phase = HERITABILITY_5TH,
-    VE = 0,
-    VS = 0
-  )
-
-  # Effect Size Distribution:
-  # "uniform"     = All SNPs have similar effect sizes (Box-like)
-  # "exponential" = Few strong SNPs, many weak ones (L-shaped, more realistic)
-  POLY_MODE <- "uniform"
-
-  message(paste("Step 1: Simulating Genetics (", NUM_GENOTYPES, " Genotypes, Polygenic Model)..."))
-  source(here::here("R", "01_simulate_genetics.R"))
-  sim_gen_res = simulate_genetics()
-  snp_matrix = sim_gen_res$snp_matrix
-  params_df = sim_gen_res$params_df
-  truth_df = sim_gen_res$truth_df
-  
-  message("Step 2: Generating Reaction Norms from Genetic Parameters...")
-} else {
-  message("Step 1: Skipping genetics (USE_GENETICS = FALSE). Reaction norms will use random parameters.")
-  message("Step 2: Generating Reaction Norms with random parameters (no genetic influence)...")
-}
-
-source(here::here("R", "02_reaction_norms_linear.R"))
-linear_data = create_and_plot_linear_norms(NUM_GENOTYPES)
-source(here::here("R", "02_reaction_norms_nonlinear.R"))
-nonlinear_data = create_and_plot_nonlinear_norms(NUM_GENOTYPES)
-gaussian_data = nonlinear_data$gaussian_data
-sinusoidal_data = nonlinear_data$sinusoidal_data
-wave_data = nonlinear_data$wave_data
+# Reaction norms come from the simulation model in R/sim:
+# SNPs -> genetic values -> mother norms and replicates -> measurements
+source(here::here("R", "pipeline", "load_pipeline.R"))
+sim <- simulate_reaction_norms(sim_config(
+  h2 = H2, Mc = CAUSAL_SNP_NUM, n_per_shape = NUM_GENOTYPES / 4,
+  n_snps = NUM_SNPs, n_points = N_MEAS_POINTS, seed = SEED
+))
+snp_matrix <- sim$snp_matrix
+params_df <- sim$mother_parameters
+truth_df <- sim$truth
+linear_data <- sim$phenotypes$linear
+gaussian_data <- sim$phenotypes$gaussian
+sinusoidal_data <- sim$phenotypes$sinusoidal
+wave_data <- sim$phenotypes$wave
 
 ## ──────────────────────────────────────────────────────────────────────────────
 ##  1) Define defaults for any globals you need
-if (!exists("N_MEAS_POINTS")) N_MEAS_POINTS <- 6
-default_indices <- round(seq(1, 50, length.out = N_MEAS_POINTS)) # equidistant indices from 1 to 50
-default_env <- seq(1, 10, length.out = length(default_indices))
+# By default all simulated measurement points with their exact environment values;
+# analyses that subsample the curve (e.g. the resolution experiment) set indices and env.
+default_indices <- seq_len(N_MEAS_POINTS)
+default_env <- sim$environments
 default_Covariate <- rep(1, length(default_indices))
 default_type_labels <- c("gaussian", "sinusoidal", "wave", "linear")
 
@@ -469,22 +424,6 @@ combine_traits_with_groups <- function(processed_data_list) {
 
 
 ##############################################################################
-
-# Residual (measurement) error: independent N(0, RESIDUAL_VAR) noise on every observation,
-# added once here before averaging so both preprocess_data() passes below see the same data.
-if (!exists("RESIDUAL_VAR")) RESIDUAL_VAR <- 0
-add_residual <- function(data) {
-  data$Trait <- data$Trait + rnorm(nrow(data), 0, sqrt(RESIDUAL_VAR))
-  data$Trait[data$Trait < 0] <- 0 # keep traits non-negative, as in the generators
-  data
-}
-if (RESIDUAL_VAR > 0) {
-  message("Adding residual error with variance ", RESIDUAL_VAR)
-  linear_data <- add_residual(linear_data)
-  gaussian_data <- add_residual(gaussian_data)
-  sinusoidal_data <- add_residual(sinusoidal_data)
-  wave_data <- add_residual(wave_data)
-}
 
 # Now call preprocess_data with the indices parameter.
 processed_data_list <- list(
@@ -854,6 +793,7 @@ message("Per-PPI CSVs saved to: ", ppi_dir)
 # -----------------------------------------------------------------------------
 if (exists("snp_matrix")) {
   plink_dir <- file.path(OUTPUT_BASE, "synthetic_data", "genetics")
+  dir.create(plink_dir, recursive = TRUE, showWarnings = FALSE)
 
   # .map  — Chr1  SNP_i  0  position(bp)
   # Positions on a fixed raster of 345 bp so tools that care about spacing work sensibly.

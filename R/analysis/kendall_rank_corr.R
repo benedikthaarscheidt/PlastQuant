@@ -4,7 +4,7 @@
 # WHAT IT DOES: Computes Kendall rank correlations between the plasticity indices over
 #   the chosen sampling intervals and reaction-norm ranges. Auto-sources
 #   03_plasticity_scores.R when the scores are not already loaded.
-# REQUIRES:     03 (so HERITABILITY_5TH / CAUSAL_SNP_NUM / OUTPUT_BASE must be set).
+# REQUIRES:     03 (so H2 / CAUSAL_SNP_NUM / OUTPUT_BASE must be set).
 # PRODUCES:     Rank-correlation tables (and inputs for downstream figures).
 # HOW TO RUN:   setwd("~/PlastQuant"); source(here::here("R","analysis","kendall_rank_corr.R"))
 # -----------------------------------------------------------------------------
