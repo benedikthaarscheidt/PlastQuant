@@ -16,3 +16,12 @@ test_that("evaluate_power applies Bonferroni and splits by shape", {
   expect_equal(res$Power[res$Shape == "gaussian" & res$Parameter == "w"], 1)
   expect_equal(res$Found[res$Shape == "linear" & res$Parameter == "False_Positives"], 0)
 })
+
+test_that("a PPI without a GWAS for a shape does not appear as zero power for that shape", {
+  g <- data.frame(SNP = c("s1", "s2", "s1"), LogP = NA, P_Value = c(1e-9, 0.5, 0.5),
+                  Score = c("RN", "RN", "FW"), Type = c("linear", "linear", "wave"))
+  truth <- data.frame(Shape = c("linear", "wave"), Parameter = "a", SNP = "s1")
+  p <- evaluate_power(g, truth, n_snps = 2)
+  expect_false("FW" %in% p$Score[p$Shape == "linear"])
+  expect_false("RN" %in% p$Score[p$Shape == "wave"])
+})

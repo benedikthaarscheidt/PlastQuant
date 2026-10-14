@@ -26,8 +26,9 @@ compute_power <- function(sig_hits, truth_shape, scores) {
 # Bonferroni threshold alpha / number of SNPs; one block of rows per shape
 evaluate_power <- function(gwas_results, truth, n_snps, alpha = 0.05) {
   sig <- gwas_results[gwas_results$P_Value < alpha / n_snps, ]
-  scores <- unique(gwas_results$Score)
   do.call(rbind, lapply(unique(gwas_results$Type), function(shape) {
+    # only the PPIs whose GWAS was run for this shape
+    scores <- unique(gwas_results$Score[gwas_results$Type == shape])
     res <- compute_power(sig[sig$Type == shape, ], truth[truth$Shape == shape, ], scores)
     res$Shape <- shape
     res
