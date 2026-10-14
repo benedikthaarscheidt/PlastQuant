@@ -1,26 +1,13 @@
 # =============================================================================
-# scenario_20_20.R — scenario driver: HERITABILITY_5TH=1, CAUSAL_SNP_NUM=20
+# scenario_20_20.R — heritability scenario: h2 = 0.2, 20 causal SNPs per parameter
 # =============================================================================
-# WHAT IT DOES: Sets the parameters for this scenario, then runs the plasticity-score
-#   computation (03_plasticity_scores.R) and the GWAS accuracy evaluation
-#   (05_evaluate_gwas.R) end-to-end.
-# REQUIRES:     None — self-contained driver. Run from the project root.
-# PRODUCES:     Scores + GWAS evaluation under OUTPUT_BASE (output/scenario_20_20/).
-# HOW TO RUN:   setwd("~/PlastQuant"); source(here::here("R","scenarios","scenario_20_20.R"))
-# -----------------------------------------------------------------------------
-# PARAMETERS (edit here — set UNCONDITIONALLY below so they override script defaults)
-#   OUTPUT_BASE           output location for this scenario
-#   HERITABILITY_5TH      = 1    heritability setting for the 5th trait          [COMMON]
-#   CAUSAL_SNP_NUM        = 20    causal SNPs per parameter                       [COMMON]
-#   DO_NOT_PLOT_MAHATTAN  = TRUE  skip Manhattan plots
+# Simulates the population (R/sim), computes all PPIs, runs the GWAS and the
+# per-shape evaluation, and writes everything to output/scenario_20_20/run_<time>/.
+# All other settings (variance components, study space, ...) are the defaults of
+# sim_config() in R/sim/simulation_config.R.
+# HOW TO RUN: Rscript --vanilla R/scenarios/scenario_20_20.R   (from the repo root)
 # =============================================================================
 options(warn = -1)  # silence warnings even if the project .Rprofile was not loaded
 
-OUTPUT_BASE = here::here("output", "scenario_20_20")
-HERITABILITY_5TH = 1
-CAUSAL_SNP_NUM = 20
-DO_NOT_PLOT_MAHATTAN = TRUE
-
-source(here::here("R", "03_plasticity_scores.R"))
-
-source(here::here("R", "05_evaluate_gwas.R"))
+source(here::here("R", "pipeline", "load_pipeline.R"))
+run_simulation_scenario(sim_config(h2 = 0.2, Mc = 20), out_dir = here::here("output", "scenario_20_20"))
