@@ -17,7 +17,10 @@
 #     data/traits/<trait>.csv  first column Genotype (one row per plant: a genotype
 #                              appears once per replicate), then one column per environment
 #     data/environments.csv    Column, Value: numeric environment value of every column
-#     variance/  ppis/  gwas/  analyses/  plots/      results at this resolution
+#     variance/                results of the measurement itself
+#     analyses/  plots/        (summary statistics, measured reaction norms)
+#     mean_before/  replicates/   one folder per replicate handling of the PPIs, each
+#       ppis/  gwas/  analyses/  plots/   with the PPIs and everything computed from them
 #   analyses/  plots/  results across resolutions
 # =============================================================================
 
@@ -30,6 +33,12 @@ population_subdir <- function(dir, ...) {
 
 # Folder of the resolution with n_points sampling points
 resolution_path <- function(population_dir, n_points) file.path(population_dir, paste0("n_", n_points))
+
+# Folder of the PPIs (and everything computed from them) of a resolution for one
+# replicate handling: <resolution>/mean_before or <resolution>/replicates
+ppi_set_path <- function(res_dir, replicate_handling = c("mean_before", "replicates")) {
+  file.path(res_dir, match.arg(replicate_handling))
+}
 
 # The resolution folders of a population (n_<k> with measurements), ordered by k
 resolution_dirs <- function(population_dir) {

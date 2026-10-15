@@ -46,7 +46,7 @@ design_points <- function(indices, grid_length) (indices - 1) / (grid_length - 1
 compute_resolutions <- function(dir, n_points, registry = default_ppi_registry()) {
   vapply(n_points, function(n) {
     res <- resolution_path(dir, n)
-    if (!file.exists(file.path(res, "ppis", "ppi_scores.rds"))) {
+    if (!file.exists(file.path(ppi_set_path(res, "mean_before"), "ppis", "ppi_scores.rds"))) {
       message("Resolution: ", n, " sampling points")
       sample_resolution(dir, n)
       compute_population_ppis(res, registry)
@@ -67,7 +67,7 @@ compute_resolutions <- function(dir, n_points, registry = default_ppi_registry()
 # ("n<points>") with the column N_points
 resolution_score_tables <- function(dir, n_points = NULL) {
   res <- resolution_dirs(dir)
-  res <- res[file.exists(file.path(res, "ppis", "ppi_scores.rds"))]
+  res <- res[file.exists(file.path(res, "mean_before", "ppis", "ppi_scores.rds"))]
   n <- as.integer(sub("^n_", "", basename(res)))
   if (!is.null(n_points)) { keep <- n %in% n_points; res <- res[keep]; n <- n[keep] }
   if (!length(res)) stop("no resolution with PPIs in ", dir, " (run regression_sumstats_dataprep.R first)")
@@ -152,13 +152,14 @@ sample_size_mixed_model <- function(tables) {
   out
 }
 
-# The PPIs of a resolution folder (ppis/ppi_scores.rds of compute_population_ppis()) and
-# the nine summary statistics of its replicate-mean reaction norms: one row per genotype
+# The PPIs of a resolution folder (<replicate handling>/ppis/ppi_scores.rds of
+# compute_population_ppis(); one value per genotype, so "mean_before") and the nine
+# summary statistics of its replicate-mean reaction norms: one row per genotype
 # (Shape, Genotype, PPIs..., statistics...)
-population_score_table <- function(dir) {
-  ppi_file <- file.path(dir, "ppis", "ppi_scores.rds")
-  if (!file.exists(ppi_file)) stop("no PPIs in ", dir, " (run compute_population_ppis(dir) first)")
-  pop <- read_population(dir)
+population_score_table <- function(dir, replicate_handling = "mean_before") {
+  ppi_file <- file.path(ppi_set_path(dir, replicate_handling), "ppis", "ppi_scores.rds")
+  if (!file.exists(ppi_file)) stop("no PPIs in ", ppi_set_path(dir, replicate_handling), " (run compute_population_ppis(dir) first)")
+  pop <- read_population(dir, with_snps = FALSE)
   wide <- ppi_wide_table(readRDS(ppi_file), shapes = names(pop$phenotypes))
   stats_file <- file.path(dir, "analyses", "summary_statistics.csv")
   stats <- if (file.exists(stats_file)) {
@@ -177,8 +178,8 @@ population_score_table <- function(dir) {
 # (summary_stats_vs_scores.R, clustering_rn_summary_stats.R): the PPIs
 # (compute_population_ppis()), the replicate-mean reaction norm of every genotype per
 # shape (genotypes x environments) and the shapes
-score_analysis_inputs <- function(res_dir) {
-  ppi_file <- file.path(res_dir, "ppis", "ppi_scores.rds")
+score_analysis_inputs <- function(res_dir, replicate_handling = "mean_before") {
+  ppi_file <- file.path(ppi_set_path(res_dir, replicate_handling), "ppis", "ppi_scores.rds")
   if (!file.exists(ppi_file)) stop("no PPIs in ", res_dir, " (run compute_population_ppis() first)")
   pop <- read_population(res_dir, with_snps = FALSE)
   list(

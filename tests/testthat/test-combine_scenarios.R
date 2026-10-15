@@ -1,9 +1,9 @@
 fake_population <- function(root, scenario, h2, Mc, gwas, truth) {
   dir <- file.path(root, scenario)
   dir.create(file.path(dir, "data"), recursive = TRUE)
-  dir.create(file.path(dir, "n_6", "gwas"), recursive = TRUE)
+  dir.create(file.path(dir, "n_6", "mean_before", "gwas"), recursive = TRUE)
   saveRDS(list(h2 = h2, Mc = Mc), file.path(dir, "data", "config.rds"))
-  write.csv(gwas, file.path(dir, "n_6", "gwas", "gwas_results.csv"), row.names = FALSE)
+  write.csv(gwas, file.path(dir, "n_6", "mean_before", "gwas", "gwas_results.csv"), row.names = FALSE)
   names(truth)[names(truth) == "Shape"] <- "Trait"
   write.csv(truth, file.path(dir, "data", "truth.csv"), row.names = FALSE)
   dir
@@ -48,5 +48,5 @@ test_that("detections are counted per shape: a parameter of one shape never coun
 test_that("a scenario without GWAS results at that resolution is an error naming the folder", {
   root <- file.path(tempdir(), "comb3"); unlink(root, recursive = TRUE)
   dir.create(file.path(root, "scenario_20_10", "data"), recursive = TRUE)
-  expect_error(combine_scenario_runs(file.path(root, "scenario_20_10"), n_points = 6), "scenario_20_10/n_6")
+  expect_error(combine_scenario_runs(file.path(root, "scenario_20_10"), n_points = 6), "scenario_20_10/n_6/mean_before")
 })

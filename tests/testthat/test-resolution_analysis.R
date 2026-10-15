@@ -25,13 +25,13 @@ test_that("all resolutions of one population: sampled, PPIs and summary statisti
   reg <- default_ppi_registry()[c("RN", "CV_t")]
   res <- suppressMessages(compute_resolutions(dir, c(3, 6), reg))
   expect_equal(basename(res), c("n_3", "n_6"))
-  for (r in res) expect_true(all(file.exists(file.path(r, c("data/environments.csv", "ppis/ppi_scores.rds",
+  for (r in res) expect_true(all(file.exists(file.path(r, c("data/environments.csv", "mean_before/ppis/ppi_scores.rds",
                                                              "analyses/summary_statistics.csv")))))
   # a resolution that already has its PPIs is not computed again
-  stamp <- file.mtime(file.path(res[2], "ppis", "ppi_scores.rds"))
+  stamp <- file.mtime(file.path(res[2], "mean_before", "ppis", "ppi_scores.rds"))
   Sys.sleep(1.1)
   suppressMessages(compute_resolutions(dir, 6, reg))
-  expect_equal(file.mtime(file.path(res[2], "ppis", "ppi_scores.rds")), stamp)
+  expect_equal(file.mtime(file.path(res[2], "mean_before", "ppis", "ppi_scores.rds")), stamp)
 
   tabs <- resolution_score_tables(dir)
   expect_equal(names(tabs), c("n3", "n6"))
@@ -40,7 +40,7 @@ test_that("all resolutions of one population: sampled, PPIs and summary statisti
   expect_true(all(c("Shape", "Genotype", "N_points", "RN", "CV_t", summary_stat_names) %in% names(tabs$n6)))
   expect_equal(names(resolution_score_tables(dir, n_points = 6)), "n6")
   # the PPIs are those of the resolution folder
-  rn <- readRDS(file.path(res[2], "ppis", "ppi_scores.rds"))$RN
+  rn <- readRDS(file.path(res[2], "mean_before", "ppis", "ppi_scores.rds"))$RN
   expect_equal(tabs$n6$RN, rn$Score[match(paste(tabs$n6$Shape, tabs$n6$Genotype), paste(rn$Type, rn$Genotype_ID))])
   # layout of the earlier regression-data tables: genotype, scores, statistics
   legacy <- as_regression_data(tabs$n6)

@@ -20,13 +20,13 @@ test_that("simulation, sampling at a resolution, PPIs and GWAS are separate step
 
   reg <- default_ppi_registry()[c("CV_t", "RN", "FW")]
   expect_equal(suppressMessages(compute_population_ppis(res, registry = reg)), res)
-  expect_true(file.exists(file.path(res, "ppis", "RN.csv")))
-  expect_false(dir.exists(file.path(res, "gwas")))
+  expect_true(file.exists(file.path(res, "mean_before", "ppis", "RN.csv")))
+  expect_false(dir.exists(file.path(res, "mean_before", "gwas")))
 
   expect_equal(suppressMessages(run_population_gwas(res)), res)
-  power <- read.csv(file.path(res, "gwas", "gwas_power.csv"))
+  power <- read.csv(file.path(res, "mean_before", "gwas", "gwas_power.csv"))
   expect_setequal(unique(power$Parameter[power$Shape == "linear"]), c("L", "a", "V", "False_Positives"))
-  expect_setequal(unique(read.csv(file.path(res, "gwas", "gwas_results.csv"))$Score), c("CV_t", "RN", "FW"))
+  expect_setequal(unique(read.csv(file.path(res, "mean_before", "gwas", "gwas_results.csv"))$Score), c("CV_t", "RN", "FW"))
 })
 
 test_that("the same population at two resolutions: same plants, separate folders", {
@@ -42,7 +42,7 @@ test_that("the same population at two resolutions: same plants, separate folders
   # sampling again gives the same measurement and clears the results of the old one
   suppressMessages(compute_population_ppis(r6, registry = default_ppi_registry()["CV_t"]))
   sample_resolution(dir, 6)
-  expect_false(dir.exists(file.path(r6, "ppis")))
+  expect_false(dir.exists(file.path(r6, "mean_before")))
   expect_equal(read_population(r6)$phenotypes, p6$phenotypes)
 })
 
@@ -52,7 +52,7 @@ test_that("recomputing the PPIs overwrites the earlier ones", {
   res <- sample_resolution(dir, 6)
   suppressMessages(compute_population_ppis(res, registry = default_ppi_registry()[c("CV_t", "RN")]))
   suppressMessages(compute_population_ppis(res, registry = default_ppi_registry()["CV_t"]))
-  expect_equal(sort(list.files(file.path(res, "ppis"))), c("CV_t.csv", "ppi_scores.rds"))
+  expect_equal(sort(list.files(file.path(res, "mean_before", "ppis"))), c("CV_t.csv", "ppi_scores.rds"))
 })
 
 test_that("own data without SNPs: PPIs only; the GWAS step names what is missing", {
@@ -61,7 +61,7 @@ test_that("own data without SNPs: PPIs only; the GWAS step names what is missing
   dir <- write_population(pipeline_input(list(biomass = ph), c(5, 9)), fresh_dir("own"))
   res <- resolution_dirs(dir)
   suppressMessages(compute_population_ppis(res, registry = default_ppi_registry()["CV_t"]))
-  expect_true(file.exists(file.path(res, "ppis", "CV_t.csv")))
+  expect_true(file.exists(file.path(res, "mean_before", "ppis", "CV_t.csv")))
   expect_error(run_population_gwas(res), "SNP matrix")
   expect_error(sample_resolution(dir, 3), "simulated population")
 })
@@ -77,8 +77,8 @@ test_that("a kinship matrix in the population's data/ is used for the GWAS", {
   reg <- default_ppi_registry()["CV_t"]
   suppressMessages(compute_population_ppis(res, registry = reg))
   suppressMessages(run_population_gwas(res))
-  with_file <- read.csv(file.path(res, "gwas", "gwas_results.csv"))
-  traits <- readRDS(file.path(res, "ppis", "ppi_scores.rds"))
+  with_file <- read.csv(file.path(res, "mean_before", "gwas", "gwas_results.csv"))
+  traits <- readRDS(file.path(res, "mean_before", "ppis", "ppi_scores.rds"))
   expect_equal(with_file$P_Value, run_gwas(traits, pop$snp_matrix, K)$P_Value, tolerance = 1e-8)
 })
 
@@ -89,9 +89,28 @@ test_that("the steps of a scenario, with one GWAS row per replicate", {
     simulate_population(cfg, dir)
     res <- sample_resolution(dir, 6)
     compute_population_ppis(res, registry = default_ppi_registry()["CV_t"], replicate_handling = "replicates")
-    run_population_gwas(res)
+    run_population_gwas(res, replicate_handling = "replicates")
   })
-  sc <- readRDS(file.path(res, "ppis", "ppi_scores.rds"))$CV_t
+  sc <- readRDS(file.path(res, "replicates", "ppis", "ppi_scores.rds"))$CV_t
   expect_equal(nrow(sc), 4L * 30L * 3L)
-  expect_true(file.exists(file.path(res, "gwas", "gwas_power.csv")))
+  expect_true(file.exists(file.path(res, "replicates", "gwas", "gwas_power.csv")))
+})
+
+test_that("PPIs from averaged and from single replicates live side by side, each with its own GWAS", {
+  dir <- fresh_dir("both_handlings")
+  simulate_population(sim_config(h2 = 0.6, Mc = 2, n_per_shape = 10, n_snps = 200), dir)
+  res <- sample_resolution(dir, 6)
+  reg <- default_ppi_registry()["CV_t"]
+  suppressMessages({
+    compute_population_ppis(res, registry = reg)
+    compute_population_ppis(res, registry = reg, replicate_handling = "replicates")
+    run_population_gwas(res)
+    run_population_gwas(res, replicate_handling = "replicates")
+  })
+  avg <- readRDS(file.path(res, "mean_before", "ppis", "ppi_scores.rds"))$CV_t
+  per <- readRDS(file.path(res, "replicates", "ppis", "ppi_scores.rds"))$CV_t
+  expect_equal(nrow(avg), 40L)
+  expect_equal(nrow(per), 120L)
+  expect_true(all(file.exists(file.path(res, c("mean_before", "replicates"), "gwas", "gwas_results.csv"))))
+  expect_error(run_population_gwas(file.path(dir, "n_6"), replicate_handling = "averaged"), "should be one of")
 })
