@@ -28,3 +28,12 @@ test_that("own data without SNPs is allowed; truth then is not", {
   expect_error(pipeline_input(o$ph, c(5, 9), truth = data.frame(Shape = "biomass", Parameter = "p", SNP = "s1")),
                "truth needs a snp_matrix")
 })
+
+test_that("the dosage check works in blocks and finds values other than 0, 1, 2", {
+  X <- matrix(sample(0:2, 3 * 25000, replace = TRUE), 3, dimnames = list(c("a", "b", "c"), paste0("s", 1:25000)))
+  expect_true(is_dosage_matrix(X))
+  X[2, 24999] <- 1.5
+  expect_false(is_dosage_matrix(X))
+  X[2, 24999] <- NA
+  expect_false(is_dosage_matrix(X))
+})

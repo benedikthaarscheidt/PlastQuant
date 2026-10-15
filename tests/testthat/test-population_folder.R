@@ -114,3 +114,17 @@ test_that("own data built in R is written as population plus one resolution fold
   expect_equal(basename(resolution_dirs(dir)), "n_3")
   expect_equal(read_population(resolution_dirs(dir))$phenotypes$biomass$Trait, 1:6, ignore_attr = TRUE)
 })
+
+test_that("own data keeps its environment names; a large SNP matrix can be stored as .rds", {
+  ph <- data.frame(Genotype = rep(c("A", "B"), each = 2), Replicate = 1L, Environment = rep(c(3.2, 7.9), 2), Trait = 1:4)
+  X <- matrix(c(0, 2, 1, 1), 2, dimnames = list(c("A", "B"), c("s1", "s2")))
+  env <- c(dry = 3.2, wet = 7.9)
+  dir <- write_population(pipeline_input(list(biomass = ph), env, X), new_dir("pop_named"), snp_format = "rds")
+  expect_true(file.exists(file.path(dir, "data", "snp_matrix.rds")))
+  expect_false(file.exists(file.path(dir, "data", "snp_matrix.csv")))
+  res <- resolution_dirs(dir)
+  expect_equal(names(read.csv(file.path(res, "data", "traits", "biomass.csv"))), c("Genotype", "dry", "wet"))
+  pop <- read_population(res)
+  expect_equal(pop$snp_matrix, X)
+  expect_equal(pop$phenotypes$biomass$Trait, 1:4, ignore_attr = TRUE)
+})

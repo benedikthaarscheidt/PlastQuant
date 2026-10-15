@@ -70,12 +70,13 @@ long_to_trait_matrix <- function(ph, env_map) {
 # Write the population into dir/data/: for a simulation (simulate_norms(), or a measured
 # simulation) the true norms, parameters, SNPs, truth and settings; for own data built in
 # R (pipeline_input()) the SNPs, kinship and truth, plus its measurements as the
-# resolution folder n_<number of environments>. Returns dir.
-write_population <- function(x, dir) {
+# resolution folder n_<number of environments>. snp_format "rds" stores a large SNP
+# matrix compactly (default for simulations; "csv" for own data). Returns dir.
+write_population <- function(x, dir, snp_format = if (is.null(x$config)) "csv" else "rds") {
   data_dir <- population_subdir(dir, "data")
   simulated <- !is.null(x$config)
   if (!is.null(x$snp_matrix)) {
-    if (simulated) {
+    if (snp_format == "rds") {
       saveRDS(x$snp_matrix, file.path(data_dir, "snp_matrix.rds"))
     } else {
       write.csv(data.frame(Genotype = rownames(x$snp_matrix), x$snp_matrix, check.names = FALSE),
@@ -115,7 +116,10 @@ write_population <- function(x, dir) {
 write_resolution <- function(measured, res_dir) {
   unlink(file.path(res_dir, "data"), recursive = TRUE)
   traits_dir <- population_subdir(res_dir, "data", "traits")
-  env_map <- setNames(measured$environments, paste0("E", seq_along(measured$environments)))
+  # named environments keep their names as column names, otherwise E1, E2, ...
+  env_names <- names(measured$environments)
+  if (is.null(env_names) || any(env_names == "")) env_names <- paste0("E", seq_along(measured$environments))
+  env_map <- setNames(unname(measured$environments), env_names)
   write.csv(data.frame(Column = names(env_map), Value = unname(env_map)),
             file.path(res_dir, "data", "environments.csv"), row.names = FALSE)
   for (trait in names(measured$phenotypes)) {

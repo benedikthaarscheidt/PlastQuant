@@ -18,13 +18,24 @@ pipeline_input <- function(phenotypes, environments, snp_matrix = NULL, truth = 
   x
 }
 
+# TRUE if every value of X is 0, 1 or 2; checked in blocks of columns, so that a large
+# SNP matrix is never copied as a whole
+is_dosage_matrix <- function(X, block = 10000) {
+  for (start in seq(1, ncol(X), by = block)) {
+    cols <- start:min(ncol(X), start + block - 1)
+    v <- X[, cols, drop = FALSE]
+    if (anyNA(v) || any(v != 0 & v != 1 & v != 2)) return(FALSE)
+  }
+  TRUE
+}
+
 check_pipeline_input <- function(x) {
   has_snps <- !is.null(x$snp_matrix)
   if (has_snps) {
     if (!is.matrix(x$snp_matrix) || is.null(rownames(x$snp_matrix)) || is.null(colnames(x$snp_matrix))) {
       stop("snp_matrix must be a matrix with genotype IDs as rownames and SNP IDs as colnames")
     }
-    if (!all(x$snp_matrix %in% c(0, 1, 2))) stop("snp_matrix must contain dosages 0, 1, 2")
+    if (!is_dosage_matrix(x$snp_matrix)) stop("snp_matrix must contain dosages 0, 1, 2")
   }
   if (!is.numeric(x$environments) || length(x$environments) < 2) stop("environments must be numeric, length >= 2")
   if (!is.list(x$phenotypes) || is.null(names(x$phenotypes)) || any(names(x$phenotypes) == "")) {
