@@ -8,8 +8,8 @@
 # ppi_scores.rds). replicate_handling: "mean_before" (default: replicates averaged before
 # the PPI) or "replicates" (one value per replicate reaction norm; see compute_ppis()).
 # The two handlings are kept in separate folders, so neither overwrites the other.
-compute_population_ppis <- function(dir, registry = default_ppi_registry(), exclude = NULL,
-                                    replicate_handling = c("mean_before", "replicates")) {
+compute_population_ppis <- function(dir, replicate_handling = c("mean_before", "replicates"),
+                                    registry = default_ppi_registry(), exclude = NULL) {
   replicate_handling <- match.arg(replicate_handling)
   pop <- read_population(dir, with_snps = FALSE)
   traits <- compute_ppis(pop$phenotypes, pop$environments, registry, exclude, replicate_handling)

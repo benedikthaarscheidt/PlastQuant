@@ -114,3 +114,14 @@ test_that("PPIs from averaged and from single replicates live side by side, each
   expect_true(all(file.exists(file.path(res, c("mean_before", "replicates"), "gwas", "gwas_results.csv"))))
   expect_error(run_population_gwas(file.path(dir, "n_6"), replicate_handling = "averaged"), "should be one of")
 })
+
+test_that("the replicate handling is the second argument; a wrong registry is an error, not an empty result", {
+  dir <- fresh_dir("handling_positional")
+  simulate_population(sim_config(h2 = 0.4, Mc = 2, n_per_shape = 4, n_snps = 200), dir)
+  res <- sample_resolution(dir, 6)
+  suppressMessages(compute_population_ppis(res, "replicates", registry = default_ppi_registry()["CV_t"]))
+  expect_true(file.exists(file.path(res, "replicates", "ppis", "CV_t.csv")))
+  expect_false(dir.exists(file.path(res, "mean_before")))
+  expect_error(compute_population_ppis(res, registry = "replicates"), "registry")
+  expect_error(compute_population_ppis(res, registry = list()), "registry")
+})

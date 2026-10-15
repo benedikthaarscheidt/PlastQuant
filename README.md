@@ -154,6 +154,7 @@ The argument `replicate_handling` decides on which reaction norms the PPIs are c
 ```r
 compute_population_ppis(RESOLUTION_DIR, replicate_handling = "mean_before")  # default -> n_6/mean_before/
 compute_population_ppis(RESOLUTION_DIR, replicate_handling = "replicates")   # -> n_6/replicates/
+compute_population_ppis(RESOLUTION_DIR, "replicates")                        # the same: it is the second argument
 ```
 
 - `"mean_before"` (the default, used when the argument is left out): the replicates of a

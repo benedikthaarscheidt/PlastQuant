@@ -81,6 +81,10 @@ ppi_per_replicate <- function(entry, phenotypes, environments) {
 compute_ppis <- function(phenotypes, environments, registry = default_ppi_registry(), exclude = NULL,
                          replicate_handling = c("mean_before", "replicates")) {
   replicate_handling <- match.arg(replicate_handling)
+  is_entry <- function(e) is.list(e) && is.character(e$name) && is.function(e$fun)
+  if (!is.list(registry) || !length(registry) || !all(vapply(registry, is_entry, logical(1)))) {
+    stop("registry must be a non-empty list of PPI entries (default_ppi_registry(), ppi_entry())")
+  }
   unknown <- setdiff(exclude, names(registry))
   if (length(unknown)) stop("cannot exclude unknown PPI(s): ", paste(unknown, collapse = ", "))
   registry <- registry[setdiff(names(registry), exclude)]

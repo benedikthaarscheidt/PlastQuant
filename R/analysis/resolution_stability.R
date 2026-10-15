@@ -49,7 +49,7 @@ compute_resolutions <- function(dir, n_points, registry = default_ppi_registry()
     if (!file.exists(file.path(ppi_set_path(res, "mean_before"), "ppis", "ppi_scores.rds"))) {
       message("Resolution: ", n, " sampling points")
       sample_resolution(dir, n)
-      compute_population_ppis(res, registry)
+      compute_population_ppis(res, "mean_before", registry = registry)
     }
     pop <- read_population(res)
     stats <- do.call(rbind, lapply(names(pop$phenotypes), function(s) {
