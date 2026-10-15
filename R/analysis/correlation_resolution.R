@@ -8,7 +8,7 @@
 # PRODUCES:     boxplot_resolution.pdf, slope_heatmap_resolution.pdf in POPULATION_DIR/plots/.
 # HOW TO RUN:   setwd("~/PlastQuant")
 #               POPULATION_DIR <- here::here("output", "populations", "ppi_comparison")
-#               source(here::here("R","figures","correlation_resolution.R"))
+#               source(here::here("R", "analysis", "correlation_resolution.R"))
 # -----------------------------------------------------------------------------
 # PARAMETERS (edit the named assignment near the top of the script)
 #   POPULATION_DIR  path, REQUIRED (set before sourcing)   population folder                [COMMON]

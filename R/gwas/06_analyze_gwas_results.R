@@ -7,10 +7,10 @@
 #   searched only in the GWAS of that shape, and a hit on a SNP that is not causal
 #   for that shape is a false positive of that shape. Draws count/fraction heatmaps,
 #   precision and recall per PPI, true/false positives, and PPI coverage summaries.
-# REQUIRES:     The tables of R/scenarios/combine_scenarios.R (run the scenarios first).
+# REQUIRES:     The tables of R/gwas/scenarios/combine_scenarios.R (run the scenarios first).
 # PRODUCES:     Under COMBINED_DIR: plots/gwas_scenario_summary.pdf,
 #               precision_recall_per_ppi.csv, recall_per_shape_parameter.csv.
-# HOW TO RUN:   Rscript --vanilla R/06_analyze_gwas_results.R   (from the repo root)
+# HOW TO RUN:   Rscript --vanilla R/gwas/06_analyze_gwas_results.R   (from the repo root)
 # -----------------------------------------------------------------------------
 # PARAMETERS — set these before sourcing (guarded defaults)
 #   COMBINED_DIR  path, default output/combined_scenarios   tables of combine_scenarios.R [COMMON]

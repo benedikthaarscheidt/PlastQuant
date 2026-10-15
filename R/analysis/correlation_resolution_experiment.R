@@ -8,7 +8,7 @@
 # PRODUCES:     confoundermodel_sumstats.pdf in POPULATION_DIR/plots/.
 # HOW TO RUN:   setwd("~/PlastQuant")
 #               POPULATION_DIR <- here::here("output", "populations", "ppi_comparison")
-#               source(here::here("R","figures","correlation_resolution_experiment.R"))
+#               source(here::here("R", "analysis", "correlation_resolution_experiment.R"))
 # -----------------------------------------------------------------------------
 # PARAMETERS (edit the named assignment near the top of the script)
 #   POPULATION_DIR  path, REQUIRED (set before sourcing)   population folder                [COMMON]

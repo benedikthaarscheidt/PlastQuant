@@ -13,7 +13,7 @@
 #               results POPULATION_DIR/analyses/resolution/mixed_model.csv
 # HOW TO RUN:   setwd("~/PlastQuant")
 #               POPULATION_DIR <- here::here("output", "populations", "ppi_comparison")
-#               source(here::here("R","figures","combined_resolution_figure.R"))
+#               source(here::here("R", "analysis", "combined_resolution_figure.R"))
 # -----------------------------------------------------------------------------
 # PARAMETERS — set before sourcing
 #   POPULATION_DIR  path, REQUIRED   population folder with the resolution analysis      [COMMON]

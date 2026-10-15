@@ -9,7 +9,7 @@
 # PRODUCES:     Figures under RESOLUTION_DIR/plots/ (figure2_2.pdf, figure2_3.pdf, ...).
 # HOW TO RUN:   setwd("~/PlastQuant")
 #               RESOLUTION_DIR <- here::here("output", "populations", "ppi_comparison", "n_6")
-#               source(here::here("R","figures","plasticity_score_realisation_plot.R"))
+#               source(here::here("R", "analysis", "plasticity_score_realisation_plot.R"))
 # -----------------------------------------------------------------------------
 # PARAMETERS — set before sourcing
 #   RESOLUTION_DIR  path, REQUIRED   resolution folder                                     [COMMON]

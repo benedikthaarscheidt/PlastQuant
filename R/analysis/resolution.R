@@ -9,7 +9,7 @@
 #               sampled at every range x interval of a grid of global_initial_length points.
 # PRODUCES:     correlations_<range>_interval_<i>_indices_<...>.csv in
 #               POPULATION_DIR/analyses/correlation_summary_stats/ (read by plotting_resolution.R).
-# HOW TO RUN:   setwd("~/PlastQuant"); source(here::here("R","figures","resolution.R"))
+# HOW TO RUN:   setwd("~/PlastQuant"); source(here::here("R", "analysis", "resolution.R"))
 # -----------------------------------------------------------------------------
 # PARAMETERS: inherits 03's parameters via the auto-source; resolution knobs are set in
 #   the body of the script (edit them there).

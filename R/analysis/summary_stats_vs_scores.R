@@ -15,7 +15,7 @@
 options(warn = -1)  # silence warnings even if the project .Rprofile was not loaded
 
 if (!exists("data_loaded") || !data_loaded) {
-  source(here::here("R", "03_plasticity_scores.R"))
+  source(here::here("R", "ppi", "03_plasticity_scores.R"))
   data_loaded = TRUE
 }
 
@@ -107,7 +107,7 @@ prepare_score_vector <- function(score_df, genotype_form) {
   subset(score_df, score_df[, "Type"] == genotype_form)[, "Score"]
 }
 
-# calc_similarity() and calc_similarity_perm() are in R/pipeline/similarity.R (loaded by 03)
+# calc_similarity() and calc_similarity_perm() are in R/analysis/similarity.R (loaded by 03)
 
 compute_summary_stats <- function(rn_matrix) {
   n <- ncol(rn_matrix)

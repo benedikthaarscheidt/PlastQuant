@@ -8,7 +8,7 @@
 #       genotypes, per number of sampling points,
 #     - for every PPI-statistic pair the linear regression of that correlation on the
 #       number of sampling points (slope, its standard error, t-test).
-#   The figure script R/figures/combined_resolution_figure.R reads these results and
+#   The figure script R/analysis/combined_resolution_figure.R reads these results and
 #   fits the mixed model on the tables.
 # REQUIRES:     regression_sumstats_dataprep.R run on POPULATION_DIR.
 #               The results span all resolutions and are written at population level.

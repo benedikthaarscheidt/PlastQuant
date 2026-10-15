@@ -8,7 +8,7 @@
 # PRODUCES:     Correlation-panel figures in RESOLUTION_DIR/plots/.
 # HOW TO RUN:   setwd("~/PlastQuant")
 #               RESOLUTION_DIR <- here::here("output", "populations", "ppi_comparison", "n_6")
-#               source(here::here("R","figures","correlation_summary_stats_PS.R"))
+#               source(here::here("R", "analysis", "correlation_summary_stats_PS.R"))
 # -----------------------------------------------------------------------------
 # PARAMETERS (edit the named assignment near the top of the script)
 #   RESOLUTION_DIR  path, REQUIRED (set before sourcing)   resolution folder                [COMMON]

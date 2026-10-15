@@ -7,7 +7,7 @@
 # (n_6/plots/, 05_evaluate_gwas.R).
 # All other settings (variance components, study space, ...) are the defaults of
 # sim_config() in R/sim/simulation_config.R.
-# HOW TO RUN: Rscript --vanilla R/scenarios/scenario_40_5.R   (from the repo root)
+# HOW TO RUN: Rscript --vanilla R/gwas/scenarios/scenario_40_5.R   (from the repo root)
 # =============================================================================
 options(warn = -1)  # silence warnings even if the project .Rprofile was not loaded
 
@@ -19,4 +19,4 @@ compute_population_ppis(RESOLUTION_DIR)                   # PPIs -> n_6/ppis/
 run_population_gwas(RESOLUTION_DIR)                       # GWAS of the PPIs -> n_6/gwas/
 
 # Power heatmaps per shape at this resolution -> n_6/plots/
-source(here::here("R", "05_evaluate_gwas.R"))
+source(here::here("R", "gwas", "05_evaluate_gwas.R"))

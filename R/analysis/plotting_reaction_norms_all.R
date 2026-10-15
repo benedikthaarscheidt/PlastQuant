@@ -12,7 +12,7 @@
 #               reaction_norms_final_figure_panels.pdf, trait_histogram_combined.pdf.
 # HOW TO RUN:   setwd("~/PlastQuant")
 #               RESOLUTION_DIR <- here::here("output", "populations", "my_population", "n_6")
-#               source(here::here("R","figures","plotting_reaction_norms_all.R"))
+#               source(here::here("R", "analysis", "plotting_reaction_norms_all.R"))
 # -----------------------------------------------------------------------------
 # PARAMETERS — set these before sourcing (guarded defaults)
 #   RESOLUTION_DIR  path, REQUIRED   resolution folder to draw                            [COMMON]

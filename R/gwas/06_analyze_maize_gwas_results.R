@@ -7,7 +7,7 @@
 # REQUIRES:     Maize GWAS result data (produced by the maize scenario / 03_maize + 04);
 #               data/maize_scores_list.rds.
 # PRODUCES:     Maize summary heatmaps/plots under OUTPUT_BASE.
-# HOW TO RUN:   setwd("~/PlastQuant"); source(here::here("R", "06_analyze_maize_gwas_results.R"))
+# HOW TO RUN:   setwd("~/PlastQuant"); source(here::here("R", "gwas", "06_analyze_maize_gwas_results.R"))
 # -----------------------------------------------------------------------------
 # PARAMETERS (edit at the noted line)
 #   PPIs   character vector   plasticity indices to summarise; edit `PPIs <-`            [COMMON]

@@ -7,7 +7,7 @@
 # REQUIRES:     scores_list and genetics from 03_plasticity_scores.R (run 03 first, or
 #               source it); data/A-Datasets/ genotype inputs; packages rrBLUP / sommer.
 # PRODUCES:     GWAS result CSVs and Manhattan PDFs under OUTPUT_BASE.
-# HOW TO RUN:   setwd("~/PlastQuant"); source(here::here("R", "04_run_gwas.R"))
+# HOW TO RUN:   setwd("~/PlastQuant"); source(here::here("R", "gwas", "04_run_gwas.R"))
 # -----------------------------------------------------------------------------
 # PARAMETERS (edit at the noted line)
 #   USE_KINSHIP           logical, default TRUE   include kinship (K) in the mixed model;

@@ -13,7 +13,7 @@
 #               RESOLUTION_DIR/plots/gwas_power_heatmap.pdf.
 # HOW TO RUN:   setwd("~/PlastQuant")
 #               RESOLUTION_DIR <- here::here("output", "populations", "scenario_20_5", "n_6")
-#               source(here::here("R", "05_evaluate_gwas.R"))
+#               source(here::here("R", "gwas", "05_evaluate_gwas.R"))
 # -----------------------------------------------------------------------------
 # PARAMETERS — set these before sourcing (guarded defaults)
 #   RESOLUTION_DIR  path, REQUIRED              resolution folder to evaluate         [COMMON]

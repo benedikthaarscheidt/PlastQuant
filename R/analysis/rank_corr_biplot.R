@@ -12,7 +12,7 @@
 #               maize: output/plasticity_comprehensive_analysis_maize/.
 # HOW TO RUN:   setwd("~/PlastQuant")
 #               RESOLUTION_DIR <- here::here("output", "populations", "ppi_comparison", "n_6")
-#               source(here::here("R","figures","rank_corr_biplot.R"))
+#               source(here::here("R", "analysis", "rank_corr_biplot.R"))
 # -----------------------------------------------------------------------------
 # PARAMETERS
 #   RESOLUTION_DIR  path, REQUIRED for simulated data                                       [COMMON]

@@ -7,7 +7,7 @@
 #   03_plasticity_scores.R (loads real data instead of simulating it).
 # REQUIRES:     data/A-Datasets/ maize inputs; library(ppindices).
 # PRODUCES:     Maize `scores_list` in memory; per-score CSVs under OUTPUT_BASE.
-# HOW TO RUN:   setwd("~/PlastQuant"); source(here::here("R", "03_plasticity_scores_maize.R"))
+# HOW TO RUN:   setwd("~/PlastQuant"); source(here::here("R", "ppi", "03_plasticity_scores_maize.R"))
 # -----------------------------------------------------------------------------
 # PARAMETERS (edit the named assignment near the top / set in your session)
 #   OUTPUT_BASE           path, default output/scenario_maize  where outputs go; edit `OUTPUT_BASE <-`

@@ -11,7 +11,7 @@
 # PRODUCES:     `scores_list` in memory; outputs under RESOLUTION_DIR/analyses/scores/.
 # HOW TO RUN:   setwd("~/PlastQuant")
 #               RESOLUTION_DIR <- here::here("output", "populations", "my_population", "n_6")
-#               source(here::here("R", "03_plasticity_scores.R"))
+#               source(here::here("R", "ppi", "03_plasticity_scores.R"))
 # -----------------------------------------------------------------------------
 # PARAMETERS — set these in a driver script or your R session before sourcing.
 #   RESOLUTION_DIR        path,    REQUIRED      resolution folder of a simulated population  [COMMON]

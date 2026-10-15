@@ -7,7 +7,7 @@
 # PRODUCES:     plots_<range>_<analysis>_per_score.pdf in POPULATION_DIR/plots/.
 # HOW TO RUN:   setwd("~/PlastQuant")
 #               POPULATION_DIR <- here::here("output", "populations", "ppi_comparison")
-#               source(here::here("R","figures","plotting_resolution.R"))
+#               source(here::here("R", "analysis", "plotting_resolution.R"))
 # -----------------------------------------------------------------------------
 # PARAMETERS (edit the named assignment near the top of the script)
 #   POPULATION_DIR  path, REQUIRED (set before sourcing)   population folder                [COMMON]

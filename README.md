@@ -42,21 +42,20 @@ library. Nothing is installed into your system library.
 
 ```
 R/
-  sim/                            simulation model: SNPs -> genetic values -> true reaction
-                                  norms -> measurement; all settings in sim_config()
-  ppi/                            PPI registry and computation (uses ppindices)
-  pipeline/                       population folders, the pipeline steps, GWAS, power per
-                                  shape, resolution analysis, scenario combination
-  03_plasticity_scores.R          PPIs of a resolution in the globals the analyses use
-  03_plasticity_scores_maize.R    PPIs of the empirical maize dataset
-  04_run_gwas.R                   GWAS on the scores of 03 (used for the maize data)
-  05_evaluate_gwas.R              power per shape of one resolution (heatmaps)
-  06_analyze_gwas_results.R       comparison of the heritability scenarios
-  06_analyze_maize_gwas_results.R summary of the maize GWAS
-  scenarios/                      heritability scenarios, combine_scenarios.R, scenario_maize.R
-  analysis/                       analyses (summary statistics, regression, rank correlation,
-                                  clustering, resolution analysis)
-  figures/                        figure scripts
+  pipeline/                       the infrastructure: load_pipeline.R (loads all functions),
+                                  population_folder.R (folder format), pipeline_input.R
+                                  (data contract), sample_resolution.R (measuring at a resolution)
+  sim/                            the simulation model (SNPs -> genetic values -> true reaction
+                                  norms; all settings in sim_config()), simulate_population.R,
+                                  plot of the true norms
+  ppi/                            PPI registry and computation (uses ppindices),
+                                  compute_population_ppis.R, 03_plasticity_scores(_maize).R
+  gwas/                           GWAS functions, run_population_gwas.R, power per shape,
+                                  04_run_gwas.R, 05_evaluate_gwas.R (power heatmaps),
+                                  06_analyze_gwas_results.R, 06_analyze_maize_gwas_results.R
+    scenarios/                    heritability scenarios, combine_scenarios.R, scenario_maize.R
+  analysis/                       comparison of the PPIs: analyses and their figures,
+                                  resolution stability, summary statistics, rank correlation
 data/                             committed input datasets (maize data, maize scores)
 output/                           script outputs (git-ignored)
   populations/<name>/             one folder per population (see below)
@@ -111,7 +110,7 @@ source(here::here("R", "pipeline", "load_pipeline.R"))
 ### 1. Simulate a population
 
 ```r
-POPULATION_DIR <- here::here("output", "populations", "ppi_comparison")
+POPULATION_DIR <- here::here("output", "populations", "My_population")
 simulate_population(sim_config(h2 = 0.4, Mc = 5, n_per_shape = 20), POPULATION_DIR)
 ```
 
@@ -146,10 +145,22 @@ compute_population_ppis(RESOLUTION_DIR)                       # all 28 PPIs -> n
 compute_population_ppis(RESOLUTION_DIR, exclude = c("PPF"))   # leave PPIs out
 ```
 
-The replicates are averaged per genotype and environment before a PPI is computed. With
-`replicate_handling = "replicates"` every replicate gets its own value. FW uses the
-reaction norms of the whole population and is always computed once on the replicate
-means, one value per genotype.
+The argument `replicate_handling` decides on which reaction norms the PPIs are computed:
+
+```r
+compute_population_ppis(RESOLUTION_DIR, replicate_handling = "mean_before")  # default
+compute_population_ppis(RESOLUTION_DIR, replicate_handling = "replicates")
+```
+
+- `"mean_before"` (the default, used when the argument is left out): the replicates of a
+  genotype are averaged per environment first, and the PPI is computed on this averaged
+  reaction norm — one value per genotype.
+- `"replicates"`: the PPI is computed on every replicate's own measured reaction norm,
+  nothing is averaged — one value per replicate (in the GWAS, the replicates of a
+  genotype are then repeated observations of the same line).
+
+FW uses the reaction norms of the whole population and is always computed once on the
+averaged norms, one value per genotype, with either setting.
 
 To add a PPI, register it and pass the registry:
 
@@ -164,7 +175,7 @@ compute_population_ppis(RESOLUTION_DIR, registry = reg)
 
 ```r
 run_population_gwas(RESOLUTION_DIR)                  # -> n_6/gwas/
-source(here::here("R", "05_evaluate_gwas.R"))        # power heatmaps -> n_6/plots/
+source(here::here("R", "gwas", "05_evaluate_gwas.R"))        # power heatmaps -> n_6/plots/
 ```
 
 rrBLUP mixed model with the kinship matrix, one GWAS per PPI and shape. With a truth
@@ -177,10 +188,10 @@ Set `RESOLUTION_DIR` (step 2) and source the script; it writes into that resolut
 `plots/` or `analyses/`. Steps 1–3 are needed.
 
 ```r
-source(here::here("R", "figures", "plasticity_score_realisation_plot.R"))  # Fig. 2: distributions, clustering, Mantel
-source(here::here("R", "figures", "rank_corr_biplot.R"))                   # Fig. 3: rank agreement, top-k overlap
-source(here::here("R", "figures", "plotting_reaction_norms_all.R"))        # measured reaction norms and histograms
-source(here::here("R", "figures", "correlation_summary_stats_PS.R"))       # PPIs vs summary statistics
+source(here::here("R", "analysis", "plasticity_score_realisation_plot.R"))  # Fig. 2: distributions, clustering, Mantel
+source(here::here("R", "analysis", "rank_corr_biplot.R"))                   # Fig. 3: rank agreement, top-k overlap
+source(here::here("R", "analysis", "plotting_reaction_norms_all.R"))        # measured reaction norms and histograms
+source(here::here("R", "analysis", "correlation_summary_stats_PS.R"))       # PPIs vs summary statistics
 source(here::here("R", "analysis", "regression_summarystats.R"))           # PPIs regressed on summary statistics
 source(here::here("R", "analysis", "kendall_rank_corr.R"))                 # rank tables ...
 source(here::here("R", "analysis", "kendall_tau_corr_clustering.R"))       # ... and their agreement analyses
@@ -198,27 +209,27 @@ already has its PPIs is kept.
 source(here::here("R", "analysis", "regression_sumstats_dataprep.R"))  # n_2 ... n_50
 source(here::here("R", "analysis", "resolution_analysis.R"))           # correlation PPI-statistic per n and its
                                                                          # regression on n -> analyses/resolution/
-source(here::here("R", "figures", "combined_resolution_figure.R"))     # Fig. 4 (incl. mixed model) -> plots/
-source(here::here("R", "figures", "correlation_resolution.R"))
-source(here::here("R", "figures", "correlation_resolution_experiment.R"))
-source(here::here("R", "figures", "resolution.R"))                     # correlations on the gradient halves ...
-source(here::here("R", "figures", "plotting_resolution.R"))            # ... and their plots
+source(here::here("R", "analysis", "combined_resolution_figure.R"))     # Fig. 4 (incl. mixed model) -> plots/
+source(here::here("R", "analysis", "correlation_resolution.R"))
+source(here::here("R", "analysis", "correlation_resolution_experiment.R"))
+source(here::here("R", "analysis", "resolution.R"))                     # correlations on the gradient halves ...
+source(here::here("R", "analysis", "plotting_resolution.R"))            # ... and their plots
 ```
 
 ### Heritability scenarios (GWAS power)
 
-The nine drivers in `R/scenarios/` simulate the grid h² ∈ {0.2, 0.4, 0.6} ×
+The nine drivers in `R/gwas/scenarios/` simulate the grid h² ∈ {0.2, 0.4, 0.6} ×
 Mc ∈ {5, 10, 20} and run steps 1–4 at 6 points each:
 
 ```bash
-Rscript --vanilla R/scenarios/scenario_20_5.R        # -> output/populations/scenario_20_5/
+Rscript --vanilla R/gwas/scenarios/scenario_20_5.R        # -> output/populations/scenario_20_5/
 ```
 
 After running the scenarios, compare them:
 
 ```bash
-Rscript --vanilla R/scenarios/combine_scenarios.R    # -> output/combined_scenarios/
-Rscript --vanilla R/06_analyze_gwas_results.R        # plots, precision/recall tables
+Rscript --vanilla R/gwas/scenarios/combine_scenarios.R    # -> output/combined_scenarios/
+Rscript --vanilla R/gwas/06_analyze_gwas_results.R        # plots, precision/recall tables
 ```
 
 `scenario_maize.R` runs the GWAS on the empirical maize scores.

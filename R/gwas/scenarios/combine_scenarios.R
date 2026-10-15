@@ -5,10 +5,10 @@
 #   GWAS hits below P_THRESHOLD and the causal SNPs (both tagged with H2 and Mc), and
 #   counts the found causal SNPs per scenario, shape, parameter and PPI. Every shape
 #   is evaluated against its own causal SNPs only (see detection_counts()).
-# REQUIRES:     Scenario runs written by R/scenarios/scenario_*.R.
+# REQUIRES:     Scenario runs written by R/gwas/scenarios/scenario_*.R.
 # PRODUCES:     Under OUT_DIR: gwas_hits.csv, causal_snps_truth.csv, tested.csv,
 #               detection_counts.csv, populations.csv (read by 06_analyze_gwas_results.R).
-# HOW TO RUN:   Rscript --vanilla R/scenarios/combine_scenarios.R   (from the repo root)
+# HOW TO RUN:   Rscript --vanilla R/gwas/scenarios/combine_scenarios.R   (from the repo root)
 # -----------------------------------------------------------------------------
 # PARAMETERS — set these before sourcing (guarded defaults)
 #   SCENARIO_ROOT  path, default output/populations/       folder with the scenario_* populations
