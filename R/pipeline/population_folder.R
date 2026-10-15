@@ -138,8 +138,9 @@ read_genotype_table <- function(path) {
 # Read a resolution folder (<population>/n_<k>): its measurements, plus the SNPs,
 # kinship, truth and (simulated) settings and parameters of the population. Returns a
 # pipeline input (see pipeline_input.R) with kinship, config, mother_parameters,
-# population_dir and resolution_dir.
-read_population <- function(res_dir) {
+# population_dir and resolution_dir. with_snps = FALSE skips the SNP matrix and kinship
+# (e.g. for the PPIs, which do not need them).
+read_population <- function(res_dir, with_snps = TRUE) {
   res_data <- file.path(res_dir, "data")
   if (!grepl("^n_[0-9]+$", basename(res_dir)) || !dir.exists(res_data)) {
     stop(res_dir, " is not a resolution folder (<population>/n_<points>/data; create one with sample_resolution())")
@@ -165,7 +166,9 @@ read_population <- function(res_dir) {
   names(phenotypes) <- sub("\\.csv$", "", basename(trait_files))
 
   snp_matrix <- NULL
-  if (file.exists(file.path(pop_data, "snp_matrix.rds"))) {
+  if (!with_snps) {
+    # measurements only
+  } else if (file.exists(file.path(pop_data, "snp_matrix.rds"))) {
     snp_matrix <- readRDS(file.path(pop_data, "snp_matrix.rds"))
   } else if (file.exists(file.path(pop_data, "snp_matrix.csv"))) {
     tab <- read_genotype_table(file.path(pop_data, "snp_matrix.csv"))
@@ -173,7 +176,7 @@ read_population <- function(res_dir) {
     rownames(snp_matrix) <- tab$Genotype
   }
   kinship <- NULL
-  if (file.exists(file.path(pop_data, "kinship.csv"))) {
+  if (with_snps && file.exists(file.path(pop_data, "kinship.csv"))) {
     tab <- read_genotype_table(file.path(pop_data, "kinship.csv"))
     kinship <- as.matrix(tab[, -1, drop = FALSE])
     rownames(kinship) <- tab$Genotype
@@ -185,7 +188,9 @@ read_population <- function(res_dir) {
     names(truth)[names(truth) == "Trait"] <- "Shape"
   }
 
-  pop <- pipeline_input(phenotypes, sort(unique(unname(env_map))), snp_matrix, truth)
+  # the truth is checked against the SNPs; without SNPs it is only attached
+  pop <- pipeline_input(phenotypes, sort(unique(unname(env_map))), snp_matrix, if (with_snps) truth)
+  pop$truth <- truth
   pop$kinship <- kinship
   if (!is.null(kinship)) {
     missing <- setdiff(unique(unlist(lapply(phenotypes, `[[`, "Genotype"))), rownames(kinship))

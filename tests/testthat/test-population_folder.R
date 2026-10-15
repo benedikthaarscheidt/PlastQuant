@@ -128,3 +128,13 @@ test_that("own data keeps its environment names; a large SNP matrix can be store
   expect_equal(pop$snp_matrix, X)
   expect_equal(pop$phenotypes$biomass$Trait, 1:4, ignore_attr = TRUE)
 })
+
+test_that("the measurements can be read without loading the SNP matrix", {
+  norms <- simulate_norms(sim_config(h2 = 0.4, Mc = 2, n_per_shape = 3, n_snps = 200))
+  dir <- write_population(norms, new_dir("pop_nosnp_read"))
+  res <- write_resolution(measure_norms(norms, 6), resolution_path(dir, 6))
+  pop <- read_population(res, with_snps = FALSE)
+  expect_null(pop$snp_matrix)
+  expect_false(is.null(pop$truth))
+  expect_equal(names(pop$phenotypes), norms$config$shapes)
+})

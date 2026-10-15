@@ -10,7 +10,7 @@
 compute_population_ppis <- function(dir, registry = default_ppi_registry(), exclude = NULL,
                                     replicate_handling = c("mean_before", "replicates")) {
   replicate_handling <- match.arg(replicate_handling)
-  pop <- read_population(dir)
+  pop <- read_population(dir, with_snps = FALSE)
   traits <- compute_ppis(pop$phenotypes, pop$environments, registry, exclude, replicate_handling)
   unlink(file.path(dir, "ppis"), recursive = TRUE)
   ppi_dir <- population_subdir(dir, "ppis")
