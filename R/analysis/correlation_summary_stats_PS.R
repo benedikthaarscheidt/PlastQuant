@@ -5,13 +5,14 @@
 #   and the plasticity scores.
 # REQUIRES:     RESOLUTION_DIR with its PPIs (compute_population_ppis()); scores and
 #               summary statistics at the population's own sampling resolution.
-# PRODUCES:     Correlation-panel figures in RESOLUTION_DIR/plots/.
+# PRODUCES:     Correlation-panel figures in RESOLUTION_DIR/<REPLICATE_HANDLING>/plots/.
 # HOW TO RUN:   setwd("~/PlastQuant")
 #               RESOLUTION_DIR <- here::here("output", "populations", "ppi_comparison", "n_6")
 #               source(here::here("R", "analysis", "correlation_summary_stats_PS.R"))
 # -----------------------------------------------------------------------------
 # PARAMETERS (edit the named assignment near the top of the script)
 #   RESOLUTION_DIR  path, REQUIRED (set before sourcing)   resolution folder                [COMMON]
+#   REPLICATE_HANDLING  "mean_before" (default) or "replicates"   which PPIs of the resolution
 #   stat_cols   character vector  summary-stat columns to use
 # =============================================================================
 options(warn = -1)  # silence warnings even if the project .Rprofile was not loaded
@@ -44,11 +45,13 @@ library(factoextra)
 # Scores and summary statistics of the population at its own resolution:
 # first column the genotype, then the scores, then the summary statistics
 if (!exists("RESOLUTION_DIR")) stop("set RESOLUTION_DIR (a resolution folder, e.g. output/populations/<name>/n_6) first")
+if (!exists("REPLICATE_HANDLING")) REPLICATE_HANDLING <- "mean_before"   # PPIs of mean_before/ or replicates/
+PPI_SET_DIR <- file.path(RESOLUTION_DIR, REPLICATE_HANDLING)
 source(here::here("R", "pipeline", "load_pipeline.R"))
-score_tab <- population_score_table(RESOLUTION_DIR)
+score_tab <- population_score_table(RESOLUTION_DIR, REPLICATE_HANDLING)
 df <- tibble::as_tibble(cbind(Genotype = paste(score_tab$Shape, score_tab$Genotype, sep = "_"),
                               score_tab[, setdiff(names(score_tab), c("Shape", "Genotype"))]))
-plots_dir <- population_subdir(RESOLUTION_DIR, "plots")
+plots_dir <- population_subdir(PPI_SET_DIR, "plots")
 
 
 stat_cols <- c("min","max","mean","median","slope","range","variance","mean_lower","mean_upper")

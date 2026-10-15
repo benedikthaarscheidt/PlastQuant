@@ -5,20 +5,23 @@
 #   statistics and the plasticity scores (correlation matrices, distance measures,
 #   clustering). Reads the PPIs and reaction norms of RESOLUTION_DIR.
 # REQUIRES:     RESOLUTION_DIR with its PPIs (compute_population_ppis()).
-# PRODUCES:     Summary-stat vs score figures under RESOLUTION_DIR/analyses/summary_stats_vs_scores/.
+# PRODUCES:     Summary-stat vs score figures under RESOLUTION_DIR/<REPLICATE_HANDLING>/analyses/summary_stats_vs_scores/.
 # HOW TO RUN:   setwd("~/PlastQuant"); RESOLUTION_DIR <- here::here("output", "populations", "<name>", "n_6")
 #               source(here::here("R","analysis","summary_stats_vs_scores.R"))
 # -----------------------------------------------------------------------------
 # PARAMETERS
 #   RESOLUTION_DIR  path, REQUIRED (set before sourcing)   resolution folder               [COMMON]
+#   REPLICATE_HANDLING  "mean_before" (default) or "replicates"   which PPIs of the resolution
 #   Analysis settings are set in the body of the script.
 # =============================================================================
 options(warn = -1)  # silence warnings even if the project .Rprofile was not loaded
 
 # PPIs and replicate-mean reaction norms of the resolution RESOLUTION_DIR
 if (!exists("RESOLUTION_DIR")) stop("set RESOLUTION_DIR (a resolution folder, e.g. output/populations/<name>/n_6) first")
+if (!exists("REPLICATE_HANDLING")) REPLICATE_HANDLING <- "mean_before"   # PPIs of mean_before/ or replicates/
+PPI_SET_DIR <- file.path(RESOLUTION_DIR, REPLICATE_HANDLING)
 source(here::here("R", "pipeline", "load_pipeline.R"))
-analysis_inputs <- score_analysis_inputs(RESOLUTION_DIR)
+analysis_inputs <- score_analysis_inputs(RESOLUTION_DIR, REPLICATE_HANDLING)
 
 library(factoextra)
 library(dbscan)
@@ -91,7 +94,7 @@ compute_summary_stats <- function(rn_matrix) {
 compare_summary_stats_with_scores <- function(rn_matrix_list, scores_list, genotype_forms,
                                               global = FALSE,
                                               measures = c("kendall"), n_perm = 999,
-                                              out_dir = file.path(RESOLUTION_DIR, "analyses", "summary_stats_vs_scores")) {
+                                              out_dir = file.path(PPI_SET_DIR, "analyses", "summary_stats_vs_scores")) {
   dir.create(out_dir, recursive = TRUE, showWarnings = FALSE)
   # Define the nine summary statistics.
   stat_names <- c("min", "max", "mean", "median", "slope", "range", "variance", "mean_lower", "mean_upper")

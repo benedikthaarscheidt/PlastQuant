@@ -5,13 +5,14 @@
 #   Kendall rank correlation of every index pair, for the population at its own
 #   sampling resolution.
 # REQUIRES:     RESOLUTION_DIR with its PPIs (compute_population_ppis()).
-# PRODUCES:     Rank-correlation tables under RESOLUTION_DIR/analyses/rank_flops/.
+# PRODUCES:     Rank-correlation tables under RESOLUTION_DIR/<REPLICATE_HANDLING>/analyses/rank_flops/.
 # HOW TO RUN:   setwd("~/PlastQuant")
 #               RESOLUTION_DIR <- here::here("output", "populations", "ppi_comparison", "n_6")
 #               source(here::here("R","analysis","kendall_rank_corr.R"))
 # -----------------------------------------------------------------------------
 # PARAMETERS (edit the named assignment near the top of the script)
 #   RESOLUTION_DIR        path, REQUIRED                  resolution folder               [COMMON]
+#   REPLICATE_HANDLING  "mean_before" (default) or "replicates"   which PPIs of the resolution
 #   score_names           character vector                which indices to correlate
 # =============================================================================
 options(warn = -1)  # silence warnings even if the project .Rprofile was not loaded
@@ -81,12 +82,14 @@ pair_tau <- function(df_long, i, j) {
 }
 
 if (!exists("RESOLUTION_DIR")) stop("set RESOLUTION_DIR (a resolution folder, e.g. output/populations/<name>/n_6) first")
+if (!exists("REPLICATE_HANDLING")) REPLICATE_HANDLING <- "mean_before"   # PPIs of mean_before/ or replicates/
+PPI_SET_DIR <- file.path(RESOLUTION_DIR, REPLICATE_HANDLING)
 source(here::here("R", "pipeline", "load_pipeline.R"))
-out_dir <- file.path(RESOLUTION_DIR, "analyses", "rank_flops")
+out_dir <- file.path(PPI_SET_DIR, "analyses", "rank_flops")
 dir.create(out_dir, showWarnings = FALSE, recursive = TRUE)
 
 # Scores of the population at its own resolution (one row per genotype)
-score_tab <- population_score_table(RESOLUTION_DIR)
+score_tab <- population_score_table(RESOLUTION_DIR, REPLICATE_HANDLING)
 n_points <- nrow(read.csv(file.path(RESOLUTION_DIR, "data", "environments.csv")))
 genotype_ids <- paste(score_tab$Shape, score_tab$Genotype, sep = "_")
 scores_list <- list()

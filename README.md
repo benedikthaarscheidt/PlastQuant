@@ -74,7 +74,8 @@ Everything belongs to a population and is written into its folder. The populatio
 itself is stored once: for a simulation the true mother and replicate reaction norms,
 without any measurement. Every **resolution** — the population measured at n
 environments — is its own subfolder `n_<n>`, with the measurements and everything
-computed from them.
+computed from them. Below a resolution, the PPIs and everything computed from them sit
+in one folder per replicate handling (see step 3), so the two never overwrite each other.
 
 ```
 output/populations/<name>/
@@ -92,9 +93,11 @@ output/populations/<name>/
     data/traits/<shape>.csv  measured values: Genotype, then one column per environment
     data/environments.csv    numeric value of every environment column
     variance/                trait-level variance shares and measurement error
-    ppis/                    plasticity indices
-    gwas/                    GWAS results and power
-    analyses/  plots/        analyses and figures of this resolution
+    analyses/  plots/        of the measurement itself (summary statistics, measured reaction norms)
+    mean_before/             PPIs from the replicate-averaged reaction norms (default)
+      ppis/  gwas/  analyses/  plots/
+    replicates/              PPIs from every replicate's own reaction norm
+      ppis/  gwas/  analyses/  plots/
   n_11/ ...                same population, other resolutions
   analyses/  plots/        analyses and figures across resolutions
 ```
@@ -142,15 +145,15 @@ same values.
 ### 3. PPIs
 
 ```r
-compute_population_ppis(RESOLUTION_DIR)                       # all 28 PPIs -> n_6/ppis/
+compute_population_ppis(RESOLUTION_DIR)                       # all 28 PPIs -> n_6/mean_before/ppis/
 compute_population_ppis(RESOLUTION_DIR, exclude = c("PPF"))   # leave PPIs out
 ```
 
 The argument `replicate_handling` decides on which reaction norms the PPIs are computed:
 
 ```r
-compute_population_ppis(RESOLUTION_DIR, replicate_handling = "mean_before")  # default
-compute_population_ppis(RESOLUTION_DIR, replicate_handling = "replicates")
+compute_population_ppis(RESOLUTION_DIR, replicate_handling = "mean_before")  # default -> n_6/mean_before/
+compute_population_ppis(RESOLUTION_DIR, replicate_handling = "replicates")   # -> n_6/replicates/
 ```
 
 - `"mean_before"` (the default, used when the argument is left out): the replicates of a
@@ -162,6 +165,11 @@ compute_population_ppis(RESOLUTION_DIR, replicate_handling = "replicates")
 
 FW uses the reaction norms of the whole population and is always computed once on the
 averaged norms, one value per genotype, with either setting.
+
+Each handling has its own folder, so both can be computed for the same resolution. The
+console shows, for every PPI and shape, the number of genotypes and the time it took, the
+output of the PPI functions themselves (e.g. the progress bars of PPF) and every error
+(with the PPI, the genotype and the message; that value becomes `NA`).
 
 To add a PPI, register it and pass the registry:
 
@@ -175,8 +183,10 @@ compute_population_ppis(RESOLUTION_DIR, registry = reg)
 ### 4. GWAS (optional)
 
 ```r
-run_population_gwas(RESOLUTION_DIR)                  # -> n_6/gwas/
-source(here::here("R", "gwas", "05_evaluate_gwas.R"))        # power heatmaps -> n_6/plots/
+run_population_gwas(RESOLUTION_DIR)                  # -> n_6/mean_before/gwas/
+source(here::here("R", "gwas", "05_evaluate_gwas.R"))        # power heatmaps -> n_6/mean_before/plots/
+
+run_population_gwas(RESOLUTION_DIR, replicate_handling = "replicates")   # GWAS of the per-replicate PPIs
 ```
 
 rrBLUP mixed model with the kinship matrix, one GWAS per PPI and shape. With a truth
@@ -185,8 +195,10 @@ and a hit on a SNP that is not causal for that shape counts as a false positive.
 
 ### Figures and analyses of one resolution
 
-Set `RESOLUTION_DIR` (step 2) and source the script; it writes into that resolution's
-`plots/` or `analyses/`. Steps 1–3 are needed.
+Set `RESOLUTION_DIR` (step 2) and source the script. The scripts that use PPIs read and
+write `RESOLUTION_DIR/<REPLICATE_HANDLING>/`; `REPLICATE_HANDLING` is `"mean_before"` unless
+you set it (the analyses need one value per genotype, so `"mean_before"`). The measured
+reaction norms go to `RESOLUTION_DIR/plots/`. Steps 1–3 are needed.
 
 ```r
 source(here::here("R", "analysis", "plasticity_score_realisation_plot.R"))  # Fig. 2: distributions, clustering, Mantel
@@ -246,19 +258,19 @@ Rscript --vanilla R/gwas/scenarios/scenario_maize.R       # -> output/population
 1. **Load and structure.** It reads the three traits and the genotypes of the varieties
    from `data/A-Datasets/` and writes them as a population folder: the SNPs (978,134,
    stored as `.rds`) in `maize/data/`, the measurements as the resolution `maize/n_8/`.
-   The environments are not controlled, so each environment gets the mean biomass of
-   all varieties in it as its value (environment index as in Finlay–Wilkinson); the same
-   index is used for all three traits.
-2. **PPIs and GWAS.** `compute_population_ppis()` and `run_population_gwas()` on `n_8`.
-   There is no truth, so there is no power.
+   The environments are not controlled, so each environment gets an environment index
+   as in Finlay–Wilkinson: for each trait its own, the environment mean of that trait as
+   given in the FW/AMMI files of the data (`ENV_Biomass`, `ENV_Leaf_area`, `ENV_WUE`).
+2. **PPIs and GWAS.** `compute_population_ppis()` and `run_population_gwas()` on `n_8`
+   (`n_8/mean_before/`). There is no truth, so there is no power.
 3. **GWAS summary.** `06_analyze_maize_gwas_results.R`: hits per PPI and trait
    (Bonferroni and −log10 P > 3, > 5), which PPI finds which SNP, the allele frequency of
    the hit SNPs, the similarity of the PPIs.
 
-The maize figures read the maize PPIs from `maize/n_8/`:
+The maize figures read the maize PPIs from `maize/n_8/mean_before/`:
 
 ```r
-source(here::here("R", "analysis", "plasticity_score_realisation_plot_maize.R"))   # -> maize/n_8/plots/
+source(here::here("R", "analysis", "plasticity_score_realisation_plot_maize.R"))   # -> maize/n_8/mean_before/plots/
 ```
 
 ## Own data
@@ -279,12 +291,22 @@ output/populations/my_data/
       environments.csv    Column, Value                  numeric value of every column
 ```
 
+If the environment values differ per trait (e.g. an environment index of each trait),
+`environments.csv` has one value column per trait, named like the trait files, instead
+of `Value`:
+
+```
+Column, biomass, leafArea
+dry,    194.4,   0.26
+wet,    263.0,   0.32
+```
+
 Then run steps 3 and 4 and the figures of one resolution on it:
 
 ```r
 RESOLUTION_DIR <- here::here("output", "populations", "my_data", "n_5")
-compute_population_ppis(RESOLUTION_DIR)
-run_population_gwas(RESOLUTION_DIR)        # needs snp_matrix.csv
+compute_population_ppis(RESOLUTION_DIR)    # -> n_5/mean_before/ppis/
+run_population_gwas(RESOLUTION_DIR)        # needs snp_matrix.csv; -> n_5/mean_before/gwas/
 ```
 
 Notes:
@@ -293,7 +315,10 @@ Notes:
   resolutions; the stability analysis across resolutions needs a simulated population.
 - Without `truth.csv` the GWAS gives results but no power.
 - Some PPIs need a minimum number of environments (RNN: more than 3). A PPI that cannot
-  be computed gives `NA` with a message; the run continues.
+  be computed gives `NA`; the error is printed with the PPI and the genotype, and the
+  run continues.
+- A large SNP matrix can be stored as `snp_matrix.rds` (a matrix with the genotype IDs as
+  row names) instead of `snp_matrix.csv`.
 - Format errors are reported with the file and the offending column or genotype.
 
 | Script | Simulated | Own data |
@@ -318,13 +343,6 @@ gwas     <- run_gwas(traits, measured$snp_matrix)
 power    <- evaluate_power(gwas, measured$truth, n_snps = ncol(measured$snp_matrix))
 vr       <- variance_report(measured)                   # latent and trait-level variance
 ```
-
-## Earlier results
-
-`output/regression_summary_stats/`, `output/correlation_summary_stats/` and
-`output/rank_flops/` hold committed tables of the earlier simulation, and
-`data/maize_scores_list.rds` the maize PPIs of the earlier computation. No script writes
-or reads them any more; all scripts work on population folders.
 
 ## Notes
 

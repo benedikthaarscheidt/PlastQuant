@@ -15,6 +15,7 @@
 #   SCENARIOS      character, default all scenario_<h2>_<Mc> folders in SCENARIO_ROOT
 #   P_THRESHOLD    numeric, default 1e-3                   P value below which a SNP is a hit [COMMON]
 #   N_POINTS       integer, default 6                      resolution n_<N_POINTS> whose GWAS is used
+#   REPLICATE_HANDLING  "mean_before" (default) or "replicates"  which PPIs' GWAS is used
 #   OUT_DIR        path, default output/combined_scenarios where the tables are written
 # =============================================================================
 options(warn = -1)  # silence warnings even if the project .Rprofile was not loaded
@@ -26,11 +27,13 @@ if (!exists("SCENARIOS")) {
 }
 if (!exists("P_THRESHOLD")) P_THRESHOLD <- 1e-3
 if (!exists("N_POINTS")) N_POINTS <- 6
+if (!exists("REPLICATE_HANDLING")) REPLICATE_HANDLING <- "mean_before"
 if (!exists("OUT_DIR")) OUT_DIR <- here::here("output", "combined_scenarios")
 if (!length(SCENARIOS)) stop("no scenario_<h2>_<Mc> folders in ", SCENARIO_ROOT)
 
 message("Combining: ", paste(SCENARIOS, collapse = ", "))
-combined <- combine_scenario_runs(file.path(SCENARIO_ROOT, SCENARIOS), n_points = N_POINTS, p_threshold = P_THRESHOLD)
+combined <- combine_scenario_runs(file.path(SCENARIO_ROOT, SCENARIOS), n_points = N_POINTS, p_threshold = P_THRESHOLD,
+                                  replicate_handling = REPLICATE_HANDLING)
 detections <- detection_counts(combined)
 
 dir.create(OUT_DIR, recursive = TRUE, showWarnings = FALSE)

@@ -6,13 +6,14 @@
 #   and R^2, clusters scores, and writes per-score and combined diagnostic PDFs.
 # REQUIRES:     RESOLUTION_DIR with its PPIs (compute_population_ppis()); the scores and
 #               summary statistics are those of the population's own sampling resolution.
-# PRODUCES:     Coefficient tables and diagnostic PDFs under RESOLUTION_DIR/plots/regression_summary_stats/.
+# PRODUCES:     Coefficient tables and diagnostic PDFs under RESOLUTION_DIR/<REPLICATE_HANDLING>/plots/regression_summary_stats/.
 # HOW TO RUN:   setwd("~/PlastQuant")
 #               RESOLUTION_DIR <- here::here("output", "populations", "ppi_comparison", "n_6")
 #               source(here::here("R","analysis","regression_summarystats.R"))
 # -----------------------------------------------------------------------------
 # PARAMETERS (edit the named assignment near the top of the script)
 #   RESOLUTION_DIR   path, REQUIRED (set before sourcing)   resolution folder               [COMMON]
+#   REPLICATE_HANDLING  "mean_before" (default) or "replicates"   which PPIs of the resolution
 #   predictor_names  character vector  the summary-stat predictors used
 #   k                integer, default 4     number of score clusters
 #   n_perm           integer, default 1000  permutations for the cluster test
@@ -90,12 +91,14 @@ ensure_dir_exists <- function(file_path) {
 
 # Directories for input data and output
 if (!exists("RESOLUTION_DIR")) stop("set RESOLUTION_DIR (a resolution folder, e.g. output/populations/<name>/n_6) first")
+if (!exists("REPLICATE_HANDLING")) REPLICATE_HANDLING <- "mean_before"   # PPIs of mean_before/ or replicates/
+PPI_SET_DIR <- file.path(RESOLUTION_DIR, REPLICATE_HANDLING)
 source(here::here("R", "pipeline", "load_pipeline.R"))
-output_folder <- file.path(RESOLUTION_DIR, "plots", "regression_summary_stats")
+output_folder <- file.path(PPI_SET_DIR, "plots", "regression_summary_stats")
 dir.create(output_folder, recursive = TRUE, showWarnings = FALSE)
 
 # Scores and summary statistics of the population at its own resolution (one row per genotype)
-score_tab <- population_score_table(RESOLUTION_DIR)
+score_tab <- population_score_table(RESOLUTION_DIR, REPLICATE_HANDLING)
 combined_df <- score_tab[, setdiff(names(score_tab), c("Shape", "Genotype"))]
 rownames(combined_df) <- paste(score_tab$Shape, score_tab$Genotype, sep = "_")
 

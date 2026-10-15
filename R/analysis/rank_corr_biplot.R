@@ -9,7 +9,7 @@
 #               are those of the population's own sampling resolution.
 #               Maize (form_ranges of length 3): the maize PPIs of scenario_maize.R
 #               (RESOLUTION_DIR, default output/populations/maize/n_8).
-# PRODUCES:     RESOLUTION_DIR/plots/plasticity_comprehensive_analysis/ (PDF and CSV tables);
+# PRODUCES:     RESOLUTION_DIR/<REPLICATE_HANDLING>/plots/plasticity_comprehensive_analysis/ (PDF and CSV tables);
 #               (also for maize).
 # HOW TO RUN:   setwd("~/PlastQuant")
 #               RESOLUTION_DIR <- here::here("output", "populations", "ppi_comparison", "n_6")
@@ -17,6 +17,7 @@
 # -----------------------------------------------------------------------------
 # PARAMETERS
 #   RESOLUTION_DIR  path, REQUIRED for simulated data                                       [COMMON]
+#   REPLICATE_HANDLING  "mean_before" (default) or "replicates"   which PPIs of the resolution
 # =============================================================================
 options(warn = -1)  # silence warnings even if the project .Rprofile was not loaded
 
@@ -62,8 +63,10 @@ maize_pool_all <- !is_maize || is.null(maize_trait) || identical(maize_trait, "a
 # scenario_maize.R, output/populations/maize/n_8)
 if (is_maize && !exists("RESOLUTION_DIR")) RESOLUTION_DIR <- here::here("output", "populations", "maize", "n_8")
 if (!exists("RESOLUTION_DIR")) stop("set RESOLUTION_DIR (a resolution folder, e.g. output/populations/<name>/n_6) first")
+if (!exists("REPLICATE_HANDLING")) REPLICATE_HANDLING <- "mean_before"   # PPIs of mean_before/ or replicates/
+PPI_SET_DIR <- file.path(RESOLUTION_DIR, REPLICATE_HANDLING)
 source(here::here("R", "pipeline", "load_pipeline.R"))
-output_dir <- file.path(RESOLUTION_DIR, "plots", "plasticity_comprehensive_analysis")
+output_dir <- file.path(PPI_SET_DIR, "plots", "plasticity_comprehensive_analysis")
 dir.create(output_dir, recursive = TRUE, showWarnings = FALSE)
 
 tau_threshold <- 0.8
@@ -408,7 +411,7 @@ main <- function() {
   if (is_maize) {
     trait_label <- if (maize_pool_all) "all (pooled)" else maize_trait
     cat("Loading the maize PPIs of ", RESOLUTION_DIR, " (trait: ", trait_label, ")\n", sep = "")
-    tab <- ppi_wide_table(readRDS(file.path(RESOLUTION_DIR, "ppis", "ppi_scores.rds")), shapes = names(form_ranges))
+    tab <- ppi_wide_table(readRDS(file.path(PPI_SET_DIR, "ppis", "ppi_scores.rds")), shapes = names(form_ranges))
     plasticity_scores <- as.matrix(tab[, setdiff(names(tab), c("Shape", "Genotype"))])
     rownames(plasticity_scores) <- paste(tab$Shape, tab$Genotype, sep = "_")
 
@@ -426,7 +429,7 @@ main <- function() {
                             dimnames = list(rownames(plasticity_scores), NULL))
   } else {
     cat("Loading the PPIs and summary statistics of ", RESOLUTION_DIR, "\n", sep = "")
-    tab <- population_score_table(RESOLUTION_DIR)
+    tab <- population_score_table(RESOLUTION_DIR, REPLICATE_HANDLING)
     ppi_cols <- setdiff(names(tab), c("Shape", "Genotype", summary_stat_names))
     plasticity_scores <- as.matrix(tab[, ppi_cols])
     summary_stats <- as.matrix(tab[, summary_stat_names])

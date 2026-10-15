@@ -5,21 +5,24 @@
 #   (k-means, DBSCAN, hierarchical, mclust) and renders the associated heatmaps/plots.
 #   Reads the PPIs and reaction norms of RESOLUTION_DIR.
 # REQUIRES:     RESOLUTION_DIR with its PPIs (compute_population_ppis()).
-# PRODUCES:     Clustering figures under RESOLUTION_DIR/analyses/clustering/.
+# PRODUCES:     Clustering figures under RESOLUTION_DIR/<REPLICATE_HANDLING>/analyses/clustering/.
 # HOW TO RUN:   setwd("~/PlastQuant"); RESOLUTION_DIR <- here::here("output", "populations", "<name>", "n_6")
 #               source(here::here("R","analysis","clustering_rn_summary_stats.R"))
 # -----------------------------------------------------------------------------
 # PARAMETERS
 #   RESOLUTION_DIR  path, REQUIRED (set before sourcing)   resolution folder               [COMMON]
+#   REPLICATE_HANDLING  "mean_before" (default) or "replicates"   which PPIs of the resolution
 #   Analysis settings are set in the body of the script.
 # =============================================================================
 options(warn = -1)  # silence warnings even if the project .Rprofile was not loaded
 
 # PPIs and replicate-mean reaction norms of the resolution RESOLUTION_DIR
 if (!exists("RESOLUTION_DIR")) stop("set RESOLUTION_DIR (a resolution folder, e.g. output/populations/<name>/n_6) first")
+if (!exists("REPLICATE_HANDLING")) REPLICATE_HANDLING <- "mean_before"   # PPIs of mean_before/ or replicates/
+PPI_SET_DIR <- file.path(RESOLUTION_DIR, REPLICATE_HANDLING)
 source(here::here("R", "pipeline", "load_pipeline.R"))
-analysis_inputs <- score_analysis_inputs(RESOLUTION_DIR)
-clustering_dir <- file.path(RESOLUTION_DIR, "analyses", "clustering")
+analysis_inputs <- score_analysis_inputs(RESOLUTION_DIR, REPLICATE_HANDLING)
+clustering_dir <- file.path(PPI_SET_DIR, "analyses", "clustering")
 dir.create(clustering_dir, recursive = TRUE, showWarnings = FALSE)
 
 

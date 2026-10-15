@@ -34,25 +34,29 @@ Other parameters of the numbered scripts and analyses are set with guarded defau
                      mother_parameters.csv, plant_parameters.csv, reaction_norms.pdf,
                      snp_matrix.rds|.csv, kinship.csv, truth.csv, config.rds
       variance/      variance_latent.csv
-      n_<k>/         the population measured at k equidistant environments
-        data/        traits/<shape>.csv (Genotype, one column per environment), environments.csv
+      n_<k>/         the population measured at k environments
+        data/        traits/<trait>.csv (Genotype, one column per environment),
+                     environments.csv (Column, Value; or Column + one value column per trait)
         variance/    variance_trait.csv, measurement.csv
-        ppis/        <PPI>.csv, ppi_scores.rds
-        gwas/        gwas_results.csv, gwas_power.csv, gwas_accuracy_summary.csv
-        analyses/    summary_statistics.csv, analyses of this resolution
-        plots/       figures of this resolution
+        analyses/    summary_statistics.csv
+        plots/       measured reaction norms
+        mean_before/ PPIs from the replicate-averaged reaction norms (default)
+          ppis/  gwas/  analyses/  plots/
+        replicates/  PPIs from every replicate's own reaction norm
+          ppis/  gwas/  analyses/  plots/
       analyses/      analyses across resolutions (resolution/, correlation_summary_stats/)
       plots/         figures across resolutions
 
 Own data: SNPs, kinship and truth in `<name>/data/`, the measurements in
-`<name>/n_<number of environments>/data/` (same format as above).
+`<name>/n_<number of environments>/data/` (same format as above). The scripts that use
+PPIs take `RESOLUTION_DIR` and `REPLICATE_HANDLING` (default `"mean_before"`).
 
 ## Dependency map
 
     simulate_population(cfg, POPULATION_DIR)          -> data/, variance/
       └─ sample_resolution(POPULATION_DIR, k)         -> n_<k>/data/, n_<k>/variance/
-           └─ compute_population_ppis(n_<k>)          -> n_<k>/ppis/
-                ├─ run_population_gwas(n_<k>)         -> n_<k>/gwas/ ─▶ 05_evaluate_gwas
+           └─ compute_population_ppis(n_<k>, replicate_handling) -> n_<k>/<handling>/ppis/
+                ├─ run_population_gwas(n_<k>, replicate_handling) -> n_<k>/<handling>/gwas/ ─▶ 05_evaluate_gwas
                 ├─ analysis/plasticity_score_realisation_plot, rank_corr_biplot,
                 │  correlation_summary_stats_PS, plotting_reaction_norms_all
                 ├─ analysis/regression_summarystats, kendall_rank_corr ─▶ kendall_tau_corr_clustering
@@ -65,8 +69,9 @@ Own data: SNPs, kinship and truth in `<name>/data/`, the measurements in
 
     scenarios/scenario_<h2>_<Mc>: simulate -> n_6 -> PPIs -> GWAS -> 05
       └─ scenarios/combine_scenarios ─▶ 06_analyze_gwas_results
-    scenarios/scenario_maize: maize data -> population folder maize/ (SNPs) + n_8 (traits)
-      -> PPIs -> GWAS ─▶ 06_analyze_maize_gwas_results; analysis/plasticity_score_realisation_plot_maize
+    scenarios/scenario_maize: maize data -> population folder maize/ (SNPs) + n_8 (traits, each
+      with its own environment index) -> PPIs -> GWAS ─▶ 06_analyze_maize_gwas_results;
+      analysis/plasticity_score_realisation_plot_maize
 
 The power of a parameter is always evaluated within its shape: its causal SNPs are
 searched only in the GWAS of that shape, and a hit on a SNP that is not causal for the
@@ -86,12 +91,12 @@ shape is a false positive.
 | `R/sim/variance_report.R` | `latent_variance()` (from the norms), `trait_variance()` (per measurement), `variance_report()` |
 | `R/ppi/ppi_registry.R` | PPI entries, `register_ppi()`, validation, default registry (28 PPIs) |
 | `R/ppi/compute_ppis.R` | `compute_ppis()` with `exclude` and `replicate_handling`: `ppi_per_avg_genotype()` (replicates averaged first) or `ppi_per_replicate()` (each replicate's own norm); `replicate_means()`; `ppi_wide_table()` |
-| `R/pipeline/pipeline_input.R` | in-memory data contract (phenotypes, environments, SNPs, truth) and its checks |
-| `R/pipeline/population_folder.R` | folder format: `write_population()`, `write_resolution()`, `read_population()`, `sample_population()`, `resolution_dirs()`, `resolution_path()` |
+| `R/pipeline/pipeline_input.R` | in-memory data contract (phenotypes, environments shared or per trait, SNPs, truth) and its checks; `trait_environments()`, `is_dosage_matrix()` |
+| `R/pipeline/population_folder.R` | folder format: `write_population()`, `write_resolution()`, `read_population()`, `sample_population()`, `resolution_dirs()`, `resolution_path()`, `ppi_set_path()` |
 | `R/sim/simulate_population.R` | `simulate_population()`: true norms of a population -> `data/`, `variance/` |
 | `R/pipeline/sample_resolution.R` | `sample_resolution()`: the population measured at n points -> `n_<n>/data/`, `n_<n>/variance/` |
-| `R/ppi/compute_population_ppis.R` | `compute_population_ppis()`: PPIs of a resolution -> `n_<n>/ppis/` |
-| `R/gwas/run_population_gwas.R` | `run_population_gwas()`: GWAS of the PPIs of a resolution -> `n_<n>/gwas/` |
+| `R/ppi/compute_population_ppis.R` | `compute_population_ppis()`: PPIs of a resolution -> `n_<n>/<replicate handling>/ppis/` |
+| `R/gwas/run_population_gwas.R` | `run_population_gwas()`: GWAS of the PPIs of a resolution -> `n_<n>/<replicate handling>/gwas/` |
 | `R/sim/plot_norms.R` | `plot_true_norms()`: the true norms, drawn into `data/reaction_norms.pdf` |
 | `R/gwas/gwas.R` | kinship matrix; `run_gwas()` per PPI and shape (rrBLUP mixed model) |
 | `R/gwas/evaluate_power.R` | power per shape against that shape's causal SNPs |
@@ -124,17 +129,18 @@ WHAT IT DOES: Compares the GWAS hits of one resolution of a population against t
   Every shape is evaluated against its own causal SNPs only, so the power of a
   parameter is always the power within one shape (a hit on a causal SNP of another
   shape is a false positive). Draws one power heatmap per shape plus an overview.
-REQUIRES:     A resolution folder with GWAS results (gwas/gwas_results.csv) of a
+REQUIRES:     A resolution folder with GWAS results (<REPLICATE_HANDLING>/gwas/gwas_results.csv) of a
               population with a truth table (<population>/data/truth.csv), e.g. from a scenario_*.R driver
               or run_population_gwas() on own data with known causal SNPs.
-PRODUCES:     RESOLUTION_DIR/gwas/gwas_accuracy_summary.csv and
-              RESOLUTION_DIR/plots/gwas_power_heatmap.pdf.
+PRODUCES:     RESOLUTION_DIR/<REPLICATE_HANDLING>/gwas/gwas_accuracy_summary.csv and
+              RESOLUTION_DIR/<REPLICATE_HANDLING>/plots/gwas_power_heatmap.pdf.
 HOW TO RUN:   setwd("~/PlastQuant")
               RESOLUTION_DIR <- here::here("output", "populations", "scenario_20_5", "n_6")
               source(here::here("R", "gwas", "05_evaluate_gwas.R"))
 -----------------------------------------------------------------------------
 PARAMETERS — set these before sourcing (guarded defaults)
   RESOLUTION_DIR  path, REQUIRED              resolution folder to evaluate         [COMMON]
+  REPLICATE_HANDLING  "mean_before" (default) or "replicates"   which PPIs of the resolution
   ALPHA           numeric, default 0.05       Bonferroni level: P < ALPHA / n_SNPs
 =============================================================================
 ```
@@ -176,15 +182,16 @@ WHAT IT DOES: Summarises the GWAS hits of the maize data per plasticity index (P
   Hits: significant = Bonferroni P < ALPHA / number of SNPs; additionally all SNPs
   with -log10(P) > 3 and > 5.
 REQUIRES:     The maize resolution folder with PPIs and GWAS (scenario_maize.R).
-PRODUCES:     In RESOLUTION_DIR/gwas/: maize_hits_significant.csv, maize_hits_logp3.csv,
+PRODUCES:     In RESOLUTION_DIR/<REPLICATE_HANDLING>/gwas/: maize_hits_significant.csv, maize_hits_logp3.csv,
               maize_hit_counts.csv, maize_hit_snps.csv (SNP x PPI per trait, allele
-              frequency); RESOLUTION_DIR/plots/maize_gwas_summary.pdf
+              frequency); RESOLUTION_DIR/<REPLICATE_HANDLING>/plots/maize_gwas_summary.pdf
 HOW TO RUN:   setwd("~/PlastQuant")
               RESOLUTION_DIR <- here::here("output", "populations", "maize", "n_8")
               source(here::here("R", "gwas", "06_analyze_maize_gwas_results.R"))
 -----------------------------------------------------------------------------
 PARAMETERS — set these before sourcing (guarded defaults)
   RESOLUTION_DIR  path, default output/populations/maize/n_8   maize resolution folder [COMMON]
+  REPLICATE_HANDLING  "mean_before" (default) or "replicates"   which PPIs of the resolution
   ALPHA           numeric, default 0.05                         Bonferroni level
 =============================================================================
 ```
@@ -344,12 +351,15 @@ WHAT IT DOES: Loads the maize data (244 varieties, traits biomass, leaf area and
   and the SNPs of the varieties, writes them as a population folder (own data), and
   runs the same steps as for simulated data: PPIs, GWAS, and the summary of the GWAS
   hits (06_analyze_maize_gwas_results.R).
-  Environment values: the environments are not controlled, so every environment is
-  given the mean biomass of all varieties in it (environment index as in
-  Finlay-Wilkinson); the same index is used for all three traits. The environments
-  are ordered along this index.
+  Environment values: the environments are not controlled, so every environment gets
+  an environment index as in Finlay-Wilkinson: for each trait its own index, the
+  environment mean of that trait as given in the FW/AMMI files of the data
+  (ENV_Biomass, ENV_Leaf_area, ENV_WUE). The environments of a trait are ordered
+  along its index.
 REQUIRES:     data/A-Datasets/: Biomass_RDPI_CV_Ratio.txt, Leaf_area_RDPI_CV_Ratio.txt,
-              WUE_RDPI_CV_Ratio.txt, Genotyping_matrix_Negro_et_al_2019.Rdata
+              WUE_RDPI_CV_Ratio.txt (trait values), Biomass_FW_AMMI.txt,
+              Leaf_area_FW_AMMI.txt, WUE_FW_AMMI.txt (environment indices),
+              Genotyping_matrix_Negro_et_al_2019.Rdata
               (genotyping data: https://forgemia.inra.fr/gqe-base/djabali-drought-plasticity-qtls-article1)
 PRODUCES:     output/populations/maize/: data/ (SNPs), n_8/data/ (the three traits),
               n_8/ppis/, n_8/gwas/, and the GWAS summary of 06_analyze_maize_gwas_results.R
@@ -381,6 +391,7 @@ PARAMETERS — set these before sourcing (guarded defaults)
   SCENARIOS      character, default all scenario_<h2>_<Mc> folders in SCENARIO_ROOT
   P_THRESHOLD    numeric, default 1e-3                   P value below which a SNP is a hit [COMMON]
   N_POINTS       integer, default 6                      resolution n_<N_POINTS> whose GWAS is used
+  REPLICATE_HANDLING  "mean_before" (default) or "replicates"  which PPIs' GWAS is used
   OUT_DIR        path, default output/combined_scenarios where the tables are written
 =============================================================================
 ```
@@ -423,13 +434,14 @@ WHAT IT DOES: For each plasticity score, fits full/simple/ridge regression model
   and R^2, clusters scores, and writes per-score and combined diagnostic PDFs.
 REQUIRES:     RESOLUTION_DIR with its PPIs (compute_population_ppis()); the scores and
               summary statistics are those of the population's own sampling resolution.
-PRODUCES:     Coefficient tables and diagnostic PDFs under RESOLUTION_DIR/plots/regression_summary_stats/.
+PRODUCES:     Coefficient tables and diagnostic PDFs under RESOLUTION_DIR/<REPLICATE_HANDLING>/plots/regression_summary_stats/.
 HOW TO RUN:   setwd("~/PlastQuant")
               RESOLUTION_DIR <- here::here("output", "populations", "ppi_comparison", "n_6")
               source(here::here("R","analysis","regression_summarystats.R"))
 -----------------------------------------------------------------------------
 PARAMETERS (edit the named assignment near the top of the script)
   RESOLUTION_DIR   path, REQUIRED (set before sourcing)   resolution folder               [COMMON]
+  REPLICATE_HANDLING  "mean_before" (default) or "replicates"   which PPIs of the resolution
   predictor_names  character vector  the summary-stat predictors used
   k                integer, default 4     number of score clusters
   n_perm           integer, default 1000  permutations for the cluster test
@@ -446,13 +458,14 @@ WHAT IT DOES: Ranks the genotypes under every plasticity index and computes the
   Kendall rank correlation of every index pair, for the population at its own
   sampling resolution.
 REQUIRES:     RESOLUTION_DIR with its PPIs (compute_population_ppis()).
-PRODUCES:     Rank-correlation tables under RESOLUTION_DIR/analyses/rank_flops/.
+PRODUCES:     Rank-correlation tables under RESOLUTION_DIR/<REPLICATE_HANDLING>/analyses/rank_flops/.
 HOW TO RUN:   setwd("~/PlastQuant")
               RESOLUTION_DIR <- here::here("output", "populations", "ppi_comparison", "n_6")
               source(here::here("R","analysis","kendall_rank_corr.R"))
 -----------------------------------------------------------------------------
 PARAMETERS (edit the named assignment near the top of the script)
   RESOLUTION_DIR        path, REQUIRED                  resolution folder               [COMMON]
+  REPLICATE_HANDLING  "mean_before" (default) or "replicates"   which PPIs of the resolution
   score_names           character vector                which indices to correlate
 =============================================================================
 ```
@@ -468,13 +481,14 @@ WHAT IT DOES: Reads the rank-agreement ("rank flops") tables and clusters the
 REQUIRES:     kendall_rank_corr.R run on RESOLUTION_DIR (analyses/rank_flops/); the
               summary statistics are those of the population at its own resolution.
 PRODUCES:     Clustering summaries/plots of index agreement in
-              RESOLUTION_DIR/analyses/rank_flops/derived/.
+              RESOLUTION_DIR/<REPLICATE_HANDLING>/analyses/rank_flops/derived/.
 HOW TO RUN:   setwd("~/PlastQuant")
               RESOLUTION_DIR <- here::here("output", "populations", "ppi_comparison", "n_6")
               source(here::here("R","analysis","kendall_tau_corr_clustering.R"))
 -----------------------------------------------------------------------------
 PARAMETERS (edit the named assignment near the top of the script)
   RESOLUTION_DIR  path, REQUIRED (set before sourcing)   resolution folder              [COMMON]
+  REPLICATE_HANDLING  "mean_before" (default) or "replicates"   which PPIs of the resolution
   tau_threshold   numeric, default 0.8              Kendall-tau agreement threshold      [COMMON]
   topk_values     integer vector, default c(3,5,10,15,20)  top-k cutoffs to evaluate     [COMMON]
   AGREE_THR_FULL  numeric, default 1.00             full-agreement threshold
@@ -491,12 +505,13 @@ WHAT IT DOES: Clusters genotypes / indices on their reaction-norm summary statis
   (k-means, DBSCAN, hierarchical, mclust) and renders the associated heatmaps/plots.
   Reads the PPIs and reaction norms of RESOLUTION_DIR.
 REQUIRES:     RESOLUTION_DIR with its PPIs (compute_population_ppis()).
-PRODUCES:     Clustering figures under RESOLUTION_DIR/analyses/clustering/.
+PRODUCES:     Clustering figures under RESOLUTION_DIR/<REPLICATE_HANDLING>/analyses/clustering/.
 HOW TO RUN:   setwd("~/PlastQuant"); RESOLUTION_DIR <- here::here("output", "populations", "<name>", "n_6")
               source(here::here("R","analysis","clustering_rn_summary_stats.R"))
 -----------------------------------------------------------------------------
 PARAMETERS
   RESOLUTION_DIR  path, REQUIRED (set before sourcing)   resolution folder               [COMMON]
+  REPLICATE_HANDLING  "mean_before" (default) or "replicates"   which PPIs of the resolution
   Analysis settings are set in the body of the script.
 =============================================================================
 ```
@@ -511,12 +526,13 @@ WHAT IT DOES: Computes and visualises the relationship between reaction-norm sum
   statistics and the plasticity scores (correlation matrices, distance measures,
   clustering). Reads the PPIs and reaction norms of RESOLUTION_DIR.
 REQUIRES:     RESOLUTION_DIR with its PPIs (compute_population_ppis()).
-PRODUCES:     Summary-stat vs score figures under RESOLUTION_DIR/analyses/summary_stats_vs_scores/.
+PRODUCES:     Summary-stat vs score figures under RESOLUTION_DIR/<REPLICATE_HANDLING>/analyses/summary_stats_vs_scores/.
 HOW TO RUN:   setwd("~/PlastQuant"); RESOLUTION_DIR <- here::here("output", "populations", "<name>", "n_6")
               source(here::here("R","analysis","summary_stats_vs_scores.R"))
 -----------------------------------------------------------------------------
 PARAMETERS
   RESOLUTION_DIR  path, REQUIRED (set before sourcing)   resolution folder               [COMMON]
+  REPLICATE_HANDLING  "mean_before" (default) or "replicates"   which PPIs of the resolution
   Analysis settings are set in the body of the script.
 =============================================================================
 ```
@@ -604,13 +620,14 @@ WHAT IT DOES: Renders correlation panels between the reaction-norm summary stati
   and the plasticity scores.
 REQUIRES:     RESOLUTION_DIR with its PPIs (compute_population_ppis()); scores and
               summary statistics at the population's own sampling resolution.
-PRODUCES:     Correlation-panel figures in RESOLUTION_DIR/plots/.
+PRODUCES:     Correlation-panel figures in RESOLUTION_DIR/<REPLICATE_HANDLING>/plots/.
 HOW TO RUN:   setwd("~/PlastQuant")
               RESOLUTION_DIR <- here::here("output", "populations", "ppi_comparison", "n_6")
               source(here::here("R", "analysis", "correlation_summary_stats_PS.R"))
 -----------------------------------------------------------------------------
 PARAMETERS (edit the named assignment near the top of the script)
   RESOLUTION_DIR  path, REQUIRED (set before sourcing)   resolution folder                [COMMON]
+  REPLICATE_HANDLING  "mean_before" (default) or "replicates"   which PPIs of the resolution
   stat_cols   character vector  summary-stat columns to use
 =============================================================================
 ```
@@ -624,15 +641,16 @@ plasticity_score_realisation_plot.R — plasticity-score realisations (simulated
 WHAT IT DOES: Plots the realised plasticity scores of a population at its own
   sampling resolution: distributions, Kendall-distance clustering per shape and
   combined, silhouette choice of k, Mantel tests between the shapes (Figure 2).
-REQUIRES:     RESOLUTION_DIR with its PPIs (RESOLUTION_DIR/ppis/ppi_scores.rds from
+REQUIRES:     RESOLUTION_DIR with its PPIs (RESOLUTION_DIR/<REPLICATE_HANDLING>/ppis/ppi_scores.rds from
               compute_population_ppis(RESOLUTION_DIR)).
-PRODUCES:     Figures under RESOLUTION_DIR/plots/ (figure2_2.pdf, figure2_3.pdf, ...).
+PRODUCES:     Figures under RESOLUTION_DIR/<REPLICATE_HANDLING>/plots/ (figure2_2.pdf, figure2_3.pdf, ...).
 HOW TO RUN:   setwd("~/PlastQuant")
               RESOLUTION_DIR <- here::here("output", "populations", "ppi_comparison", "n_6")
               source(here::here("R", "analysis", "plasticity_score_realisation_plot.R"))
 -----------------------------------------------------------------------------
 PARAMETERS — set before sourcing
   RESOLUTION_DIR  path, REQUIRED   resolution folder                                     [COMMON]
+  REPLICATE_HANDLING  "mean_before" (default) or "replicates"   which PPIs of the resolution
 =============================================================================
 ```
 
@@ -717,7 +735,7 @@ REQUIRES:     Simulated data: RESOLUTION_DIR with its PPIs (ppis/ppi_scores.rds 
               are those of the population's own sampling resolution.
               Maize (form_ranges of length 3): the maize PPIs of scenario_maize.R
               (RESOLUTION_DIR, default output/populations/maize/n_8).
-PRODUCES:     RESOLUTION_DIR/plots/plasticity_comprehensive_analysis/ (PDF and CSV tables);
+PRODUCES:     RESOLUTION_DIR/<REPLICATE_HANDLING>/plots/plasticity_comprehensive_analysis/ (PDF and CSV tables);
               (also for maize).
 HOW TO RUN:   setwd("~/PlastQuant")
               RESOLUTION_DIR <- here::here("output", "populations", "ppi_comparison", "n_6")
@@ -725,6 +743,7 @@ HOW TO RUN:   setwd("~/PlastQuant")
 -----------------------------------------------------------------------------
 PARAMETERS
   RESOLUTION_DIR  path, REQUIRED for simulated data                                       [COMMON]
+  REPLICATE_HANDLING  "mean_before" (default) or "replicates"   which PPIs of the resolution
 =============================================================================
 ```
 

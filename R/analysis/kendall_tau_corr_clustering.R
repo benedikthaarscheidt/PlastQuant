@@ -6,13 +6,14 @@
 # REQUIRES:     kendall_rank_corr.R run on RESOLUTION_DIR (analyses/rank_flops/); the
 #               summary statistics are those of the population at its own resolution.
 # PRODUCES:     Clustering summaries/plots of index agreement in
-#               RESOLUTION_DIR/analyses/rank_flops/derived/.
+#               RESOLUTION_DIR/<REPLICATE_HANDLING>/analyses/rank_flops/derived/.
 # HOW TO RUN:   setwd("~/PlastQuant")
 #               RESOLUTION_DIR <- here::here("output", "populations", "ppi_comparison", "n_6")
 #               source(here::here("R","analysis","kendall_tau_corr_clustering.R"))
 # -----------------------------------------------------------------------------
 # PARAMETERS (edit the named assignment near the top of the script)
 #   RESOLUTION_DIR  path, REQUIRED (set before sourcing)   resolution folder              [COMMON]
+#   REPLICATE_HANDLING  "mean_before" (default) or "replicates"   which PPIs of the resolution
 #   tau_threshold   numeric, default 0.8              Kendall-tau agreement threshold      [COMMON]
 #   topk_values     integer vector, default c(3,5,10,15,20)  top-k cutoffs to evaluate     [COMMON]
 #   AGREE_THR_FULL  numeric, default 1.00             full-agreement threshold
@@ -38,7 +39,9 @@ suppressPackageStartupMessages({
 
 # ======================= CONFIG =======================
 if (!exists("RESOLUTION_DIR")) stop("set RESOLUTION_DIR (a resolution folder, e.g. output/populations/<name>/n_6) first")
-in_dir  <- file.path(RESOLUTION_DIR, "analyses", "rank_flops")
+if (!exists("REPLICATE_HANDLING")) REPLICATE_HANDLING <- "mean_before"   # PPIs of mean_before/ or replicates/
+PPI_SET_DIR <- file.path(RESOLUTION_DIR, REPLICATE_HANDLING)
+in_dir  <- file.path(PPI_SET_DIR, "analyses", "rank_flops")
 out_dir <- file.path(in_dir, "derived")
 dir.create(out_dir, recursive = TRUE, showWarnings = FALSE)
 
@@ -49,7 +52,7 @@ AGREE_THR_FULL <- 1.00
 # Summary-stats/PS realisations file used in your other figure
 # Scores and summary statistics of the population at its own resolution
 source(here::here("R", "pipeline", "load_pipeline.R"))
-sumstats_score_table <- population_score_table(RESOLUTION_DIR)
+sumstats_score_table <- population_score_table(RESOLUTION_DIR, REPLICATE_HANDLING)
 # Columns: first the genotype, then the plasticity indices, then these statistics
 sumstats_stat_names <- c("min", "max", "mean", "median", "slope", "range", "variance", "mean_lower", "mean_upper")
 # ======================================================
