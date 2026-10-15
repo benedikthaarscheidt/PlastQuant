@@ -22,7 +22,7 @@ MC=5                    # causal SNPs per parameter
 SEED=1                  # seed of the population
 HANDLING="mean_before"  # replicate handling of the PPIs: "mean_before" or "replicates"
 R_MODULE="lang/R/4.3.3-gfbf-2023b"
-export R_LIBS_USER="$HOME/R/plastquant-4.3"   # packages from hpc/install_packages.sh
+export R_LIBS_USER="/work/haarscheid/R/plastquant-4.3"   # packages from hpc/install_packages.sh
 # ------------------------------------------------------------------------------
 
 set -uo pipefail

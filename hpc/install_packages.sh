@@ -1,12 +1,12 @@
 #!/bin/bash
 # Installs the R packages of the pipeline into R_LIBS_USER, once, on the login node (the
 # compute nodes may have no internet), from the repo root:
-#   bash hpc/install_packages.sh [ppindices source folder, default ~/ppindices]
+#   bash hpc/install_packages.sh [ppindices source folder, default /work/haarscheid/ppindices]
 # Keep R_MODULE and R_LIBS_USER the same as in hpc/resolution_gwas.slurm.
 set -euo pipefail
 R_MODULE="lang/R/4.3.3-gfbf-2023b"
-export R_LIBS_USER="$HOME/R/plastquant-4.3"
-PPINDICES_SRC="${1:-$HOME/ppindices}"
+export R_LIBS_USER="/work/haarscheid/R/plastquant-4.3"
+PPINDICES_SRC="${1:-/work/haarscheid/ppindices}"
 module load "$R_MODULE"
 mkdir -p "$R_LIBS_USER"
 Rscript --vanilla - <<RSCRIPT
