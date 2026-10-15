@@ -108,3 +108,19 @@ test_that("PPI results as a wide table: one row per genotype, one column per PPI
   expect_equal(w$CV, c(10, 20, 30))
   expect_error(ppi_wide_table(lapply(traits, function(d) transform(d, Replicate = 1L))), "one value per genotype")
 })
+
+test_that("per replicate: each replicate's own reaction norm, nothing averaged", {
+  x <- toy()
+  d <- x$phenotypes$shapeA
+  d$Trait[d$Replicate == 2] <- d$Trait[d$Replicate == 2] * 3      # replicate 2 three times steeper
+  reps <- compute_ppis(list(shapeA = d), x$env, reg["slope"], replicate_handling = "replicates")$slope
+  for (g in c("G1", "G2", "G3")) for (r in 1:2) {
+    own <- d[d$Genotype == g & d$Replicate == r, ]
+    expect_equal(reps$Score[reps$Genotype_ID == g & reps$Replicate == r],
+                 unname(coef(lm(own$Trait ~ own$Environment))[2]), tolerance = 1e-10)
+  }
+  # the matrix of one replicate is its measurements; two values per cell are an error
+  M <- reaction_norm_matrix_of(d[d$Replicate == 2, ], x$env)
+  expect_equal(M["G1", ], d$Trait[d$Genotype == "G1" & d$Replicate == 2], ignore_attr = TRUE)
+  expect_error(reaction_norm_matrix_of(d, x$env), "more than one value")
+})

@@ -10,6 +10,16 @@ replicate_means <- function(phenotypes, environments) {
   matrix(M, nrow(M), ncol(M), dimnames = list(rownames(M), NULL))
 }
 
+# Genotypes x environments matrix of single measurements (one value per genotype and
+# environment, e.g. the rows of one replicate): the reaction norms as they were measured
+reaction_norm_matrix_of <- function(phenotypes, environments) {
+  ids <- as.character(phenotypes$Genotype)
+  if (anyDuplicated(paste(ids, phenotypes$Environment))) {
+    stop("more than one value per genotype and environment: select one replicate first")
+  }
+  replicate_means(phenotypes, environments)   # one value per cell: the matrix of the measurements
+}
+
 first_value <- function(x) as.numeric(if (is.list(x)) x[[1]] else x)[1]
 
 # Value of one PPI for every genotype of one shape (named numeric vector)
@@ -45,12 +55,12 @@ compute_ppi <- function(entry, M, environments) {
 }
 
 # PPI values of every genotype (rows) and replicate (columns) of one shape:
-# the PPI is computed on each replicate's own reaction norm
+# the PPI is computed on each replicate's own measured reaction norm (nothing averaged)
 ppi_per_replicate <- function(entry, phenotypes, environments) {
   ids <- unique(as.character(phenotypes$Genotype))
   reps <- sort(unique(phenotypes$Replicate))
   out <- sapply(reps, function(r) {
-    M <- replicate_means(phenotypes[phenotypes$Replicate == r, ], environments)
+    M <- reaction_norm_matrix_of(phenotypes[phenotypes$Replicate == r, ], environments)
     compute_ppi(entry, M, environments)[ids]
   })
   matrix(out, length(ids), length(reps), dimnames = list(ids, reps))
