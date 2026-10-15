@@ -4,7 +4,9 @@
 # A pipeline input is a list with
 #   snp_matrix    genotypes x SNPs, dosages 0/1/2, rownames = genotype IDs;
 #                 optional for own data (then only the PPIs are computed, no GWAS)
-#   environments  numeric vector of environment values (one per measurement point)
+#   environments  numeric vector of environment values (one per measurement point), the
+#                 same for all phenotypes; or a named list with one such vector per
+#                 phenotype (e.g. an environment index of each trait)
 #   phenotypes    named list, one data.frame per shape or trait with columns
 #                 Genotype, Replicate, Environment, Trait
 #   truth         optional data.frame Shape, Parameter, SNP (known causal SNPs);
@@ -29,6 +31,11 @@ is_dosage_matrix <- function(X, block = 10000) {
   TRUE
 }
 
+# The environment values of one phenotype (shape or trait)
+trait_environments <- function(environments, trait) {
+  if (is.list(environments)) environments[[trait]] else environments
+}
+
 check_pipeline_input <- function(x) {
   has_snps <- !is.null(x$snp_matrix)
   if (has_snps) {
@@ -37,9 +44,16 @@ check_pipeline_input <- function(x) {
     }
     if (!is_dosage_matrix(x$snp_matrix)) stop("snp_matrix must contain dosages 0, 1, 2")
   }
-  if (!is.numeric(x$environments) || length(x$environments) < 2) stop("environments must be numeric, length >= 2")
   if (!is.list(x$phenotypes) || is.null(names(x$phenotypes)) || any(names(x$phenotypes) == "")) {
     stop("phenotypes must be a named list (one table per shape or trait)")
+  }
+  if (is.list(x$environments)) {
+    miss <- setdiff(names(x$phenotypes), names(x$environments))
+    if (length(miss)) stop("environments has no values for: ", paste(miss, collapse = ", "))
+  }
+  for (s in names(x$phenotypes)) {
+    e <- trait_environments(x$environments, s)
+    if (!is.numeric(e) || length(e) < 2) stop("environments must be numeric, length >= 2 (", s, ")")
   }
   for (s in names(x$phenotypes)) {
     d <- x$phenotypes[[s]]
@@ -47,7 +61,7 @@ check_pipeline_input <- function(x) {
     if (length(miss)) stop("phenotypes$", s, " lacks column(s): ", paste(miss, collapse = ", "))
     unknown <- if (has_snps) setdiff(unique(as.character(d$Genotype)), rownames(x$snp_matrix)) else character(0)
     if (length(unknown)) stop("phenotypes$", s, ": genotypes not in snp_matrix: ", paste(head(unknown, 5), collapse = ", "))
-    bad_env <- setdiff(unique(d$Environment), x$environments)
+    bad_env <- setdiff(unique(d$Environment), trait_environments(x$environments, s))
     if (length(bad_env)) stop("phenotypes$", s, ": Environment values not in environments: ", paste(head(bad_env, 5), collapse = ", "))
   }
   if (!is.null(x$truth)) {

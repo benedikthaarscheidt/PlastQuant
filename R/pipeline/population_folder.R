@@ -106,7 +106,8 @@ write_population <- function(x, dir, snp_format = if (is.null(x$config)) "csv" e
     }))
     write.csv(plants, file.path(data_dir, "plant_parameters.csv"), row.names = FALSE)
   } else if (!is.null(x$phenotypes)) {
-    write_resolution(x, resolution_path(dir, length(x$environments)))
+    n_env <- length(if (is.list(x$environments)) x$environments[[1]] else x$environments)
+    write_resolution(x, resolution_path(dir, n_env))
   }
   dir
 }
@@ -116,13 +117,20 @@ write_population <- function(x, dir, snp_format = if (is.null(x$config)) "csv" e
 write_resolution <- function(measured, res_dir) {
   unlink(file.path(res_dir, "data"), recursive = TRUE)
   traits_dir <- population_subdir(res_dir, "data", "traits")
-  # named environments keep their names as column names, otherwise E1, E2, ...
-  env_names <- names(measured$environments)
-  if (is.null(env_names) || any(env_names == "")) env_names <- paste0("E", seq_along(measured$environments))
-  env_map <- setNames(unname(measured$environments), env_names)
-  write.csv(data.frame(Column = names(env_map), Value = unname(env_map)),
-            file.path(res_dir, "data", "environments.csv"), row.names = FALSE)
+  # named environments keep their names as column names, otherwise E1, E2, ...;
+  # per-trait environment values (a list) get one value column per trait
+  env <- measured$environments
+  first <- if (is.list(env)) env[[1]] else env
+  env_names <- names(first)
+  if (is.null(env_names) || any(env_names == "")) env_names <- paste0("E", seq_along(first))
+  env_tab <- if (is.list(env)) {
+    cbind(data.frame(Column = env_names), as.data.frame(lapply(env[names(measured$phenotypes)], unname)))
+  } else {
+    data.frame(Column = env_names, Value = unname(env))
+  }
+  write.csv(env_tab, file.path(res_dir, "data", "environments.csv"), row.names = FALSE)
   for (trait in names(measured$phenotypes)) {
+    env_map <- setNames(unname(trait_environments(env, trait)), env_names)
     write.csv(long_to_trait_matrix(measured$phenotypes[[trait]], env_map),
               file.path(traits_dir, paste0(trait, ".csv")), row.names = FALSE)
   }
@@ -152,10 +160,19 @@ read_population <- function(res_dir, with_snps = TRUE) {
   if (!length(trait_files)) stop("no data/traits/<trait>.csv files in ", res_dir)
   env_file <- file.path(res_data, "environments.csv")
   if (!file.exists(env_file)) stop("missing ", env_file, " (columns Column, Value)")
-  env_tab <- read.csv(env_file, stringsAsFactors = FALSE)
-  env_map <- setNames(as.numeric(env_tab$Value), env_tab$Column)
+  env_tab <- read.csv(env_file, stringsAsFactors = FALSE, check.names = FALSE)
+  trait_names <- sub("\\.csv$", "", basename(trait_files))
+  # one Value column for all traits, or one value column per trait
+  per_trait <- !"Value" %in% names(env_tab)
+  if (per_trait) {
+    miss <- setdiff(trait_names, names(env_tab))
+    if (length(miss)) stop("environments.csv needs a Value column or one column per trait; missing: ", paste(miss, collapse = ", "))
+  }
+  env_map_of <- function(trait) setNames(as.numeric(env_tab[[if (per_trait) trait else "Value"]]), env_tab$Column)
 
-  phenotypes <- lapply(trait_files, function(f) {
+  phenotypes <- lapply(seq_along(trait_files), function(k) {
+    f <- trait_files[k]
+    env_map <- env_map_of(trait_names[k])
     first <- names(read.csv(f, nrows = 1, check.names = FALSE))[1]
     if (first != "Genotype") stop(basename(f), ": the first column must be Genotype (the genotype ID of each row)")
     tab <- read_genotype_table(f)
@@ -163,7 +180,12 @@ read_population <- function(res_dir, with_snps = TRUE) {
     if (length(unknown)) stop(basename(f), ": columns not listed in environments.csv: ", paste(unknown, collapse = ", "))
     trait_matrix_to_long(tab, env_map[names(tab)[-1]])
   })
-  names(phenotypes) <- sub("\\.csv$", "", basename(trait_files))
+  names(phenotypes) <- trait_names
+  environments <- if (per_trait) {
+    lapply(setNames(trait_names, trait_names), function(t) sort(unique(unname(env_map_of(t)))))
+  } else {
+    sort(unique(unname(env_map_of(trait_names[1]))))
+  }
 
   snp_matrix <- NULL
   if (!with_snps) {
@@ -189,7 +211,7 @@ read_population <- function(res_dir, with_snps = TRUE) {
   }
 
   # the truth is checked against the SNPs; without SNPs it is only attached
-  pop <- pipeline_input(phenotypes, sort(unique(unname(env_map))), snp_matrix, if (with_snps) truth)
+  pop <- pipeline_input(phenotypes, environments, snp_matrix, if (with_snps) truth)
   pop$truth <- truth
   pop$kinship <- kinship
   if (!is.null(kinship)) {

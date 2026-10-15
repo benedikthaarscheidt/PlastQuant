@@ -138,3 +138,37 @@ test_that("the measurements can be read without loading the SNP matrix", {
   expect_false(is.null(pop$truth))
   expect_equal(names(pop$phenotypes), norms$config$shapes)
 })
+
+test_that("environment values can differ per trait (one column per trait in environments.csv)", {
+  ph1 <- data.frame(Genotype = rep(c("A", "B"), each = 2), Replicate = 1L, Environment = rep(c(10, 20), 2), Trait = c(1, 2, 3, 5))
+  ph2 <- data.frame(Genotype = rep(c("A", "B"), each = 2), Replicate = 1L, Environment = rep(c(0.1, 0.4), 2), Trait = c(7, 6, 9, 9))
+  env <- list(biomass = c(dry = 10, wet = 20), leafArea = c(dry = 0.1, wet = 0.4))
+  dir <- write_population(pipeline_input(list(biomass = ph1, leafArea = ph2), env), new_dir("pop_env_trait"))
+  res <- resolution_dirs(dir)
+  et <- read.csv(file.path(res, "data", "environments.csv"))
+  expect_equal(names(et), c("Column", "biomass", "leafArea"))
+  pop <- read_population(res)
+  expect_equal(pop$environments, list(biomass = c(10, 20), leafArea = c(0.1, 0.4)))
+  expect_equal(pop$phenotypes$leafArea$Environment, ph2$Environment)
+  # PPIs use each trait's own environment values
+  slope <- list(slope = ppi_entry("slope", function(trait_values, env_values) unname(coef(lm(trait_values ~ env_values))[2]),
+                                  inputs = c(trait_values = "trait", env_values = "env")))
+  sc <- compute_ppis(pop$phenotypes, pop$environments, slope)$slope
+  expect_equal(sc$Score[sc$Type == "leafArea" & sc$Genotype_ID == "A"], -1 / 0.3, tolerance = 1e-10)
+  expect_equal(sc$Score[sc$Type == "biomass" & sc$Genotype_ID == "B"], 0.2, tolerance = 1e-10)
+})
+
+test_that("a per-trait environments.csv must have a column for every trait", {
+  res <- file.path(new_dir("pop_env_missing"), "n_2")
+  dir.create(file.path(res, "data", "traits"), recursive = TRUE)
+  write.csv(data.frame(Genotype = "a", E1 = 1, E2 = 2), file.path(res, "data", "traits", "height.csv"), row.names = FALSE)
+  write.csv(data.frame(Column = c("E1", "E2"), biomass = c(1, 2)), file.path(res, "data", "environments.csv"), row.names = FALSE)
+  expect_error(read_population(res), "environments.csv.*height")
+})
+
+test_that("own data with per-trait environments gets the resolution folder of its number of environments", {
+  ph <- data.frame(Genotype = rep("A", 3), Replicate = 1L, Environment = c(1, 2, 3), Trait = 1:3)
+  env <- list(t1 = c(a = 1, b = 2, c = 3), t2 = c(a = 1, b = 2, c = 3))
+  dir <- write_population(pipeline_input(list(t1 = ph, t2 = ph), env), new_dir("pop_env_count"))
+  expect_equal(basename(resolution_dirs(dir)), "n_3")
+})

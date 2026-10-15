@@ -53,7 +53,8 @@ compute_resolutions <- function(dir, n_points, registry = default_ppi_registry()
     }
     pop <- read_population(res)
     stats <- do.call(rbind, lapply(names(pop$phenotypes), function(s) {
-      cbind(Shape = s, summary_statistics(replicate_means(pop$phenotypes[[s]], pop$environments), pop$environments),
+      cbind(Shape = s, summary_statistics(replicate_means(pop$phenotypes[[s]], trait_environments(pop$environments, s)),
+                                           trait_environments(pop$environments, s)),
             stringsAsFactors = FALSE)
     }))
     write.csv(stats, file.path(population_subdir(res, "analyses"), "summary_statistics.csv"), row.names = FALSE)
@@ -164,7 +165,8 @@ population_score_table <- function(dir) {
     read.csv(stats_file, stringsAsFactors = FALSE, colClasses = c(Genotype = "character"))
   } else {
     do.call(rbind, lapply(names(pop$phenotypes), function(s) {
-      cbind(Shape = s, summary_statistics(replicate_means(pop$phenotypes[[s]], pop$environments), pop$environments),
+      cbind(Shape = s, summary_statistics(replicate_means(pop$phenotypes[[s]], trait_environments(pop$environments, s)),
+                                           trait_environments(pop$environments, s)),
             stringsAsFactors = FALSE)
     }))
   }
@@ -181,7 +183,9 @@ score_analysis_inputs <- function(res_dir) {
   pop <- read_population(res_dir, with_snps = FALSE)
   list(
     scores_list    = readRDS(ppi_file),
-    rn_matrix_list = lapply(pop$phenotypes, replicate_means, environments = pop$environments),
+    rn_matrix_list = lapply(setNames(names(pop$phenotypes), names(pop$phenotypes)), function(s) {
+      replicate_means(pop$phenotypes[[s]], trait_environments(pop$environments, s))
+    }),
     genotype_forms = names(pop$phenotypes)
   )
 }

@@ -68,7 +68,8 @@ ppi_per_replicate <- function(entry, phenotypes, environments) {
   matrix(out, length(ids), length(reps), dimnames = list(ids, reps))
 }
 
-# phenotypes: named list (one table per shape). Returns a named list (one table per
+# phenotypes: named list (one table per shape); environments: one vector for all
+# shapes or a named list per shape (trait_environments()). Returns a named list (one table per
 # PPI) with columns Score, Type (shape), Genotype_ID (line ID) and Replicate.
 # replicate_handling decides on which level a PPI value is computed:
 #   "mean_before"  replicates are averaged per genotype and environment first,
@@ -86,12 +87,13 @@ compute_ppis <- function(phenotypes, environments, registry = default_ppi_regist
   lapply(registry, function(entry) {
     do.call(rbind, lapply(names(phenotypes), function(shape) {
       ph <- phenotypes[[shape]]
+      env <- trait_environments(environments, shape)
       if (replicate_handling == "mean_before" || entry$level == "population") {
-        v <- ppi_per_avg_genotype(entry, ph, environments)
+        v <- ppi_per_avg_genotype(entry, ph, env)
         return(data.frame(Score = unname(v), Type = shape, Genotype_ID = names(v), Replicate = NA_integer_,
                           stringsAsFactors = FALSE))
       }
-      P <- ppi_per_replicate(entry, ph, environments)
+      P <- ppi_per_replicate(entry, ph, env)
       data.frame(Score = as.vector(t(P)), Type = shape, Genotype_ID = rep(rownames(P), each = ncol(P)),
                  Replicate = rep(as.integer(colnames(P)), times = nrow(P)), stringsAsFactors = FALSE)
     }))
