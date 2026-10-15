@@ -22,11 +22,11 @@ MC=5                    # causal SNPs per parameter
 SEED=1                  # seed of the population
 HANDLING="mean_before"  # replicate handling of the PPIs: "mean_before" or "replicates"
 R_MODULE="lang/R/4.3.3-gfbf-2023b"
-export R_LIBS_USER="/work/haarscheid/R/plastquant-4.3"   # packages from hpc/install_packages.sh
 # ------------------------------------------------------------------------------
 
 set -uo pipefail
 cd "$SLURM_SUBMIT_DIR"
+export R_LIBS_USER="$(cd .. && pwd)/R/plastquant-4.3"   # packages from hpc/install_packages.sh (next to the repo)
 module load "$R_MODULE"
 export OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1   # one thread per R process: the CPUs go to the resolutions
 NCPU=${SLURM_CPUS_PER_TASK:-1}
