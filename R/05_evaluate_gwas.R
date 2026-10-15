@@ -1,40 +1,42 @@
 # =============================================================================
 # 05_evaluate_gwas.R — GWAS accuracy evaluation, per reaction-norm shape
 # =============================================================================
-# WHAT IT DOES: Compares the GWAS hits of one population against its causal SNPs.
+# WHAT IT DOES: Compares the GWAS hits of one resolution of a population against the
+#   population's causal SNPs.
 #   Every shape is evaluated against its own causal SNPs only, so the power of a
 #   parameter is always the power within one shape (a hit on a causal SNP of another
 #   shape is a false positive). Draws one power heatmap per shape plus an overview.
-# REQUIRES:     A population folder with GWAS results and a truth table
-#               (gwas/gwas_results.csv, data/truth.csv), e.g. from a scenario_*.R driver
+# REQUIRES:     A resolution folder with GWAS results (gwas/gwas_results.csv) of a
+#               population with a truth table (<population>/data/truth.csv), e.g. from a scenario_*.R driver
 #               or run_population_gwas() on own data with known causal SNPs.
-# PRODUCES:     POPULATION_DIR/gwas/gwas_accuracy_summary.csv and
-#               POPULATION_DIR/plots/gwas_power_heatmap.pdf.
+# PRODUCES:     RESOLUTION_DIR/gwas/gwas_accuracy_summary.csv and
+#               RESOLUTION_DIR/plots/gwas_power_heatmap.pdf.
 # HOW TO RUN:   setwd("~/PlastQuant")
-#               POPULATION_DIR <- here::here("output", "populations", "scenario_20_5")
+#               RESOLUTION_DIR <- here::here("output", "populations", "scenario_20_5", "n_6")
 #               source(here::here("R", "05_evaluate_gwas.R"))
 # -----------------------------------------------------------------------------
 # PARAMETERS — set these before sourcing (guarded defaults)
-#   POPULATION_DIR  path, REQUIRED              population folder to evaluate         [COMMON]
+#   RESOLUTION_DIR  path, REQUIRED              resolution folder to evaluate         [COMMON]
 #   ALPHA           numeric, default 0.05       Bonferroni level: P < ALPHA / n_SNPs
 # =============================================================================
 options(warn = -1)  # silence warnings even if the project .Rprofile was not loaded
 library(ggplot2)
 source(here::here("R", "pipeline", "load_pipeline.R"))
 
-if (!exists("POPULATION_DIR")) stop("set POPULATION_DIR (a population folder) first")
+if (!exists("RESOLUTION_DIR")) stop("set RESOLUTION_DIR (a resolution folder, e.g. output/populations/<name>/n_6) first")
 if (!exists("ALPHA")) ALPHA <- 0.05
 
 # -----------------------------------------------------------------------------
 # 1. Load the population's GWAS results and truth
 # -----------------------------------------------------------------------------
-message("Evaluating GWAS of: ", POPULATION_DIR)
-gwas_res <- read.csv(file.path(POPULATION_DIR, "gwas", "gwas_results.csv"), stringsAsFactors = FALSE)
-truth    <- read.csv(file.path(POPULATION_DIR, "data", "truth.csv"), stringsAsFactors = FALSE)
+message("Evaluating GWAS of: ", RESOLUTION_DIR)
+gwas_res <- read.csv(file.path(RESOLUTION_DIR, "gwas", "gwas_results.csv"), stringsAsFactors = FALSE)
+population_dir <- dirname(normalizePath(RESOLUTION_DIR))
+truth    <- read.csv(file.path(population_dir, "data", "truth.csv"), stringsAsFactors = FALSE)
 names(truth)[names(truth) == "Trait"] <- "Shape"
 n_snps   <- length(unique(gwas_res$SNP))
 # Simulation settings exist only for simulated runs (own data has no config.rds)
-cfg_file <- file.path(POPULATION_DIR, "data", "config.rds")
+cfg_file <- file.path(population_dir, "data", "config.rds")
 cfg      <- if (file.exists(cfg_file)) readRDS(cfg_file) else NULL
 
 # -----------------------------------------------------------------------------
@@ -42,7 +44,7 @@ cfg      <- if (file.exists(cfg_file)) readRDS(cfg_file) else NULL
 # -----------------------------------------------------------------------------
 power <- evaluate_power(gwas_res, truth, n_snps, alpha = ALPHA)
 power <- power[, c("Shape", "Score", "Parameter", "True_SNPs", "Found", "Power")]
-write.csv(power, file.path(POPULATION_DIR, "gwas", "gwas_accuracy_summary.csv"), row.names = FALSE)
+write.csv(power, file.path(RESOLUTION_DIR, "gwas", "gwas_accuracy_summary.csv"), row.names = FALSE)
 
 subtitle_base <- paste0(
   if (!is.null(cfg)) paste0("h2 = ", cfg$h2, ", ", cfg$Mc, " causal SNPs per parameter, ",
@@ -65,7 +67,7 @@ make_heatmap <- function(df, title, subtitle) {
     theme(axis.text.x = element_text(angle = 45, hjust = 1))
 }
 
-plots_dir <- population_subdir(POPULATION_DIR, "plots")
+plots_dir <- population_subdir(RESOLUTION_DIR, "plots")
 pdf(file.path(plots_dir, "gwas_power_heatmap.pdf"), width = 10, height = 8)
 print(make_heatmap(power, "GWAS power per shape", subtitle_base) +
         facet_grid(. ~ Shape, scales = "free_x", space = "free_x"))
@@ -76,5 +78,5 @@ for (s in unique(power$Shape)) {
 }
 dev.off()
 
-message("Summary CSV : ", file.path(POPULATION_DIR, "gwas", "gwas_accuracy_summary.csv"))
+message("Summary CSV : ", file.path(RESOLUTION_DIR, "gwas", "gwas_accuracy_summary.csv"))
 message("Heatmap PDF : ", file.path(plots_dir, "gwas_power_heatmap.pdf"))

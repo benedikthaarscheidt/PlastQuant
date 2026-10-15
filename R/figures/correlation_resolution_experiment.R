@@ -3,8 +3,8 @@
 # =============================================================================
 # WHAT IT DOES: A resolution-robustness analysis like correlation_resolution.R, but with
 #   the summary statistics included in the regression as confounders.
-# REQUIRES:     The tables of regression_sumstats_dataprep.R in
-#               POPULATION_DIR/analyses/regression_summary_stats/.
+# REQUIRES:     The resolution folders POPULATION_DIR/n_2 ... n_50 with their PPIs
+#               (regression_sumstats_dataprep.R).
 # PRODUCES:     confoundermodel_sumstats.pdf in POPULATION_DIR/plots/.
 # HOW TO RUN:   setwd("~/PlastQuant")
 #               POPULATION_DIR <- here::here("output", "populations", "ppi_comparison")
@@ -27,23 +27,17 @@ library(lmerTest)
 library(dplyr)   # must come last — re-asserts dplyr::select/count over MASS
 
 
-if (!exists("POPULATION_DIR")) stop("set POPULATION_DIR (a population folder with the tables of regression_sumstats_dataprep.R) first")
-directory <- file.path(POPULATION_DIR, "analyses", "regression_summary_stats")
-files     <- c(
-  "regression_data_full_interval_49_indices_1_50.csv",
-  "regression_data_full_interval_25_indices_1_26_50.csv",
-  "regression_data_full_interval_20_indices_1_21_41_50.csv",
-  "regression_data_full_interval_15_indices_1_16_31_46_50.csv",
-  "regression_data_full_interval_10_indices_1_11_21_31_41_50.csv",
-  "regression_data_full_interval_5_indices_1_6_11_16_21_26_31_36_41_46_50.csv",
-  "regression_data_full_interval_2_indices_1_3_5_7_9_11_13_15_17_19_21_23_25_27_29_31_33_35_37_39_41_43_45_47_49_50.csv",
-  "regression_data_full_interval_1_indices_1_2_3_4_5_6_7_8_9_10_11_12_13_14_15_16_17_18_19_20_21_22_23_24_25_26_27_28_29_30_31_32_33_34_35_36_37_38_39_40_41_42_43_44_45_46_47_48_49_50.csv"
-)
+if (!exists("POPULATION_DIR")) stop("set POPULATION_DIR (a population folder with the resolutions of regression_sumstats_dataprep.R) first")
+source(here::here("R", "pipeline", "load_pipeline.R"))
+# PPIs and summary statistics of the resolution folders n_2 ... n_50 (one table per
+# resolution in the layout Genotype, scores, statistics; same order as n_samples)
+regression_tables <- lapply(resolution_score_tables(POPULATION_DIR, c(2, 3, 4, 5, 6, 11, 26, 50)), as_regression_data)
+files <- names(regression_tables)
 n_samples <- c(2, 3, 4, 5, 6, 11, 26, 50)
 
 
 stat_cols    <- c("min","max","mean","median","slope","range","variance","mean_lower","mean_upper")
-first_dat    <- read_csv(file.path(directory, files[1]), show_col_types = FALSE)
+first_dat    <- tibble::as_tibble(regression_tables[[files[1]]])
 score_cols   <- setdiff(colnames(first_dat), c(colnames(first_dat)[1], stat_cols))
 summary_cols <- stat_cols
 
@@ -56,7 +50,7 @@ long <- tibble(
 )
 
 for (i in seq_along(files)) {
-  dat <- read_csv(file.path(directory, files[i]), show_col_types = FALSE)
+  dat <- tibble::as_tibble(regression_tables[[files[i]]])
   scores_df <- dat %>% dplyr::select(all_of(score_cols))
   n   <- nrow(scores_df)
   nv  <- ncol(scores_df)
@@ -81,7 +75,7 @@ long <- long %>%
 wide_summ <- tibble()
 
 for (i in seq_along(files)) {
-  dat <- read_csv(file.path(directory, files[i]), show_col_types = FALSE)
+  dat <- tibble::as_tibble(regression_tables[[files[i]]])
   
   sums_df <- dat %>%
     dplyr::select(all_of(summary_cols)) %>%

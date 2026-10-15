@@ -1,9 +1,9 @@
 fake_population <- function(root, scenario, h2, Mc, gwas, truth) {
   dir <- file.path(root, scenario)
   dir.create(file.path(dir, "data"), recursive = TRUE)
-  dir.create(file.path(dir, "gwas"), recursive = TRUE)
+  dir.create(file.path(dir, "n_6", "gwas"), recursive = TRUE)
   saveRDS(list(h2 = h2, Mc = Mc), file.path(dir, "data", "config.rds"))
-  write.csv(gwas, file.path(dir, "gwas", "gwas_results.csv"), row.names = FALSE)
+  write.csv(gwas, file.path(dir, "n_6", "gwas", "gwas_results.csv"), row.names = FALSE)
   names(truth)[names(truth) == "Shape"] <- "Trait"
   write.csv(truth, file.path(dir, "data", "truth.csv"), row.names = FALSE)
   dir
@@ -19,7 +19,7 @@ test_that("the populations of the scenarios are combined with their h2 and Mc", 
   root <- file.path(tempdir(), "comb1"); unlink(root, recursive = TRUE)
   fake_population(root, "scenario_20_5", 0.2, 5, toy_gwas(1e-6), toy_truth)
   fake_population(root, "scenario_60_5", 0.6, 5, toy_gwas(0.5), toy_truth)
-  comb <- combine_scenario_runs(file.path(root, c("scenario_20_5", "scenario_60_5")), p_threshold = 1e-3)
+  comb <- combine_scenario_runs(file.path(root, c("scenario_20_5", "scenario_60_5")), n_points = 6, p_threshold = 1e-3)
   expect_equal(sort(unique(comb$hits$H2)), c(0.2, 0.6))
   expect_true("s1" %in% comb$hits$SNP[comb$hits$H2 == 0.2])
   expect_false("s1" %in% comb$hits$SNP[comb$hits$H2 == 0.6])
@@ -32,7 +32,7 @@ test_that("the populations of the scenarios are combined with their h2 and Mc", 
 test_that("detections are counted per shape: a parameter of one shape never counts for another", {
   root <- file.path(tempdir(), "comb2"); unlink(root, recursive = TRUE)
   fake_population(root, "scenario_40_5", 0.4, 5, toy_gwas(1e-6), toy_truth)
-  comb <- combine_scenario_runs(file.path(root, "scenario_40_5"), p_threshold = 1e-3)
+  comb <- combine_scenario_runs(file.path(root, "scenario_40_5"), n_points = 6, p_threshold = 1e-3)
   det <- detection_counts(comb)
   lin <- det[det$Shape == "linear" & det$Score == "RN", ]
   expect_equal(lin$Found[lin$Parameter == "a"], 1L)
@@ -45,8 +45,8 @@ test_that("detections are counted per shape: a parameter of one shape never coun
   expect_equal(det$Power[det$Shape == "linear" & det$Score == "FW" & det$Parameter == "a"], 0)
 })
 
-test_that("a population without GWAS results is an error naming the folder", {
+test_that("a scenario without GWAS results at that resolution is an error naming the folder", {
   root <- file.path(tempdir(), "comb3"); unlink(root, recursive = TRUE)
   dir.create(file.path(root, "scenario_20_10", "data"), recursive = TRUE)
-  expect_error(combine_scenario_runs(file.path(root, "scenario_20_10")), "scenario_20_10")
+  expect_error(combine_scenario_runs(file.path(root, "scenario_20_10"), n_points = 6), "scenario_20_10/n_6")
 })

@@ -4,15 +4,15 @@
 # WHAT IT DOES: Plots the realised plasticity scores of a population at its own
 #   sampling resolution: distributions, Kendall-distance clustering per shape and
 #   combined, silhouette choice of k, Mantel tests between the shapes (Figure 2).
-# REQUIRES:     POPULATION_DIR with its PPIs (POPULATION_DIR/ppis/ppi_scores.rds from
-#               compute_population_ppis(POPULATION_DIR)).
-# PRODUCES:     Figures under POPULATION_DIR/plots/ (figure2_2.pdf, figure2_3.pdf, ...).
+# REQUIRES:     RESOLUTION_DIR with its PPIs (RESOLUTION_DIR/ppis/ppi_scores.rds from
+#               compute_population_ppis(RESOLUTION_DIR)).
+# PRODUCES:     Figures under RESOLUTION_DIR/plots/ (figure2_2.pdf, figure2_3.pdf, ...).
 # HOW TO RUN:   setwd("~/PlastQuant")
-#               POPULATION_DIR <- here::here("output", "populations", "ppi_comparison")
+#               RESOLUTION_DIR <- here::here("output", "populations", "ppi_comparison", "n_6")
 #               source(here::here("R","figures","plasticity_score_realisation_plot.R"))
 # -----------------------------------------------------------------------------
 # PARAMETERS — set before sourcing
-#   POPULATION_DIR  path, REQUIRED   population folder                                     [COMMON]
+#   RESOLUTION_DIR  path, REQUIRED   resolution folder                                     [COMMON]
 # =============================================================================
 options(warn = -1)  # silence warnings even if the project .Rprofile was not loaded
 
@@ -56,10 +56,10 @@ if (exists("form_ranges") && length(form_ranges) == 3) {
   fig_dir <- here::here("output", "plots")
 } else {
   # PPIs of the population at its own sampling resolution
-  if (!exists("POPULATION_DIR")) stop("set POPULATION_DIR (a population folder) first")
+  if (!exists("RESOLUTION_DIR")) stop("set RESOLUTION_DIR (a resolution folder, e.g. output/populations/<name>/n_6) first")
   source(here::here("R", "pipeline", "load_pipeline.R"))
-  ppi_file <- file.path(POPULATION_DIR, "ppis", "ppi_scores.rds")
-  if (!file.exists(ppi_file)) stop("no PPIs in ", POPULATION_DIR, " (run compute_population_ppis(POPULATION_DIR) first)")
+  ppi_file <- file.path(RESOLUTION_DIR, "ppis", "ppi_scores.rds")
+  if (!file.exists(ppi_file)) stop("no PPIs in ", RESOLUTION_DIR, " (run compute_population_ppis(RESOLUTION_DIR) first)")
   wide <- ppi_wide_table(readRDS(ppi_file), shapes = c("linear", "gaussian", "sinusoidal", "wave"))
   form_ranges <- split(seq_len(nrow(wide)), factor(wide$Shape, levels = unique(wide$Shape)))
 
@@ -68,7 +68,7 @@ if (exists("form_ranges") && length(form_ranges) == 3) {
 
   # keep only columns with zero NAs (RN and RNN cannot be calculated with very few sampling points)
   df <- df[ , na_counts == 0]
-  fig_dir <- population_subdir(POPULATION_DIR, "plots")
+  fig_dir <- population_subdir(RESOLUTION_DIR, "plots")
 }
 
 scores_long <- df %>%

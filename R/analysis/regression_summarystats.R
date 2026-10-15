@@ -4,15 +4,15 @@
 # WHAT IT DOES: For each plasticity score, fits full/simple/ridge regression models on
 #   the nine summary-stat predictors, builds coefficient tables with significance stars
 #   and R^2, clusters scores, and writes per-score and combined diagnostic PDFs.
-# REQUIRES:     POPULATION_DIR with its PPIs (compute_population_ppis()); the scores and
+# REQUIRES:     RESOLUTION_DIR with its PPIs (compute_population_ppis()); the scores and
 #               summary statistics are those of the population's own sampling resolution.
-# PRODUCES:     Coefficient tables and diagnostic PDFs under POPULATION_DIR/plots/regression_summary_stats/.
+# PRODUCES:     Coefficient tables and diagnostic PDFs under RESOLUTION_DIR/plots/regression_summary_stats/.
 # HOW TO RUN:   setwd("~/PlastQuant")
-#               POPULATION_DIR <- here::here("output", "populations", "ppi_comparison")
+#               RESOLUTION_DIR <- here::here("output", "populations", "ppi_comparison", "n_6")
 #               source(here::here("R","analysis","regression_summarystats.R"))
 # -----------------------------------------------------------------------------
 # PARAMETERS (edit the named assignment near the top of the script)
-#   POPULATION_DIR   path, REQUIRED (set before sourcing)   population folder               [COMMON]
+#   RESOLUTION_DIR   path, REQUIRED (set before sourcing)   resolution folder               [COMMON]
 #   predictor_names  character vector  the summary-stat predictors used
 #   k                integer, default 4     number of score clusters
 #   n_perm           integer, default 1000  permutations for the cluster test
@@ -89,13 +89,13 @@ ensure_dir_exists <- function(file_path) {
 }
 
 # Directories for input data and output
-if (!exists("POPULATION_DIR")) stop("set POPULATION_DIR (a population folder) first")
+if (!exists("RESOLUTION_DIR")) stop("set RESOLUTION_DIR (a resolution folder, e.g. output/populations/<name>/n_6) first")
 source(here::here("R", "pipeline", "load_pipeline.R"))
-output_folder <- file.path(POPULATION_DIR, "plots", "regression_summary_stats")
+output_folder <- file.path(RESOLUTION_DIR, "plots", "regression_summary_stats")
 dir.create(output_folder, recursive = TRUE, showWarnings = FALSE)
 
 # Scores and summary statistics of the population at its own resolution (one row per genotype)
-score_tab <- population_score_table(POPULATION_DIR)
+score_tab <- population_score_table(RESOLUTION_DIR)
 combined_df <- score_tab[, setdiff(names(score_tab), c("Shape", "Genotype"))]
 rownames(combined_df) <- paste(score_tab$Shape, score_tab$Genotype, sep = "_")
 

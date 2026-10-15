@@ -5,8 +5,8 @@
 #   statistics and the plasticity scores (correlation matrices, distance measures,
 #   clustering). Auto-sources 03_plasticity_scores.R when scores are not already loaded
 #   (guarded by the `data_loaded` flag at the top).
-# REQUIRES:     03 (so POPULATION_DIR must be set: a simulated population folder).
-# PRODUCES:     Summary-stat vs score figures under POPULATION_DIR/analyses/summary_stats_vs_scores/.
+# REQUIRES:     03 (so RESOLUTION_DIR must be set: a resolution folder of a simulated population).
+# PRODUCES:     Summary-stat vs score figures under RESOLUTION_DIR/analyses/summary_stats_vs_scores/.
 # HOW TO RUN:   setwd("~/PlastQuant"); source(here::here("R","analysis","summary_stats_vs_scores.R"))
 # -----------------------------------------------------------------------------
 # PARAMETERS: inherits 03's parameters via the auto-source; analysis knobs are set in the
@@ -140,7 +140,7 @@ compute_summary_stats <- function(rn_matrix) {
 compare_summary_stats_with_scores <- function(rn_matrix_list, scores_list, genotype_forms,
                                               global = FALSE,
                                               measures = c("kendall"), n_perm = 999,
-                                              out_dir = file.path(POPULATION_DIR, "analyses", "summary_stats_vs_scores")) {
+                                              out_dir = file.path(RESOLUTION_DIR, "analyses", "summary_stats_vs_scores")) {
   dir.create(out_dir, recursive = TRUE, showWarnings = FALSE)
   # Define the nine summary statistics.
   stat_names <- c("min", "max", "mean", "median", "slope", "range", "variance", "mean_lower", "mean_upper")

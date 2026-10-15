@@ -5,8 +5,8 @@
 #   (k-means, DBSCAN, hierarchical, mclust) and renders the associated heatmaps/plots.
 #   Auto-sources 03_plasticity_scores.R when scores are not already loaded
 #   (guarded by the `data_loaded` flag at the top).
-# REQUIRES:     03 (so POPULATION_DIR must be set: a simulated population folder).
-# PRODUCES:     Clustering figures under POPULATION_DIR/analyses/clustering/.
+# REQUIRES:     03 (so RESOLUTION_DIR must be set: a resolution folder of a simulated population).
+# PRODUCES:     Clustering figures under RESOLUTION_DIR/analyses/clustering/.
 # HOW TO RUN:   setwd("~/PlastQuant"); source(here::here("R","analysis","clustering_rn_summary_stats.R"))
 # -----------------------------------------------------------------------------
 # PARAMETERS: inherits 03's parameters via the auto-source; clustering knobs are set
@@ -19,7 +19,7 @@ if (!exists("data_loaded") || !data_loaded) {
   source(here::here("R", "03_plasticity_scores.R"))
   data_loaded = TRUE
 }
-clustering_dir <- file.path(POPULATION_DIR, "analyses", "clustering")
+clustering_dir <- file.path(RESOLUTION_DIR, "analyses", "clustering")
 dir.create(clustering_dir, recursive = TRUE, showWarnings = FALSE)
 
 

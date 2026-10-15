@@ -4,14 +4,14 @@
 # WHAT IT DOES: Ranks the genotypes under every plasticity index and computes the
 #   Kendall rank correlation of every index pair, for the population at its own
 #   sampling resolution.
-# REQUIRES:     POPULATION_DIR with its PPIs (compute_population_ppis()).
-# PRODUCES:     Rank-correlation tables under POPULATION_DIR/analyses/rank_flops/.
+# REQUIRES:     RESOLUTION_DIR with its PPIs (compute_population_ppis()).
+# PRODUCES:     Rank-correlation tables under RESOLUTION_DIR/analyses/rank_flops/.
 # HOW TO RUN:   setwd("~/PlastQuant")
-#               POPULATION_DIR <- here::here("output", "populations", "ppi_comparison")
+#               RESOLUTION_DIR <- here::here("output", "populations", "ppi_comparison", "n_6")
 #               source(here::here("R","analysis","kendall_rank_corr.R"))
 # -----------------------------------------------------------------------------
 # PARAMETERS (edit the named assignment near the top of the script)
-#   POPULATION_DIR        path, REQUIRED                  population folder               [COMMON]
+#   RESOLUTION_DIR        path, REQUIRED                  resolution folder               [COMMON]
 #   score_names           character vector                which indices to correlate
 # =============================================================================
 options(warn = -1)  # silence warnings even if the project .Rprofile was not loaded
@@ -80,20 +80,20 @@ pair_tau <- function(df_long, i, j) {
   dplyr::tibble(score_i = i, score_j = j, correlation = est, p_value = pval, n_common = nrow(ab))
 }
 
-if (!exists("POPULATION_DIR")) stop("set POPULATION_DIR (a population folder) first")
+if (!exists("RESOLUTION_DIR")) stop("set RESOLUTION_DIR (a resolution folder, e.g. output/populations/<name>/n_6) first")
 source(here::here("R", "pipeline", "load_pipeline.R"))
-out_dir <- file.path(POPULATION_DIR, "analyses", "rank_flops")
+out_dir <- file.path(RESOLUTION_DIR, "analyses", "rank_flops")
 dir.create(out_dir, showWarnings = FALSE, recursive = TRUE)
 
 # Scores of the population at its own resolution (one row per genotype)
-score_tab <- population_score_table(POPULATION_DIR)
-n_points <- nrow(read.csv(file.path(POPULATION_DIR, "data", "environments.csv")))
+score_tab <- population_score_table(RESOLUTION_DIR)
+n_points <- nrow(read.csv(file.path(RESOLUTION_DIR, "data", "environments.csv")))
 genotype_ids <- paste(score_tab$Shape, score_tab$Genotype, sep = "_")
 scores_list <- list()
 for (nm in intersect(score_names, names(score_tab))) {
   scores_list[[nm]] <- data.frame(genotype_id = genotype_ids, score = score_tab[[nm]])
 }
-if (length(scores_list) < 2) stop("Fewer than 2 scores in ", POPULATION_DIR)
+if (length(scores_list) < 2) stop("Fewer than 2 scores in ", RESOLUTION_DIR)
 x_long <- purrr::imap_dfr(scores_list, ~std_index_long(.x, .y))
 if (nrow(x_long) == 0) stop("No valid score rows produced")
 rank_mat <- x_long |>

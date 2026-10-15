@@ -2,16 +2,18 @@
 # combine_scenarios.R — collect the populations of several scenarios into one table set
 # =============================================================================
 
-# population_dirs: population folders of the scenario drivers (one per scenario, with gwas/).
+# population_dirs: population folders of the scenario drivers (one per scenario); the GWAS
+# of the resolution n_<n_points> of every scenario is used.
 # Returns a list of tables, each with the columns H2 and Mc of its scenario:
 #   hits         GWAS results with P_Value < p_threshold (SNP, LogP, P_Value, Score, Type)
 #   truth        causal SNPs (Shape, Parameter, SNP, Effect)
 #   tested       every PPI x shape a GWAS was run for (Score, Type)
 #   populations  the folder of every scenario
-combine_scenario_runs <- function(population_dirs, p_threshold = 1e-3) {
+combine_scenario_runs <- function(population_dirs, n_points = 6, p_threshold = 1e-3) {
   parts <- lapply(population_dirs, function(dir) {
-    gwas_file <- file.path(dir, "gwas", "gwas_results.csv")
-    if (!file.exists(gwas_file)) stop("no gwas/gwas_results.csv in ", dir, " (run the scenario first)")
+    res_dir <- resolution_path(dir, n_points)
+    gwas_file <- file.path(res_dir, "gwas", "gwas_results.csv")
+    if (!file.exists(gwas_file)) stop("no gwas/gwas_results.csv in ", res_dir, " (run the scenario first)")
     cfg <- readRDS(file.path(dir, "data", "config.rds"))
     gw <- read.csv(gwas_file, stringsAsFactors = FALSE)
     tr <- read.csv(file.path(dir, "data", "truth.csv"), stringsAsFactors = FALSE)
@@ -21,7 +23,7 @@ combine_scenario_runs <- function(population_dirs, p_threshold = 1e-3) {
       hits = tag(gw[gw$P_Value < p_threshold, , drop = FALSE]),
       truth = tag(tr),
       tested = tag(unique(gw[, c("Score", "Type")])),
-      populations = data.frame(H2 = cfg$h2, Mc = cfg$Mc, Population = dir, stringsAsFactors = FALSE)
+      populations = data.frame(H2 = cfg$h2, Mc = cfg$Mc, Population = dir, N_points = n_points, stringsAsFactors = FALSE)
     )
   })
   out <- lapply(c(hits = "hits", truth = "truth", tested = "tested", populations = "populations"),

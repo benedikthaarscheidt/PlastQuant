@@ -1,38 +1,30 @@
 # =============================================================================
-# regression_sumstats_dataprep.R — build the summary-stats vs scores tables
+# regression_sumstats_dataprep.R — PPIs of one population at all resolutions
 # =============================================================================
-# WHAT IT DOES: For every sampling design (range of the gradient x sampling interval on
-#   a grid of global_initial_length points) samples the reaction norms of one simulated
-#   population again (same genotypes and plants; only the sampling points change),
-#   computes all plasticity scores and the nine summary statistics per genotype, and
-#   writes one table per design. These tables are the input of
-#   resolution_analysis.R, regression_summarystats.R, kendall_rank_corr.R,
-#   kendall_tau_corr_clustering.R and the resolution figures.
+# WHAT IT DOES: For every resolution n in RESOLUTIONS measures the true reaction norms of
+#   one simulated population at n equidistant points (same genotypes and plants; only
+#   the sampling changes) and computes all plasticity scores and the nine summary
+#   statistics. Every resolution is written as its own folder, exactly as when done one
+#   by one (sample_resolution(), compute_population_ppis()). A resolution that already
+#   has its PPIs is kept. These folders are the input of resolution_analysis.R,
+#   combined_resolution_figure.R, correlation_resolution.R and
+#   correlation_resolution_experiment.R.
 # REQUIRES:     POPULATION_DIR: a simulated population folder (simulate_population()).
-# PRODUCES:     POPULATION_DIR/analyses/regression_summary_stats/
-#                 regression_data_<range>_interval_<interval>_indices_<indices>.csv
-#               (first column the genotype, then one column per score, then the
-#               summary statistics min ... mean_upper).
+# PRODUCES:     POPULATION_DIR/n_<n>/ for every n: data/ (measurements), variance/,
+#               ppis/ (scores), analyses/summary_statistics.csv
 # HOW TO RUN:   setwd("~/PlastQuant")
 #               POPULATION_DIR <- here::here("output", "populations", "ppi_comparison")
 #               source(here::here("R","analysis","regression_sumstats_dataprep.R"))
 # -----------------------------------------------------------------------------
-# PARAMETERS — POPULATION_DIR is set before sourcing; the design settings are edited here
-#   POPULATION_DIR         path, REQUIRED   simulated population folder                 [COMMON]
-#   sampling_intervals     integer, default c(1, 2, 5, 10, 15, 20, 25, 49)
-#                          (2, 3, 4, 5, 6, 11, 26 and 50 sampling points)               [COMMON]
-#   global_initial_length  integer, default 50       grid the indices refer to
-#   range_list             list, default list(full = c(1, 50))  ranges of the grid
+# PARAMETERS — POPULATION_DIR is set before sourcing; the resolutions are edited here
+#   POPULATION_DIR  path, REQUIRED   simulated population folder                         [COMMON]
+#   RESOLUTIONS     integer, default c(2, 3, 4, 5, 6, 11, 26, 50)  sampling points        [COMMON]
 # =============================================================================
 options(warn = -1)  # silence warnings even if the project .Rprofile was not loaded
 source(here::here("R", "pipeline", "load_pipeline.R"))
 
 if (!exists("POPULATION_DIR")) stop("set POPULATION_DIR (a simulated population folder) first")
-sampling_intervals <- c(1, 2, 5, 10, 15, 20, 25, 49)
-global_initial_length <- 50
-range_list <- list(full = c(1, global_initial_length))
+RESOLUTIONS <- c(2, 3, 4, 5, 6, 11, 26, 50)
 
-output_folder <- file.path(POPULATION_DIR, "analyses", "regression_summary_stats")
-files <- write_regression_data(POPULATION_DIR, range_list, sampling_intervals, output_folder,
-                               grid_length = global_initial_length)
-message("Regression data saved to ", output_folder, " (", length(files), " tables)")
+res_dirs <- compute_resolutions(POPULATION_DIR, RESOLUTIONS)
+message("PPIs and summary statistics of ", length(res_dirs), " resolutions in ", POPULATION_DIR)

@@ -6,16 +6,16 @@
 #   (ribbon), plus histograms of the measured trait values. For a simulated population
 #   the solid line is the mother reaction norm (smooth curve from the mother
 #   parameters); for own data it is the genotype mean over the replicates.
-# REQUIRES:     A population folder (data/), simulated with simulate_population() /
+# REQUIRES:     A resolution folder (data/), simulated with simulate_population() /
 #               a scenario driver, or own data placed in data/.
-# PRODUCES:     POPULATION_DIR/plots/reaction_norms_final_figure.pdf,
+# PRODUCES:     RESOLUTION_DIR/plots/reaction_norms_final_figure.pdf,
 #               reaction_norms_final_figure_panels.pdf, trait_histogram_combined.pdf.
 # HOW TO RUN:   setwd("~/PlastQuant")
-#               POPULATION_DIR <- here::here("output", "populations", "my_population")
+#               RESOLUTION_DIR <- here::here("output", "populations", "my_population", "n_6")
 #               source(here::here("R","figures","plotting_reaction_norms_all.R"))
 # -----------------------------------------------------------------------------
 # PARAMETERS — set these before sourcing (guarded defaults)
-#   POPULATION_DIR  path, REQUIRED   population folder to draw                            [COMMON]
+#   RESOLUTION_DIR  path, REQUIRED   resolution folder to draw                            [COMMON]
 #   PLOT_GENOTYPES  list shape/trait -> genotype IDs, default: 3 genotypes per panel at the
 #                   10/50/90 % quantile of the amplitude a (simulated) or of the genotype
 #                   mean trait value (own data)
@@ -30,10 +30,10 @@ source(here::here("R", "pipeline", "load_pipeline.R"))
 
 ############## load
 
-if (!exists("POPULATION_DIR")) stop("set POPULATION_DIR (a population folder) first")
+if (!exists("RESOLUTION_DIR")) stop("set RESOLUTION_DIR (a resolution folder, e.g. output/populations/<name>/n_6) first")
 if (!exists("N_CURVE_POINTS")) N_CURVE_POINTS <- 200
 
-pop        <- read_population(POPULATION_DIR)
+pop        <- read_population(RESOLUTION_DIR)
 phenotypes <- pop$phenotypes
 simulated  <- !is.null(pop$config)
 cfg        <- pop$config
@@ -208,7 +208,7 @@ final_fig3 <- wrap_plots(
   theme(plot.tag.position = c(0, 1))
 print(final_fig3)
 
-plots_dir <- population_subdir(POPULATION_DIR, "plots")
+plots_dir <- population_subdir(RESOLUTION_DIR, "plots")
 ggsave(filename = file.path(plots_dir, "reaction_norms_final_figure.pdf"), plot = final_fig3,
        device = "pdf", width = 6.3, height = 7, units = "in", dpi = 900)
 ggsave(filename = file.path(plots_dir, "reaction_norms_final_figure_panels.pdf"), plot = final_fig2,

@@ -3,15 +3,15 @@
 # =============================================================================
 # WHAT IT DOES: Renders correlation panels between the reaction-norm summary statistics
 #   and the plasticity scores.
-# REQUIRES:     POPULATION_DIR with its PPIs (compute_population_ppis()); scores and
+# REQUIRES:     RESOLUTION_DIR with its PPIs (compute_population_ppis()); scores and
 #               summary statistics at the population's own sampling resolution.
-# PRODUCES:     Correlation-panel figures in POPULATION_DIR/plots/.
+# PRODUCES:     Correlation-panel figures in RESOLUTION_DIR/plots/.
 # HOW TO RUN:   setwd("~/PlastQuant")
-#               POPULATION_DIR <- here::here("output", "populations", "ppi_comparison")
+#               RESOLUTION_DIR <- here::here("output", "populations", "ppi_comparison", "n_6")
 #               source(here::here("R","figures","correlation_summary_stats_PS.R"))
 # -----------------------------------------------------------------------------
 # PARAMETERS (edit the named assignment near the top of the script)
-#   POPULATION_DIR  path, REQUIRED (set before sourcing)   population folder                [COMMON]
+#   RESOLUTION_DIR  path, REQUIRED (set before sourcing)   resolution folder                [COMMON]
 #   stat_cols   character vector  summary-stat columns to use
 # =============================================================================
 options(warn = -1)  # silence warnings even if the project .Rprofile was not loaded
@@ -43,12 +43,12 @@ library(factoextra)
 ############################# data reading and computation of the linear regression for the slope heatmaps 
 # Scores and summary statistics of the population at its own resolution:
 # first column the genotype, then the scores, then the summary statistics
-if (!exists("POPULATION_DIR")) stop("set POPULATION_DIR (a population folder) first")
+if (!exists("RESOLUTION_DIR")) stop("set RESOLUTION_DIR (a resolution folder, e.g. output/populations/<name>/n_6) first")
 source(here::here("R", "pipeline", "load_pipeline.R"))
-score_tab <- population_score_table(POPULATION_DIR)
+score_tab <- population_score_table(RESOLUTION_DIR)
 df <- tibble::as_tibble(cbind(Genotype = paste(score_tab$Shape, score_tab$Genotype, sep = "_"),
                               score_tab[, setdiff(names(score_tab), c("Shape", "Genotype"))]))
-plots_dir <- population_subdir(POPULATION_DIR, "plots")
+plots_dir <- population_subdir(RESOLUTION_DIR, "plots")
 
 
 stat_cols <- c("min","max","mean","median","slope","range","variance","mean_lower","mean_upper")

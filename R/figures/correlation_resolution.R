@@ -3,8 +3,8 @@
 # =============================================================================
 # WHAT IT DOES: Plots how index correlations change with the sampling resolution of the
 #   reaction norm.
-# REQUIRES:     The tables of regression_sumstats_dataprep.R in
-#               POPULATION_DIR/analyses/regression_summary_stats/.
+# REQUIRES:     The resolution folders POPULATION_DIR/n_2 ... n_50 with their PPIs
+#               (regression_sumstats_dataprep.R).
 # PRODUCES:     boxplot_resolution.pdf, slope_heatmap_resolution.pdf in POPULATION_DIR/plots/.
 # HOW TO RUN:   setwd("~/PlastQuant")
 #               POPULATION_DIR <- here::here("output", "populations", "ppi_comparison")
@@ -29,20 +29,14 @@ library(ggplot2)
 library(forcats)
 library(dplyr)   # must come last — re-asserts dplyr::select/count over MASS
 
-if (!exists("POPULATION_DIR")) stop("set POPULATION_DIR (a population folder with the tables of regression_sumstats_dataprep.R) first")
-directory   <- file.path(POPULATION_DIR, "analyses", "regression_summary_stats")
+if (!exists("POPULATION_DIR")) stop("set POPULATION_DIR (a population folder with the resolutions of regression_sumstats_dataprep.R) first")
+source(here::here("R", "pipeline", "load_pipeline.R"))
 resolutions <- c(50, 25, 20, 15, 10, 5, 2, 1)
 n_samples   <- c( 2,  3, 4,  5,   6, 11,26,50)
-files       <- c(
-  "regression_data_full_interval_49_indices_1_50.csv",
-  "regression_data_full_interval_25_indices_1_26_50.csv",
-  "regression_data_full_interval_20_indices_1_21_41_50.csv",
-  "regression_data_full_interval_15_indices_1_16_31_46_50.csv",
-  "regression_data_full_interval_10_indices_1_11_21_31_41_50.csv",
-  "regression_data_full_interval_5_indices_1_6_11_16_21_26_31_36_41_46_50.csv",
-  "regression_data_full_interval_2_indices_1_3_5_7_9_11_13_15_17_19_21_23_25_27_29_31_33_35_37_39_41_43_45_47_49_50.csv",
-  "regression_data_full_interval_1_indices_1_2_3_4_5_6_7_8_9_10_11_12_13_14_15_16_17_18_19_20_21_22_23_24_25_26_27_28_29_30_31_32_33_34_35_36_37_38_39_40_41_42_43_44_45_46_47_48_49_50.csv"
-)
+# PPIs and summary statistics of the resolution folders n_2 ... n_50 (one table per
+# resolution in the layout Genotype, scores, statistics; same order as n_samples)
+regression_tables <- lapply(resolution_score_tables(POPULATION_DIR, c(2, 3, 4, 5, 6, 11, 26, 50)), as_regression_data)
+files <- names(regression_tables)
 
 
 sel_idx   <- c(1,3,7,8)
@@ -52,7 +46,7 @@ sel_n     <- n_samples[sel_idx]
 
 stat_cols <- c("min","max","mean","median","slope","range","variance","mean_lower","mean_upper")
 df_all <- map2_df(sel_files, sel_n, ~{
-  dat <- read_csv(file.path(directory, .x), show_col_types = FALSE)
+  dat <- tibble::as_tibble(regression_tables[[.x]])
   scores <- dat %>%
     dplyr::select(all_of(setdiff(colnames(dat), c(colnames(dat)[1], stat_cols)))) %>%
     pivot_longer(everything(), names_to="metric", values_to="value") %>%
@@ -138,7 +132,7 @@ print(combined)
 
 wide_list <- vector("list", length(files))
 for(i in seq_along(files)){
-  df <- read.csv(file.path(directory, files[i]), stringsAsFactors = FALSE)
+  df <- regression_tables[[files[i]]]
   PS      <- df[, !colnames(df) %in% c(colnames(df)[1], stat_cols), drop = FALSE]
   summary <- df[, stat_cols, drop = FALSE]
   

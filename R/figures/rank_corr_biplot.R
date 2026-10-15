@@ -4,18 +4,18 @@
 # WHAT IT DOES: Builds the rank-correlation biplot of the plasticity indices (also used
 #   as a helper by plasticity_score_realisation_plot_maize.R).
 #   Includes the top-k overlap of the most plastic genotypes between indices (Figure 3).
-# REQUIRES:     Simulated data: POPULATION_DIR with its PPIs (ppis/ppi_scores.rds from
-#               compute_population_ppis(POPULATION_DIR)); the PPIs and summary statistics
+# REQUIRES:     Simulated data: RESOLUTION_DIR with its PPIs (ppis/ppi_scores.rds from
+#               compute_population_ppis(RESOLUTION_DIR)); the PPIs and summary statistics
 #               are those of the population's own sampling resolution.
 #               Maize (form_ranges of length 3): data/maize_scores_list.rds.
-# PRODUCES:     POPULATION_DIR/plots/plasticity_comprehensive_analysis/ (PDF and CSV tables);
+# PRODUCES:     RESOLUTION_DIR/plots/plasticity_comprehensive_analysis/ (PDF and CSV tables);
 #               maize: output/plasticity_comprehensive_analysis_maize/.
 # HOW TO RUN:   setwd("~/PlastQuant")
-#               POPULATION_DIR <- here::here("output", "populations", "ppi_comparison")
+#               RESOLUTION_DIR <- here::here("output", "populations", "ppi_comparison", "n_6")
 #               source(here::here("R","figures","rank_corr_biplot.R"))
 # -----------------------------------------------------------------------------
 # PARAMETERS
-#   POPULATION_DIR  path, REQUIRED for simulated data                                       [COMMON]
+#   RESOLUTION_DIR  path, REQUIRED for simulated data                                       [COMMON]
 # =============================================================================
 options(warn = -1)  # silence warnings even if the project .Rprofile was not loaded
 
@@ -57,15 +57,15 @@ maize_pool_all <- !is_maize || is.null(maize_trait) || identical(maize_trait, "a
 
 # Always resolve the output directory inside this project. Set unconditionally so a
 # stray `output_dir` left over in the R session can never redirect writes elsewhere.
-# Simulated data: the PPIs of the population POPULATION_DIR at its own resolution.
+# Simulated data: the PPIs of the population RESOLUTION_DIR at its own resolution.
 if (!is_maize) {
-  if (!exists("POPULATION_DIR")) stop("set POPULATION_DIR (a population folder) first")
+  if (!exists("RESOLUTION_DIR")) stop("set RESOLUTION_DIR (a resolution folder, e.g. output/populations/<name>/n_6) first")
   source(here::here("R", "pipeline", "load_pipeline.R"))
 }
 output_dir <- if (is_maize) {
   here::here("output", "plasticity_comprehensive_analysis_maize")
 } else {
-  file.path(POPULATION_DIR, "plots", "plasticity_comprehensive_analysis")
+  file.path(RESOLUTION_DIR, "plots", "plasticity_comprehensive_analysis")
 }
 dir.create(output_dir, recursive = TRUE, showWarnings = FALSE)
 maize_scores_path    <- here::here("data", "maize_scores_list.rds")
@@ -433,8 +433,8 @@ main <- function() {
     summary_stats <- matrix(numeric(0), nrow = nrow(plasticity_scores), ncol = 0,
                             dimnames = list(rownames(plasticity_scores), NULL))
   } else {
-    cat("Loading the PPIs and summary statistics of ", POPULATION_DIR, "\n", sep = "")
-    tab <- population_score_table(POPULATION_DIR)
+    cat("Loading the PPIs and summary statistics of ", RESOLUTION_DIR, "\n", sep = "")
+    tab <- population_score_table(RESOLUTION_DIR)
     ppi_cols <- setdiff(names(tab), c("Shape", "Genotype", summary_stat_names))
     plasticity_scores <- as.matrix(tab[, ppi_cols])
     summary_stats <- as.matrix(tab[, summary_stat_names])
