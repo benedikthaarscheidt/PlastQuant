@@ -142,53 +142,55 @@ measurement error is added (5 % of the trait variance at these points). The same
 are measured at every resolution; measuring the same resolution again gives exactly the
 same values.
 
-### 3. PPIs
+### 3. Choose the replicate handling and compute the PPIs
 
-```r
-compute_population_ppis(RESOLUTION_DIR)                       # all 28 PPIs -> n_6/mean_before/ppis/
-compute_population_ppis(RESOLUTION_DIR, exclude = c("PPF"))   # leave PPIs out
-```
+The PPIs of a resolution can be computed in two ways. Choose one by setting
+`REPLICATE_HANDLING`, and pass it to every following step; all results of that choice
+go into its own folder below the resolution (`n_6/mean_before/` or `n_6/replicates/`):
 
-The argument `replicate_handling` decides on which reaction norms the PPIs are computed:
-
-```r
-compute_population_ppis(RESOLUTION_DIR, replicate_handling = "mean_before")  # default -> n_6/mean_before/
-compute_population_ppis(RESOLUTION_DIR, replicate_handling = "replicates")   # -> n_6/replicates/
-compute_population_ppis(RESOLUTION_DIR, "replicates")                        # the same: it is the second argument
-```
-
-- `"mean_before"` (the default, used when the argument is left out): the replicates of a
-  genotype are averaged per environment first, and the PPI is computed on this averaged
-  reaction norm — one value per genotype.
+- `"mean_before"` (the default): the replicates of a genotype are averaged per
+  environment first, and the PPI is computed on this averaged reaction norm — one value
+  per genotype.
 - `"replicates"`: the PPI is computed on every replicate's own measured reaction norm,
   nothing is averaged — one value per replicate (in the GWAS, the replicates of a
   genotype are then repeated observations of the same line).
 
-FW uses the reaction norms of the whole population and is always computed once on the
-averaged norms, one value per genotype, with either setting.
+```r
+REPLICATE_HANDLING <- "mean_before"                             # or "replicates"
+compute_population_ppis(RESOLUTION_DIR, REPLICATE_HANDLING)     # all 28 PPIs -> n_6/mean_before/ppis/
+```
 
-Each handling has its own folder, so both can be computed for the same resolution. The
-console shows, for every PPI and shape, the number of genotypes and the time it took, the
-output of the PPI functions themselves (e.g. the progress bars of PPF) and every error
-(with the PPI, the genotype and the message; that value becomes `NA`).
+Both handlings can be computed for the same resolution; neither overwrites the other.
+Without the second argument, `"mean_before"` is used. FW uses the reaction norms of the
+whole population and is always computed once on the averaged norms, one value per
+genotype, with either handling.
 
-To add a PPI, register it and pass the registry:
+The console shows, for every PPI and shape, the number of genotypes and the time it
+took, the output of the PPI functions themselves (e.g. the progress bars of PPF) and
+every error (with the PPI, the genotype and the message; that value becomes `NA`).
+
+To leave PPIs out, use `exclude`; to add a PPI, register it and pass the registry:
 
 ```r
+compute_population_ppis(RESOLUTION_DIR, REPLICATE_HANDLING, exclude = c("PPF"))
 reg <- register_ppi(default_ppi_registry(),
                     ppi_entry("MyIndex", function(trait_values, env_values) diff(range(trait_values)) / diff(range(env_values)),
                               inputs = c(trait_values = "trait", env_values = "env")))
-compute_population_ppis(RESOLUTION_DIR, registry = reg)
+compute_population_ppis(RESOLUTION_DIR, REPLICATE_HANDLING, registry = reg)
 ```
 
 ### 4. GWAS (optional)
 
-```r
-run_population_gwas(RESOLUTION_DIR)                  # -> n_6/mean_before/gwas/
-source(here::here("R", "gwas", "05_evaluate_gwas.R"))        # power heatmaps -> n_6/mean_before/plots/
+The GWAS uses the PPIs of the chosen handling (step 3 must have been run for it):
 
-run_population_gwas(RESOLUTION_DIR, replicate_handling = "replicates")   # GWAS of the per-replicate PPIs
+```r
+run_population_gwas(RESOLUTION_DIR, REPLICATE_HANDLING)         # -> n_6/mean_before/gwas/
+source(here::here("R", "gwas", "05_evaluate_gwas.R"))           # power heatmaps -> n_6/mean_before/plots/
 ```
+
+`05_evaluate_gwas.R` reads `RESOLUTION_DIR` and `REPLICATE_HANDLING` from the session, as
+all scripts that use PPIs do. For the other handling, set `REPLICATE_HANDLING <- "replicates"`
+and run steps 3 and 4 again; the results go to `n_6/replicates/`.
 
 rrBLUP mixed model with the kinship matrix, one GWAS per PPI and shape. With a truth
 table the power is computed per shape: a parameter is evaluated within its own shape,
