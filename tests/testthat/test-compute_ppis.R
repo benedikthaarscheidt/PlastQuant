@@ -132,3 +132,12 @@ test_that("averaged before the PPI: one value per genotype from its mean reactio
   g1 <- aggregate(Trait ~ Environment, d[d$Genotype == "G1", ], mean)
   expect_equal(v[["G1"]], unname(coef(lm(g1$Trait ~ g1$Environment))[2]), tolerance = 1e-10)
 })
+
+test_that("the output of the PPI functions is shown; errors are reported with PPI, genotype and message", {
+  x <- toy()
+  talk <- list(talk = ppi_entry("talk", function(trait_values) { cat("computing", length(trait_values), "values\n"); mean(trait_values) }))
+  expect_output(suppressMessages(compute_ppis(x$phenotypes, x$env, talk)), "computing 4 values")
+  bad <- list(bad = ppi_entry("bad", function(trait_values) stop("boom")))
+  expect_message(compute_ppis(x$phenotypes, x$env, bad), "PPI bad, G1: error: boom")
+  expect_message(compute_ppis(x$phenotypes, x$env, talk[1]), "PPI talk, shapeA: 3 genotypes")
+})

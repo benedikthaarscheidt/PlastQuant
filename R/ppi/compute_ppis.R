@@ -12,31 +12,31 @@ replicate_means <- function(phenotypes, environments) {
 
 first_value <- function(x) as.numeric(if (is.list(x)) x[[1]] else x)[1]
 
-# Value of one PPI for every genotype of one shape (named numeric vector)
+# Value of one PPI for every genotype of one shape (named numeric vector). The printed
+# output of the PPI functions (e.g. progress bars) is shown; warnings are silenced as in
+# the rest of the project; an error is reported with the PPI, the genotype and the
+# error message, and gives NA for that genotype.
 compute_ppi <- function(entry, M, environments) {
-  call_fun <- function(context) {
+  call_fun <- function(context, who) {
     args <- c(lapply(entry$inputs, function(key) context[[key]]), entry$args)
-    # Warnings of the index functions are silenced as in the rest of the project;
-    # an error gives NA instead of stopping the run
-    # (some index functions also print progress bars, which are captured)
-    res <- NA_real_
-    utils::capture.output(res <- tryCatch({
-      out <- suppressWarnings(do.call(entry$fun, args))
-      v <- extract(out)
+    tryCatch({
+      v <- extract(suppressWarnings(do.call(entry$fun, args)))   # warnings are silenced project-wide
       setNames(as.numeric(v), names(v))
-    }, error = function(e) NA_real_))
-    res
+    }, error = function(e) {
+      message("PPI ", entry$name, ", ", who, ": error: ", conditionMessage(e))
+      NA_real_
+    })
   }
   extract <- if (is.null(entry$extract)) first_value else entry$extract
   if (entry$level == "population") {
-    res <- call_fun(list(matrix = M, env = environments))
+    res <- call_fun(list(matrix = M, env = environments), "all genotypes")
     values <- if (is.null(names(res))) setNames(rep(NA_real_, nrow(M)), rownames(M)) else res[rownames(M)]
     names(values) <- rownames(M)
   } else {
     context <- list(env = environments, env_index = seq_along(environments), covariate = rep(1, length(environments)))
     values <- vapply(rownames(M), function(g) {
       context$trait <- M[g, ]
-      call_fun(context)[1]
+      call_fun(context, g)[1]
     }, numeric(1))
   }
   n_failed <- sum(is.na(values))
@@ -88,6 +88,9 @@ compute_ppis <- function(phenotypes, environments, registry = default_ppi_regist
     do.call(rbind, lapply(names(phenotypes), function(shape) {
       ph <- phenotypes[[shape]]
       env <- trait_environments(environments, shape)
+      started <- Sys.time()
+      on.exit(message(sprintf("PPI %s, %s: %d genotypes, %.1f s", entry$name, shape, length(unique(ph$Genotype)),
+                              as.numeric(Sys.time() - started, units = "secs"))))
       if (replicate_handling == "mean_before" || entry$level == "population") {
         v <- ppi_per_avg_genotype(entry, ph, env)
         return(data.frame(Score = unname(v), Type = shape, Genotype_ID = names(v), Replicate = NA_integer_,
