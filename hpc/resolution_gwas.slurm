@@ -3,7 +3,7 @@
 #SBATCH --partition=all,gpu      # on the partition "all" or "gpu" (whichever starts first)
 #SBATCH --nodes=1                # on a single node
 #SBATCH --ntasks=1               # with a single task
-#SBATCH --cpus-per-task=8        # one CPU per resolution: the GWAS of the resolutions run in parallel
+#SBATCH --cpus-per-task=32        # one CPU per resolution: the GWAS of the resolutions run in parallel
 #SBATCH --mem=128G               # all parallel GWAS together (each holds the SNP matrix)
 #SBATCH --time=1-00:00:00        # maximum job runtime in "d-hh:mm:ss"
 #SBATCH --output=resolution_gwas-%j.out   # the standard output (and stderr) of the job
@@ -17,10 +17,10 @@
 #   4. combine_resolution_gwas.R: power over the resolutions -> <population>/analyses/resolution_gwas/
 
 # ---- Settings ----------------------------------------------------------------
-H2=0.6                  # share of the latent genetic variance from the causal SNPs
+H2=0.8                  # share of the latent genetic variance from the causal SNPs
 MC=5                    # causal SNPs per parameter
 SEED=1                  # seed of the population
-HANDLING="mean_before"  # replicate handling of the PPIs: "mean_before" or "replicates"
+HANDLING="replicates"  # replicate handling of the PPIs: "mean_before" or "replicates"
 R_MODULE="lang/R/4.3.3-gfbf-2023b"
 # ------------------------------------------------------------------------------
 
