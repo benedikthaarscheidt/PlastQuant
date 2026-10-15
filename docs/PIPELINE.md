@@ -3,166 +3,108 @@
 This document describes every script in `R/`, what it does, what it needs, what it
 produces, and every parameter you can change. Each script also carries the same
 information as a header comment at its top — this file is the cross-script overview.
+For the procedure as a whole, start with the README.
 
 ## Conventions
 
-Every script starts with a header block. Parameters are set with **guarded defaults**:
-
-    if (!exists("SEED")) SEED <- 42
-
-So running a script on its own uses the documented default; running it after a
-`scenario_*.R` driver (or another script) that already set the value uses that value.
-To change a parameter for a one-off run, edit the value in the script's
-`PARAMETERS (edit here)` block, or set it in the R session before sourcing the script.
 Always run from the project root (`setwd("~/PlastQuant")` or open the `.Rproj`) so
 `here::here()` resolves.
 
-The simulation model, the PPI computation and the GWAS live as plain functions in
-`R/sim`, `R/ppi` and `R/pipeline` (see below); they use no globals. The numbered
-scripts and the analyses keep the guarded-default convention.
+The simulation model, the PPI computation, the GWAS and the folder handling are plain
+functions in `R/sim`, `R/ppi` and `R/pipeline`; they use no globals.
+`source(here::here("R", "pipeline", "load_pipeline.R"))` loads all of them.
+
+The scripts work on folders, set before sourcing:
+
+- `POPULATION_DIR`: a population folder `output/populations/<name>/` (simulation, the
+  analyses across resolutions);
+- `RESOLUTION_DIR`: one resolution of a population, `output/populations/<name>/n_<k>/`
+  (the figures and analyses of one measurement, the GWAS evaluation).
+
+Other parameters of the numbered scripts and analyses are set with guarded defaults
+(`if (!exists("X")) X <- ...`) or edited in the script's PARAMETERS block.
+
+## Population and resolution folders
+
+    output/populations/<name>/
+      data/          the population: norms.rds (true mother and replicate norms),
+                     mother_parameters.csv, plant_parameters.csv, reaction_norms.pdf,
+                     snp_matrix.rds|.csv, kinship.csv, truth.csv, config.rds
+      variance/      variance_latent.csv
+      n_<k>/         the population measured at k equidistant environments
+        data/        traits/<shape>.csv (Genotype, one column per environment), environments.csv
+        variance/    variance_trait.csv, measurement.csv
+        ppis/        <PPI>.csv, ppi_scores.rds
+        gwas/        gwas_results.csv, gwas_power.csv, gwas_accuracy_summary.csv
+        analyses/    summary_statistics.csv, analyses of this resolution
+        plots/       figures of this resolution
+      analyses/      analyses across resolutions (resolution/, correlation_summary_stats/)
+      plots/         figures across resolutions
+
+Own data: SNPs, kinship and truth in `<name>/data/`, the measurements in
+`<name>/n_<number of environments>/data/` (same format as above).
 
 ## Dependency map
 
-    R/sim (simulation model) ─┬─▶ R/pipeline: run_simulation_scenario ◀─ scenarios/scenario_<h2>_<Mc>.R
-    R/ppi (PPI registry)     ─┘        (PPIs ─▶ GWAS ─▶ power per shape)
-                                              │
-                                              ├─▶ 05_evaluate_gwas  (power heatmaps of one run; sourced by the drivers)
-                                              └─▶ scenarios/combine_scenarios ─▶ 06_analyze_gwas_results
-    R/sim ─▶ 03_plasticity_scores ─▶ 04_run_gwas
-                    ├─▶ analysis/summary_stats_vs_scores  (auto-sources 03)
-                    ├─▶ analysis/clustering_rn_summary_stats  (auto-sources 03)
-                    ├─▶ analysis/kendall_rank_corr  (auto-sources 03)
-                    └─▶ analysis/regression_sumstats_dataprep ─▶ analysis/regression_summarystats
+    simulate_population(cfg, POPULATION_DIR)          -> data/, variance/
+      └─ sample_resolution(POPULATION_DIR, k)         -> n_<k>/data/, n_<k>/variance/
+           └─ compute_population_ppis(n_<k>)          -> n_<k>/ppis/
+                ├─ run_population_gwas(n_<k>)         -> n_<k>/gwas/ ─▶ 05_evaluate_gwas
+                ├─ figures/plasticity_score_realisation_plot, rank_corr_biplot,
+                │  correlation_summary_stats_PS, plotting_reaction_norms_all
+                ├─ analysis/regression_summarystats, kendall_rank_corr ─▶ kendall_tau_corr_clustering
+                └─ 03_plasticity_scores ─▶ analysis/summary_stats_vs_scores, clustering_rn_summary_stats
+
+    analysis/regression_sumstats_dataprep (POPULATION_DIR): n_2 ... n_50 (the three steps above per k)
+      ├─ analysis/resolution_analysis ─▶ figures/combined_resolution_figure
+      └─ figures/correlation_resolution, correlation_resolution_experiment
+    figures/resolution (POPULATION_DIR, samples the gradient halves itself) ─▶ figures/plotting_resolution
+
+    scenarios/scenario_<h2>_<Mc>: simulate -> n_6 -> PPIs -> GWAS -> 05
+      └─ scenarios/combine_scenarios ─▶ 06_analyze_gwas_results
     03_plasticity_scores_maize ─▶ 04_run_gwas (scenario_maize) ─▶ 06_analyze_maize_gwas_results
-    figures/*  read outputs written under output/ by the scripts above;
-               plotting_reaction_norms_all simulates its own population (R/sim).
 
-The scenario drivers run the new pipeline directly and then 05 for the power heatmaps;
-`combine_scenarios.R` collects all scenario runs for 06. The power of a parameter is
-always evaluated within its shape: its causal SNPs are searched only in the GWAS of
-that shape, and a hit on a SNP that is not causal for the shape is a false positive. `03_plasticity_scores.R` takes its
-reaction norms and SNPs from `simulate_reaction_norms()` and keeps the globals that
-the analyses and figures read. `regression_summarystats.R` requires
-`regression_sumstats_dataprep.R` to have been run first (it reads that script's CSV).
+The power of a parameter is always evaluated within its shape: its causal SNPs are
+searched only in the GWAS of that shape, and a hit on a SNP that is not causal for the
+shape is a false positive.
 
-## Scripts
-
-### Simulation model, PPIs and pipeline (R/sim, R/ppi, R/pipeline)
-
-These three folders hold functions only: no global variables, no guarded defaults.
-Every function takes its inputs as arguments and returns its result.
-`source(here::here("R", "pipeline", "load_pipeline.R"))` loads all of them.
+## Functions (R/sim, R/ppi, R/pipeline)
 
 | File | Contents |
 |---|---|
-| `R/sim/simulation_config.R` | `sim_config()`: every setting, including all variance components; the study space; the parameters of each shape |
+| `R/sim/simulation_config.R` | `sim_config()`: every setting, including all variance components (each commented); the study space; the parameters of each shape |
 | `R/sim/snp_genotypes.R` | SNP dosages, disjoint causal SNP sets, SNP score |
 | `R/sim/genetic_values.R` | genetic value of a genotype, repeatability, replicate spread, plant latent values |
 | `R/sim/parameter_mapping.R` | latent value → parameter value |
 | `R/sim/reaction_norm_shapes.R` | raw shapes, normalisation, reaction-norm curve |
 | `R/sim/measurement.R` | measurement error |
-| `R/sim/simulate_reaction_norms.R` | `simulate_reaction_norms(cfg)`: runs the model for every shape |
-| `R/sim/variance_report.R` | realised variance components on the latent and the trait level |
+| `R/sim/simulate_reaction_norms.R` | `simulate_norms()` (true norms), `measure_norms()` (sampling at n points or at points t, with measurement error), `simulate_reaction_norms()` (both) |
+| `R/sim/variance_report.R` | `latent_variance()` (from the norms), `trait_variance()` (per measurement), `variance_report()` |
 | `R/ppi/ppi_registry.R` | PPI entries, `register_ppi()`, validation, default registry (28 PPIs) |
-| `R/ppi/compute_ppis.R` | replicate means; `compute_ppis()` with `exclude` |
-| `R/pipeline/pipeline_input.R` | data contract for simulated and own data |
+| `R/ppi/compute_ppis.R` | replicate means; `compute_ppis()` with `exclude` and `replicate_handling`; `ppi_wide_table()` |
+| `R/pipeline/pipeline_input.R` | in-memory data contract (phenotypes, environments, SNPs, truth) and its checks |
+| `R/pipeline/population_folder.R` | folder format: `write_population()`, `write_resolution()`, `read_population()`, `sample_population()`, `resolution_dirs()`, `resolution_path()` |
+| `R/pipeline/population_steps.R` | the steps: `simulate_population()`, `sample_resolution()`, `compute_population_ppis()`, `run_population_gwas()` |
+| `R/pipeline/plot_norms.R` | `plot_true_norms()`: the true norms, drawn into `data/reaction_norms.pdf` |
 | `R/pipeline/gwas.R` | kinship matrix; `run_gwas()` per PPI and shape (rrBLUP mixed model) |
 | `R/pipeline/evaluate_power.R` | power per shape against that shape's causal SNPs |
-| `R/pipeline/run_pipeline.R` | `run_pipeline()`, `run_simulation_scenario()` |
-| `R/pipeline/combine_scenarios.R` | `combine_scenario_runs()` (newest run of every scenario), `detection_counts()` per shape |
+| `R/pipeline/resolution_analysis.R` | summary statistics; `compute_resolutions()`, `resolution_score_tables()`, `population_score_table()`; correlations per resolution, their regression on n, the mixed model |
+| `R/pipeline/similarity.R` | similarity measures and their permutation test |
+| `R/pipeline/combine_scenarios.R` | `combine_scenario_runs()` (the resolution n_6 of every scenario), `detection_counts()` per shape |
 | `R/pipeline/load_pipeline.R` | sources the three folders |
 
-**Simulation.** `simulate_reaction_norms(sim_config(h2, Mc))` does the following:
-
-1. Simulates the SNP matrix and draws the causal SNPs.
-2. Computes, in the order of the model, genetic values, repeatability, plant latent
-   values, parameter values, mother reaction norms and replicates, and measurements,
-   for each of the four shapes (linear, gaussian, sinusoidal, wave).
-
-All variance settings and their defaults are in `sim_config()`:
-
-- `h2`: share of the latent variance from the causal SNPs.
-- `sigma_L`: scale of the level.
-- `repeatability_beta`: Beta(18, 2).
-- `error_share`: measurement error share, 0.05.
-
-`sim_config()` also holds the remaining settings:
-
-- `n_per_shape` = 200
-- `n_rep` = 3
-- `n_snps` = 200000
-- `n_points` = 6
-- `seed`
-- `study_space`
-
-The same `seed` gives the same SNPs, causal sets, effects and normal draws for every
-`h2`. `variance_report(sim)` shows the realised components:
-
-- On the latent level, the SNP share equals `h2`.
-- On the trait level, it shows SNPs, background, interaction, within genotype and
-  measurement error.
-
-**Scenarios.** Each `R/scenarios/scenario_<pct>_<Mc>.R` is a single call:
-
-    run_simulation_scenario(sim_config(h2 = 0.2, Mc = 5), out_dir = here::here("output", "scenario_20_5"))
-
-It simulates, computes all PPIs, runs the GWAS with the kinship matrix and evaluates
-the power per shape. The first token of the file name is h² in percent; the second
-is the number of causal SNPs per parameter.
-
-**Own data.** Build the input and run it:
-
-    input <- pipeline_input(phenotypes, environments, snp_matrix = X, truth = known)
-    run_pipeline(input, out_dir)
-
-The input arguments:
-
-- `phenotypes`: a named list with one data.frame per shape or trait. Columns:
-  `Genotype`, `Replicate`, `Environment`, `Trait`.
-- `environments`: the environment values.
-- `snp_matrix`: dosages 0/1/2, with genotype IDs as row names.
-- `truth` (optional): known causal SNPs, with columns `Shape`, `Parameter` and `SNP`,
-  e.g. known plasticity genes.
-
-Without SNPs, use `run_pipeline(pipeline_input(phenotypes, environments), out_dir, gwas = FALSE)`.
-This computes the PPIs only.
-
-**PPIs.** Each PPI is one registry entry that declares its inputs:
-
-- `trait`: trait vector
-- `env`: environment values
-- `env_index`
-- `covariate`
-- `matrix`: genotype × environment matrix, at the population level (FW). A
-  population-level PPI is always computed once on the replicate means and gives one
-  value per genotype, also with `replicate_handling = "replicates"`.
-
-To add a PPI:
+**PPIs.** Each PPI is one registry entry that declares its inputs (`trait`, `env`,
+`env_index`, `covariate`, or `matrix` = genotype × environment matrix for the
+population-level FW). A population-level PPI is always computed once on the replicate
+means and gives one value per genotype. To add a PPI:
 
     reg <- register_ppi(default_ppi_registry(),
                         ppi_entry("Name", fun, inputs = c(trait_values = "trait", env_values = "env")))
-
-To leave PPIs out, pass `exclude = c("CV_t", ...)`. `replicate_handling` controls
-what the GWAS uses:
-
-- `"mean_before"` (default): replicates are averaged before the PPI is computed.
-- `"replicates"`: one PPI value per replicate reaction norm, with the line ID repeated.
-
-**Output of a run** (`out_dir/run_<timestamp>/`):
-
-- Always: `phenotypes.rds`, `ppi_scores.rds`, `ppi_scores/<PPI>.csv` (columns `Score`,
-  `Type`, `Genotype_ID`, `Replicate`).
-- With SNPs: `snp_matrix.rds`.
-- With truth: `truth.csv`.
-- With GWAS: `gwas_results.csv` (`SNP`, `LogP`, `P_Value`, `Score`, `Type`).
-- With truth and GWAS: `gwas_power.csv`, i.e. power per shape, PPI and parameter,
-  Bonferroni 0.05 / number of SNPs. Hits on SNPs that are not causal for that shape
-  count as false positives.
-
-Scenarios also write `variance_latent.csv`, `variance_trait.csv`, `measurement.csv`,
-`mother_parameters.csv`, `mother_curves.rds` and `config.rds`.
+    compute_population_ppis(RESOLUTION_DIR, registry = reg)
 
 **Tests.** `Rscript --vanilla tests/run_tests.R` (from the project root).
+
+## Scripts
 
 ### R/03_plasticity_scores.R
 
@@ -170,33 +112,25 @@ Scenarios also write `variance_latent.csv`, `variance_trait.csv`, `measurement.c
 =============================================================================
 03_plasticity_scores.R — compute every plasticity index (pipeline hub)
 =============================================================================
-WHAT IT DOES: Simulates the population with the model in R/sim (SNPs -> genetic
-  values -> mother norms and replicates -> measurements) and computes every
-  plasticity index (via the ppindices package) for each genotype's reaction norm
-  across the four forms (linear, gaussian, sinusoidal, wave), assembling the
-  `scores_list` consumed by GWAS and analysis.
+WHAT IT DOES: Loads a resolution of a simulated population (RESOLUTION_DIR, made with
+  simulate_population() and sample_resolution()) and computes every plasticity index
+  (via the ppindices package) for each genotype's reaction norm across the four forms
+  (linear, gaussian, sinusoidal, wave), assembling the `scores_list` consumed by GWAS
+  and analysis. Everything it writes goes to RESOLUTION_DIR/analyses/scores/.
 REQUIRES:     R/sim, R/ppi, R/pipeline (loaded via R/pipeline/load_pipeline.R);
-              library(ppindices). The caller MUST set H2, CAUSAL_SNP_NUM and
-              OUTPUT_BASE first — the script stops otherwise.
-PRODUCES:     `scores_list` in memory; per-score CSVs under OUTPUT_BASE when SAVE=TRUE.
+              library(ppindices). The caller MUST set RESOLUTION_DIR.
+PRODUCES:     `scores_list` in memory; outputs under RESOLUTION_DIR/analyses/scores/.
 HOW TO RUN:   setwd("~/PlastQuant")
-              H2 <- 0.2; CAUSAL_SNP_NUM <- 5
-              OUTPUT_BASE <- here::here("output","my_run")
+              RESOLUTION_DIR <- here::here("output", "populations", "my_population", "n_6")
               source(here::here("R", "03_plasticity_scores.R"))
 -----------------------------------------------------------------------------
 PARAMETERS — set these in a driver script or your R session before sourcing.
-  H2                    numeric 0..1, REQUIRED  share of genetic variance from the causal SNPs [COMMON]
-  CAUSAL_SNP_NUM        integer, REQUIRED      causal SNPs per parameter                    [COMMON]
-  OUTPUT_BASE           path,    REQUIRED      output location                              [COMMON]
-  NUM_GENOTYPES         integer, default 800   number of genotypes (divisible by 4)
-  NUM_SNPs              integer, default 200000 number of simulated SNPs
-  N_MEAS_POINTS         integer, default 6     simulated measurement points per reaction norm
-  SEED                  integer, default 1     same seed = same genetics for every H2
+  RESOLUTION_DIR        path,    REQUIRED      resolution folder of a simulated population  [COMMON]
   indices, env          optional               subset of the measurement points and their
                                                environment values (default: all points)
   KEEP_REPLICATES       logical, default FALSE keep replicate rows
   GWAS                  logical                run GWAS downstream (read by 04/05/06)
-  SAVE                  logical                write per-score CSVs under OUTPUT_BASE
+  SAVE                  logical                write per-score CSVs under analyses/scores/
 All other model settings (variance components, study space) are the defaults of
 sim_config() in R/sim/simulation_config.R.
 =============================================================================
@@ -253,21 +187,23 @@ PARAMETERS (edit at the noted line)
 =============================================================================
 05_evaluate_gwas.R — GWAS accuracy evaluation, per reaction-norm shape
 =============================================================================
-WHAT IT DOES: Compares the GWAS hits of one run against the simulated causal SNPs.
+WHAT IT DOES: Compares the GWAS hits of one resolution of a population against the
+  population's causal SNPs.
   Every shape is evaluated against its own causal SNPs only, so the power of a
   parameter is always the power within one shape (a hit on a causal SNP of another
   shape is a false positive). Draws one power heatmap per shape plus an overview.
-REQUIRES:     A run folder written by run_simulation_scenario() or by run_pipeline()
-              with a truth table (gwas_results.csv, truth.csv; config.rds if simulated).
-PRODUCES:     RUN_DIR/gwas_accuracy_summary.csv and RUN_DIR/plots/gwas_power_heatmap.pdf.
+REQUIRES:     A resolution folder with GWAS results (gwas/gwas_results.csv) of a
+              population with a truth table (<population>/data/truth.csv), e.g. from a scenario_*.R driver
+              or run_population_gwas() on own data with known causal SNPs.
+PRODUCES:     RESOLUTION_DIR/gwas/gwas_accuracy_summary.csv and
+              RESOLUTION_DIR/plots/gwas_power_heatmap.pdf.
 HOW TO RUN:   setwd("~/PlastQuant")
-              OUTPUT_BASE <- here::here("output", "scenario_20_5")   # newest run is used
+              RESOLUTION_DIR <- here::here("output", "populations", "scenario_20_5", "n_6")
               source(here::here("R", "05_evaluate_gwas.R"))
 -----------------------------------------------------------------------------
 PARAMETERS — set these before sourcing (guarded defaults)
-  RUN_DIR      path, default newest run_* in OUTPUT_BASE    run folder to evaluate  [COMMON]
-  OUTPUT_BASE  path                                         scenario folder (if no RUN_DIR)
-  ALPHA        numeric, default 0.05                        Bonferroni level: P < ALPHA / n_SNPs
+  RESOLUTION_DIR  path, REQUIRED              resolution folder to evaluate         [COMMON]
+  ALPHA           numeric, default 0.05       Bonferroni level: P < ALPHA / n_SNPs
 =============================================================================
 ```
 
@@ -323,9 +259,10 @@ PARAMETERS (edit at the noted line)
 =============================================================================
 scenario_20_5.R — heritability scenario: h2 = 0.2, 5 causal SNPs per parameter
 =============================================================================
-Simulates the population (R/sim), computes all PPIs, runs the GWAS and the
-per-shape evaluation, writes everything to output/scenario_20_5/run_<time>/
-and draws the power heatmaps (05_evaluate_gwas.R).
+Simulates the population (R/sim) into output/populations/scenario_20_5/ (data/,
+variance/), measures it at 6 points (n_6/), computes all PPIs (n_6/ppis/), runs the
+GWAS and the per-shape evaluation (n_6/gwas/) and draws the power heatmaps
+(n_6/plots/, 05_evaluate_gwas.R).
 All other settings (variance components, study space, ...) are the defaults of
 sim_config() in R/sim/simulation_config.R.
 HOW TO RUN: Rscript --vanilla R/scenarios/scenario_20_5.R   (from the repo root)
@@ -338,9 +275,10 @@ HOW TO RUN: Rscript --vanilla R/scenarios/scenario_20_5.R   (from the repo root)
 =============================================================================
 scenario_20_10.R — heritability scenario: h2 = 0.2, 10 causal SNPs per parameter
 =============================================================================
-Simulates the population (R/sim), computes all PPIs, runs the GWAS and the
-per-shape evaluation, writes everything to output/scenario_20_10/run_<time>/
-and draws the power heatmaps (05_evaluate_gwas.R).
+Simulates the population (R/sim) into output/populations/scenario_20_10/ (data/,
+variance/), measures it at 6 points (n_6/), computes all PPIs (n_6/ppis/), runs the
+GWAS and the per-shape evaluation (n_6/gwas/) and draws the power heatmaps
+(n_6/plots/, 05_evaluate_gwas.R).
 All other settings (variance components, study space, ...) are the defaults of
 sim_config() in R/sim/simulation_config.R.
 HOW TO RUN: Rscript --vanilla R/scenarios/scenario_20_10.R   (from the repo root)
@@ -353,9 +291,10 @@ HOW TO RUN: Rscript --vanilla R/scenarios/scenario_20_10.R   (from the repo root
 =============================================================================
 scenario_20_20.R — heritability scenario: h2 = 0.2, 20 causal SNPs per parameter
 =============================================================================
-Simulates the population (R/sim), computes all PPIs, runs the GWAS and the
-per-shape evaluation, writes everything to output/scenario_20_20/run_<time>/
-and draws the power heatmaps (05_evaluate_gwas.R).
+Simulates the population (R/sim) into output/populations/scenario_20_20/ (data/,
+variance/), measures it at 6 points (n_6/), computes all PPIs (n_6/ppis/), runs the
+GWAS and the per-shape evaluation (n_6/gwas/) and draws the power heatmaps
+(n_6/plots/, 05_evaluate_gwas.R).
 All other settings (variance components, study space, ...) are the defaults of
 sim_config() in R/sim/simulation_config.R.
 HOW TO RUN: Rscript --vanilla R/scenarios/scenario_20_20.R   (from the repo root)
@@ -368,9 +307,10 @@ HOW TO RUN: Rscript --vanilla R/scenarios/scenario_20_20.R   (from the repo root
 =============================================================================
 scenario_40_5.R — heritability scenario: h2 = 0.4, 5 causal SNPs per parameter
 =============================================================================
-Simulates the population (R/sim), computes all PPIs, runs the GWAS and the
-per-shape evaluation, writes everything to output/scenario_40_5/run_<time>/
-and draws the power heatmaps (05_evaluate_gwas.R).
+Simulates the population (R/sim) into output/populations/scenario_40_5/ (data/,
+variance/), measures it at 6 points (n_6/), computes all PPIs (n_6/ppis/), runs the
+GWAS and the per-shape evaluation (n_6/gwas/) and draws the power heatmaps
+(n_6/plots/, 05_evaluate_gwas.R).
 All other settings (variance components, study space, ...) are the defaults of
 sim_config() in R/sim/simulation_config.R.
 HOW TO RUN: Rscript --vanilla R/scenarios/scenario_40_5.R   (from the repo root)
@@ -383,9 +323,10 @@ HOW TO RUN: Rscript --vanilla R/scenarios/scenario_40_5.R   (from the repo root)
 =============================================================================
 scenario_40_10.R — heritability scenario: h2 = 0.4, 10 causal SNPs per parameter
 =============================================================================
-Simulates the population (R/sim), computes all PPIs, runs the GWAS and the
-per-shape evaluation, writes everything to output/scenario_40_10/run_<time>/
-and draws the power heatmaps (05_evaluate_gwas.R).
+Simulates the population (R/sim) into output/populations/scenario_40_10/ (data/,
+variance/), measures it at 6 points (n_6/), computes all PPIs (n_6/ppis/), runs the
+GWAS and the per-shape evaluation (n_6/gwas/) and draws the power heatmaps
+(n_6/plots/, 05_evaluate_gwas.R).
 All other settings (variance components, study space, ...) are the defaults of
 sim_config() in R/sim/simulation_config.R.
 HOW TO RUN: Rscript --vanilla R/scenarios/scenario_40_10.R   (from the repo root)
@@ -398,9 +339,10 @@ HOW TO RUN: Rscript --vanilla R/scenarios/scenario_40_10.R   (from the repo root
 =============================================================================
 scenario_40_20.R — heritability scenario: h2 = 0.4, 20 causal SNPs per parameter
 =============================================================================
-Simulates the population (R/sim), computes all PPIs, runs the GWAS and the
-per-shape evaluation, writes everything to output/scenario_40_20/run_<time>/
-and draws the power heatmaps (05_evaluate_gwas.R).
+Simulates the population (R/sim) into output/populations/scenario_40_20/ (data/,
+variance/), measures it at 6 points (n_6/), computes all PPIs (n_6/ppis/), runs the
+GWAS and the per-shape evaluation (n_6/gwas/) and draws the power heatmaps
+(n_6/plots/, 05_evaluate_gwas.R).
 All other settings (variance components, study space, ...) are the defaults of
 sim_config() in R/sim/simulation_config.R.
 HOW TO RUN: Rscript --vanilla R/scenarios/scenario_40_20.R   (from the repo root)
@@ -413,9 +355,10 @@ HOW TO RUN: Rscript --vanilla R/scenarios/scenario_40_20.R   (from the repo root
 =============================================================================
 scenario_60_5.R — heritability scenario: h2 = 0.6, 5 causal SNPs per parameter
 =============================================================================
-Simulates the population (R/sim), computes all PPIs, runs the GWAS and the
-per-shape evaluation, writes everything to output/scenario_60_5/run_<time>/
-and draws the power heatmaps (05_evaluate_gwas.R).
+Simulates the population (R/sim) into output/populations/scenario_60_5/ (data/,
+variance/), measures it at 6 points (n_6/), computes all PPIs (n_6/ppis/), runs the
+GWAS and the per-shape evaluation (n_6/gwas/) and draws the power heatmaps
+(n_6/plots/, 05_evaluate_gwas.R).
 All other settings (variance components, study space, ...) are the defaults of
 sim_config() in R/sim/simulation_config.R.
 HOW TO RUN: Rscript --vanilla R/scenarios/scenario_60_5.R   (from the repo root)
@@ -428,9 +371,10 @@ HOW TO RUN: Rscript --vanilla R/scenarios/scenario_60_5.R   (from the repo root)
 =============================================================================
 scenario_60_10.R — heritability scenario: h2 = 0.6, 10 causal SNPs per parameter
 =============================================================================
-Simulates the population (R/sim), computes all PPIs, runs the GWAS and the
-per-shape evaluation, writes everything to output/scenario_60_10/run_<time>/
-and draws the power heatmaps (05_evaluate_gwas.R).
+Simulates the population (R/sim) into output/populations/scenario_60_10/ (data/,
+variance/), measures it at 6 points (n_6/), computes all PPIs (n_6/ppis/), runs the
+GWAS and the per-shape evaluation (n_6/gwas/) and draws the power heatmaps
+(n_6/plots/, 05_evaluate_gwas.R).
 All other settings (variance components, study space, ...) are the defaults of
 sim_config() in R/sim/simulation_config.R.
 HOW TO RUN: Rscript --vanilla R/scenarios/scenario_60_10.R   (from the repo root)
@@ -443,9 +387,10 @@ HOW TO RUN: Rscript --vanilla R/scenarios/scenario_60_10.R   (from the repo root
 =============================================================================
 scenario_60_20.R — heritability scenario: h2 = 0.6, 20 causal SNPs per parameter
 =============================================================================
-Simulates the population (R/sim), computes all PPIs, runs the GWAS and the
-per-shape evaluation, writes everything to output/scenario_60_20/run_<time>/
-and draws the power heatmaps (05_evaluate_gwas.R).
+Simulates the population (R/sim) into output/populations/scenario_60_20/ (data/,
+variance/), measures it at 6 points (n_6/), computes all PPIs (n_6/ppis/), runs the
+GWAS and the per-shape evaluation (n_6/gwas/) and draws the power heatmaps
+(n_6/plots/, 05_evaluate_gwas.R).
 All other settings (variance components, study space, ...) are the defaults of
 sim_config() in R/sim/simulation_config.R.
 HOW TO RUN: Rscript --vanilla R/scenarios/scenario_60_20.R   (from the repo root)
@@ -479,19 +424,20 @@ PARAMETERS (edit here — set UNCONDITIONALLY below so they override script defa
 =============================================================================
 combine_scenarios.R — collect the heritability scenarios into one table set
 =============================================================================
-WHAT IT DOES: Takes the newest run of every scenario_<h2>_<Mc> folder, keeps the
+WHAT IT DOES: Takes the population folder of every scenario_<h2>_<Mc>, keeps the
   GWAS hits below P_THRESHOLD and the causal SNPs (both tagged with H2 and Mc), and
   counts the found causal SNPs per scenario, shape, parameter and PPI. Every shape
   is evaluated against its own causal SNPs only (see detection_counts()).
 REQUIRES:     Scenario runs written by R/scenarios/scenario_*.R.
 PRODUCES:     Under OUT_DIR: gwas_hits.csv, causal_snps_truth.csv, tested.csv,
-              detection_counts.csv, runs.csv (read by 06_analyze_gwas_results.R).
+              detection_counts.csv, populations.csv (read by 06_analyze_gwas_results.R).
 HOW TO RUN:   Rscript --vanilla R/scenarios/combine_scenarios.R   (from the repo root)
 -----------------------------------------------------------------------------
 PARAMETERS — set these before sourcing (guarded defaults)
-  SCENARIO_ROOT  path, default output/                   folder with the scenario_* folders
+  SCENARIO_ROOT  path, default output/populations/       folder with the scenario_* populations
   SCENARIOS      character, default all scenario_<h2>_<Mc> folders in SCENARIO_ROOT
   P_THRESHOLD    numeric, default 1e-3                   P value below which a SNP is a hit [COMMON]
+  N_POINTS       integer, default 6                      resolution n_<N_POINTS> whose GWAS is used
   OUT_DIR        path, default output/combined_scenarios where the tables are written
 =============================================================================
 ```
@@ -500,18 +446,26 @@ PARAMETERS — set these before sourcing (guarded defaults)
 
 ```text
 =============================================================================
-regression_sumstats_dataprep.R — build the summary-stats vs scores table
+regression_sumstats_dataprep.R — PPIs of one population at all resolutions
 =============================================================================
-WHAT IT DOES: Assembles the table of reaction-norm summary statistics against
-  plasticity scores that regression_summarystats.R and several figure scripts consume.
-  Auto-sources 03_plasticity_scores.R and analysis/summary_stats_vs_scores.R.
-REQUIRES:     Runs 03 (so it needs H2 / CAUSAL_SNP_NUM / OUTPUT_BASE set
-              by a scenario or your session, as 03 does).
-PRODUCES:     Regression-input CSV(s) under output/regression_summary_stats/.
-HOW TO RUN:   setwd("~/PlastQuant"); source(here::here("R","analysis","regression_sumstats_dataprep.R"))
+WHAT IT DOES: For every resolution n in RESOLUTIONS measures the true reaction norms of
+  one simulated population at n equidistant points (same genotypes and plants; only
+  the sampling changes) and computes all plasticity scores and the nine summary
+  statistics. Every resolution is written as its own folder, exactly as when done one
+  by one (sample_resolution(), compute_population_ppis()). A resolution that already
+  has its PPIs is kept. These folders are the input of resolution_analysis.R,
+  combined_resolution_figure.R, correlation_resolution.R and
+  correlation_resolution_experiment.R.
+REQUIRES:     POPULATION_DIR: a simulated population folder (simulate_population()).
+PRODUCES:     POPULATION_DIR/n_<n>/ for every n: data/ (measurements), variance/,
+              ppis/ (scores), analyses/summary_statistics.csv
+HOW TO RUN:   setwd("~/PlastQuant")
+              POPULATION_DIR <- here::here("output", "populations", "ppi_comparison")
+              source(here::here("R","analysis","regression_sumstats_dataprep.R"))
 -----------------------------------------------------------------------------
-PARAMETERS (supplied by 03 / a scenario / your session; see 03_plasticity_scores.R)
-  NUM_GENOTYPES, H2, CAUSAL_SNP_NUM, OUTPUT_BASE      [COMMON]
+PARAMETERS — POPULATION_DIR is set before sourcing; the resolutions are edited here
+  POPULATION_DIR  path, REQUIRED   simulated population folder                         [COMMON]
+  RESOLUTIONS     integer, default c(2, 3, 4, 5, 6, 11, 26, 50)  sampling points        [COMMON]
 =============================================================================
 ```
 
@@ -524,14 +478,15 @@ regression_summarystats.R — regress plasticity scores on summary statistics
 WHAT IT DOES: For each plasticity score, fits full/simple/ridge regression models on
   the nine summary-stat predictors, builds coefficient tables with significance stars
   and R^2, clusters scores, and writes per-score and combined diagnostic PDFs.
-REQUIRES:     regression_sumstats_dataprep.R MUST be run first — this script reads its
-              combined CSV from output/regression_summary_stats/.
-PRODUCES:     Coefficient tables and diagnostic PDFs under output/plots/.
-HOW TO RUN:   setwd("~/PlastQuant"); source(here::here("R","analysis","regression_summarystats.R"))
+REQUIRES:     RESOLUTION_DIR with its PPIs (compute_population_ppis()); the scores and
+              summary statistics are those of the population's own sampling resolution.
+PRODUCES:     Coefficient tables and diagnostic PDFs under RESOLUTION_DIR/plots/regression_summary_stats/.
+HOW TO RUN:   setwd("~/PlastQuant")
+              RESOLUTION_DIR <- here::here("output", "populations", "ppi_comparison", "n_6")
+              source(here::here("R","analysis","regression_summarystats.R"))
 -----------------------------------------------------------------------------
 PARAMETERS (edit the named assignment near the top of the script)
-  input_folder     path, default output/regression_summary_stats  where the CSV is read [COMMON]
-  output_folder    path, default output/plots                     where PDFs are written [COMMON]
+  RESOLUTION_DIR   path, REQUIRED (set before sourcing)   resolution folder               [COMMON]
   predictor_names  character vector  the summary-stat predictors used
   k                integer, default 4     number of score clusters
   n_perm           integer, default 1000  permutations for the cluster test
@@ -544,17 +499,17 @@ PARAMETERS (edit the named assignment near the top of the script)
 =============================================================================
 kendall_rank_corr.R — Kendall rank correlations between indices
 =============================================================================
-WHAT IT DOES: Computes Kendall rank correlations between the plasticity indices over
-  the chosen sampling intervals and reaction-norm ranges. Auto-sources
-  03_plasticity_scores.R when the scores are not already loaded.
-REQUIRES:     03 (so H2 / CAUSAL_SNP_NUM / OUTPUT_BASE must be set).
-PRODUCES:     Rank-correlation tables (and inputs for downstream figures).
-HOW TO RUN:   setwd("~/PlastQuant"); source(here::here("R","analysis","kendall_rank_corr.R"))
+WHAT IT DOES: Ranks the genotypes under every plasticity index and computes the
+  Kendall rank correlation of every index pair, for the population at its own
+  sampling resolution.
+REQUIRES:     RESOLUTION_DIR with its PPIs (compute_population_ppis()).
+PRODUCES:     Rank-correlation tables under RESOLUTION_DIR/analyses/rank_flops/.
+HOW TO RUN:   setwd("~/PlastQuant")
+              RESOLUTION_DIR <- here::here("output", "populations", "ppi_comparison", "n_6")
+              source(here::here("R","analysis","kendall_rank_corr.R"))
 -----------------------------------------------------------------------------
 PARAMETERS (edit the named assignment near the top of the script)
-  sampling_intervals    integer vector, default c(10)   measurement intervals to test   [COMMON]
-  global_initial_length integer, default 50             full reaction-norm length
-  range_list            list, default list(full=c(1,50)) sub-ranges to evaluate
+  RESOLUTION_DIR        path, REQUIRED                  resolution folder               [COMMON]
   score_names           character vector                which indices to correlate
 =============================================================================
 ```
@@ -567,12 +522,16 @@ kendall_tau_corr_clustering.R — cluster indices by rank agreement
 =============================================================================
 WHAT IT DOES: Reads the rank-agreement ("rank flops") tables and clusters the
   plasticity indices by their Kendall-tau agreement across top-k rankings.
-REQUIRES:     Rank-flop CSVs under output/rank_flops/ (produced upstream).
-PRODUCES:     Clustering summaries/plots of index agreement.
-HOW TO RUN:   setwd("~/PlastQuant"); source(here::here("R","analysis","kendall_tau_corr_clustering.R"))
+REQUIRES:     kendall_rank_corr.R run on RESOLUTION_DIR (analyses/rank_flops/); the
+              summary statistics are those of the population at its own resolution.
+PRODUCES:     Clustering summaries/plots of index agreement in
+              RESOLUTION_DIR/analyses/rank_flops/derived/.
+HOW TO RUN:   setwd("~/PlastQuant")
+              RESOLUTION_DIR <- here::here("output", "populations", "ppi_comparison", "n_6")
+              source(here::here("R","analysis","kendall_tau_corr_clustering.R"))
 -----------------------------------------------------------------------------
 PARAMETERS (edit the named assignment near the top of the script)
-  in_dir          path, default output/rank_flops   input rank-agreement files          [COMMON]
+  RESOLUTION_DIR  path, REQUIRED (set before sourcing)   resolution folder              [COMMON]
   tau_threshold   numeric, default 0.8              Kendall-tau agreement threshold      [COMMON]
   topk_values     integer vector, default c(3,5,10,15,20)  top-k cutoffs to evaluate     [COMMON]
   AGREE_THR_FULL  numeric, default 1.00             full-agreement threshold
@@ -589,8 +548,8 @@ WHAT IT DOES: Clusters genotypes / indices on their reaction-norm summary statis
   (k-means, DBSCAN, hierarchical, mclust) and renders the associated heatmaps/plots.
   Auto-sources 03_plasticity_scores.R when scores are not already loaded
   (guarded by the `data_loaded` flag at the top).
-REQUIRES:     03 (so H2 / CAUSAL_SNP_NUM / OUTPUT_BASE must be set).
-PRODUCES:     Clustering figures under OUTPUT_BASE.
+REQUIRES:     03 (so RESOLUTION_DIR must be set: a resolution folder of a simulated population).
+PRODUCES:     Clustering figures under RESOLUTION_DIR/analyses/clustering/.
 HOW TO RUN:   setwd("~/PlastQuant"); source(here::here("R","analysis","clustering_rn_summary_stats.R"))
 -----------------------------------------------------------------------------
 PARAMETERS: inherits 03's parameters via the auto-source; clustering knobs are set
@@ -609,8 +568,8 @@ WHAT IT DOES: Computes and visualises the relationship between reaction-norm sum
   statistics and the plasticity scores (correlation matrices, distance measures,
   clustering). Auto-sources 03_plasticity_scores.R when scores are not already loaded
   (guarded by the `data_loaded` flag at the top).
-REQUIRES:     03 (so H2 / CAUSAL_SNP_NUM / OUTPUT_BASE must be set).
-PRODUCES:     Summary-stat vs score figures/tables under OUTPUT_BASE.
+REQUIRES:     03 (so RESOLUTION_DIR must be set: a resolution folder of a simulated population).
+PRODUCES:     Summary-stat vs score figures under RESOLUTION_DIR/analyses/summary_stats_vs_scores/.
 HOW TO RUN:   setwd("~/PlastQuant"); source(here::here("R","analysis","summary_stats_vs_scores.R"))
 -----------------------------------------------------------------------------
 PARAMETERS: inherits 03's parameters via the auto-source; analysis knobs are set in the
@@ -624,18 +583,22 @@ PARAMETERS: inherits 03's parameters via the auto-source; analysis knobs are set
 =============================================================================
 combined_resolution_figure.R — combined resolution figure
 =============================================================================
-WHAT IT DOES: Combines the resolution heatmap (left) and the confounder/summary-stat
-  panel (right) into one publication figure.
-REQUIRES:     Regression-summary CSVs under output/regression_summary_stats/
-              (produced by regression_sumstats_dataprep.R / regression_summarystats.R).
-PRODUCES:     A combined resolution figure PDF.
-HOW TO RUN:   setwd("~/PlastQuant"); source(here::here("R","figures","combined_resolution_figure.R"))
+WHAT IT DOES: Draws the sampling-sensitivity figure of a population: left, the slope
+  of the regression of the PPI-summary-statistic correlation on the number of
+  sampling points (heatmap, from R/analysis/resolution_analysis.R); right, the effect
+  of the number of sampling points on every PPI from the mixed model
+  PPI ~ n + summary statistics + (1 | genotype), fitted here on the resolution tables
+  (forest plot).
+REQUIRES:     The resolution folders POPULATION_DIR/n_* (regression_sumstats_dataprep.R)
+              and POPULATION_DIR/analyses/resolution/ (resolution_analysis.R).
+PRODUCES:     POPULATION_DIR/plots/combined_resolution_figure.pdf and the mixed-model
+              results POPULATION_DIR/analyses/resolution/mixed_model.csv
+HOW TO RUN:   setwd("~/PlastQuant")
+              POPULATION_DIR <- here::here("output", "populations", "ppi_comparison")
+              source(here::here("R","figures","combined_resolution_figure.R"))
 -----------------------------------------------------------------------------
-PARAMETERS (edit the named assignment near the top of the script)
-  directory   path, default output/regression_summary_stats  input CSV folder           [COMMON]
-  files       character vector  the specific input CSVs to combine
-  n_samples   integer vector, default c(2,3,4,5,6,11,26,50)   sample counts per resolution
-  stat_cols   character vector  summary-stat columns to use
+PARAMETERS — set before sourcing
+  POPULATION_DIR  path, REQUIRED   population folder with the resolution analysis      [COMMON]
 =============================================================================
 ```
 
@@ -647,12 +610,15 @@ correlation_resolution.R — correlation vs sampling resolution
 =============================================================================
 WHAT IT DOES: Plots how index correlations change with the sampling resolution of the
   reaction norm.
-REQUIRES:     Regression-summary CSVs under output/regression_summary_stats/.
-PRODUCES:     Correlation-vs-resolution figure(s).
-HOW TO RUN:   setwd("~/PlastQuant"); source(here::here("R","figures","correlation_resolution.R"))
+REQUIRES:     The resolution folders POPULATION_DIR/n_2 ... n_50 with their PPIs
+              (regression_sumstats_dataprep.R).
+PRODUCES:     boxplot_resolution.pdf, slope_heatmap_resolution.pdf in POPULATION_DIR/plots/.
+HOW TO RUN:   setwd("~/PlastQuant")
+              POPULATION_DIR <- here::here("output", "populations", "ppi_comparison")
+              source(here::here("R","figures","correlation_resolution.R"))
 -----------------------------------------------------------------------------
 PARAMETERS (edit the named assignment near the top of the script)
-  directory    path, default output/regression_summary_stats  input CSV folder          [COMMON]
+  POPULATION_DIR  path, REQUIRED (set before sourcing)   population folder                [COMMON]
   resolutions  integer vector, default c(50,25,20,15,10,5,2,1) sampling resolutions
   n_samples    integer vector, default c(2,3,4,5,6,11,26,50)   sample counts
   sel_idx      integer vector, default c(1,3,7,8)   which resolutions to plot            [COMMON]
@@ -669,12 +635,15 @@ correlation_resolution_experiment.R — resolution robustness with confounders
 =============================================================================
 WHAT IT DOES: A resolution-robustness analysis like correlation_resolution.R, but with
   the summary statistics included in the regression as confounders.
-REQUIRES:     Regression-summary CSVs under output/regression_summary_stats/.
-PRODUCES:     Resolution-experiment figure(s).
-HOW TO RUN:   setwd("~/PlastQuant"); source(here::here("R","figures","correlation_resolution_experiment.R"))
+REQUIRES:     The resolution folders POPULATION_DIR/n_2 ... n_50 with their PPIs
+              (regression_sumstats_dataprep.R).
+PRODUCES:     confoundermodel_sumstats.pdf in POPULATION_DIR/plots/.
+HOW TO RUN:   setwd("~/PlastQuant")
+              POPULATION_DIR <- here::here("output", "populations", "ppi_comparison")
+              source(here::here("R","figures","correlation_resolution_experiment.R"))
 -----------------------------------------------------------------------------
 PARAMETERS (edit the named assignment near the top of the script)
-  directory   path, default output/regression_summary_stats  input CSV folder           [COMMON]
+  POPULATION_DIR  path, REQUIRED (set before sourcing)   population folder                [COMMON]
   files       character vector  the input CSVs
   n_samples   integer vector, default c(2,3,4,5,6,11,26,50)   sample counts
   stat_cols   character vector  summary-stat columns to use
@@ -689,12 +658,15 @@ correlation_summary_stats_PS.R — summary-stat vs plasticity-score correlations
 =============================================================================
 WHAT IT DOES: Renders correlation panels between the reaction-norm summary statistics
   and the plasticity scores.
-REQUIRES:     A regression-data CSV under output/regression_summary_stats/.
-PRODUCES:     Correlation-panel figure(s).
-HOW TO RUN:   setwd("~/PlastQuant"); source(here::here("R","figures","correlation_summary_stats_PS.R"))
+REQUIRES:     RESOLUTION_DIR with its PPIs (compute_population_ppis()); scores and
+              summary statistics at the population's own sampling resolution.
+PRODUCES:     Correlation-panel figures in RESOLUTION_DIR/plots/.
+HOW TO RUN:   setwd("~/PlastQuant")
+              RESOLUTION_DIR <- here::here("output", "populations", "ppi_comparison", "n_6")
+              source(here::here("R","figures","correlation_summary_stats_PS.R"))
 -----------------------------------------------------------------------------
 PARAMETERS (edit the named assignment near the top of the script)
-  the input CSV path (read via read_csv at the top)                                      [COMMON]
+  RESOLUTION_DIR  path, REQUIRED (set before sourcing)   resolution folder                [COMMON]
   stat_cols   character vector  summary-stat columns to use
 =============================================================================
 ```
@@ -705,15 +677,18 @@ PARAMETERS (edit the named assignment near the top of the script)
 =============================================================================
 plasticity_score_realisation_plot.R — plasticity-score realisations (simulated)
 =============================================================================
-WHAT IT DOES: Plots the realised plasticity scores across genotypes/forms for the
-  simulated data.
-REQUIRES:     Score outputs produced by 03_plasticity_scores.R (run a scenario first),
-              read from under output/.
-PRODUCES:     Plasticity-score realisation figure(s).
-HOW TO RUN:   setwd("~/PlastQuant"); source(here::here("R","figures","plasticity_score_realisation_plot.R"))
+WHAT IT DOES: Plots the realised plasticity scores of a population at its own
+  sampling resolution: distributions, Kendall-distance clustering per shape and
+  combined, silhouette choice of k, Mantel tests between the shapes (Figure 2).
+REQUIRES:     RESOLUTION_DIR with its PPIs (RESOLUTION_DIR/ppis/ppi_scores.rds from
+              compute_population_ppis(RESOLUTION_DIR)).
+PRODUCES:     Figures under RESOLUTION_DIR/plots/ (figure2_2.pdf, figure2_3.pdf, ...).
+HOW TO RUN:   setwd("~/PlastQuant")
+              RESOLUTION_DIR <- here::here("output", "populations", "ppi_comparison", "n_6")
+              source(here::here("R","figures","plasticity_score_realisation_plot.R"))
 -----------------------------------------------------------------------------
-PARAMETERS (edit the named input path / selection assignments in the body)
-  the input score path and any index/form selection are set in the script body.
+PARAMETERS — set before sourcing
+  RESOLUTION_DIR  path, REQUIRED   resolution folder                                     [COMMON]
 =============================================================================
 ```
 
@@ -740,30 +715,27 @@ PARAMETERS (edit the named assignment near the top of the script)
 
 ```text
 =============================================================================
-plotting_reaction_norms_all.R — reaction-norm overview figure
+plotting_reaction_norms_all.R — reaction-norm overview figure of a population
 =============================================================================
-WHAT IT DOES: Simulates a population with the model in R/sim (independent of the
-  heritability scenarios) and assembles the reaction-norm overview figure: per shape
-  the mother reaction norms of selected genotypes (smooth curve from the mother
-  parameters), their replicate measurements (dashed) and replicate range (ribbon),
-  plus histograms of the measured trait values.
-REQUIRES:     Nothing upstream (simulates its own data; no GWAS). If a simulation
-              `sim` (from simulate_reaction_norms()) exists in the session, that one
-              is drawn instead.
-PRODUCES:     output/plots/reaction_norms_final_figure.pdf,
-              reaction_norms_final_figure_panels.pdf, p_combined.pdf.
-HOW TO RUN:   setwd("~/PlastQuant"); source(here::here("R","figures","plotting_reaction_norms_all.R"))
+WHAT IT DOES: Draws the reaction norms of a population folder: per shape (or trait)
+  selected genotypes with their replicate measurements (dashed) and replicate range
+  (ribbon), plus histograms of the measured trait values. For a simulated population
+  the solid line is the mother reaction norm (smooth curve from the mother
+  parameters); for own data it is the genotype mean over the replicates.
+REQUIRES:     A resolution folder (data/), simulated with simulate_population() /
+              a scenario driver, or own data placed in data/.
+PRODUCES:     RESOLUTION_DIR/plots/reaction_norms_final_figure.pdf,
+              reaction_norms_final_figure_panels.pdf, trait_histogram_combined.pdf.
+HOW TO RUN:   setwd("~/PlastQuant")
+              RESOLUTION_DIR <- here::here("output", "populations", "my_population", "n_6")
+              source(here::here("R","figures","plotting_reaction_norms_all.R"))
 -----------------------------------------------------------------------------
 PARAMETERS — set these before sourcing (guarded defaults)
-  sim             optional, output of simulate_reaction_norms() to draw   [COMMON]
-  H2              numeric, default 0.4    SNP share of the latent variance           [COMMON]
-  CAUSAL_SNP_NUM  integer, default 5      causal SNPs per parameter
-  NUM_GENOTYPES   integer, default 800    genotypes (divisible by 4, one block per shape)
-  NUM_SNPs        integer, default 2000   simulated SNPs (only the curves are used here)
-  SEED            integer, default 1
-  PLOT_GENOTYPES  list shape -> genotype IDs, default: the genotypes at the 10/50/90 %
-                  quantile of the amplitude a of each shape (3 per panel)
-  N_CURVE_POINTS  integer, default 200   points of the smooth mother curves
+  RESOLUTION_DIR  path, REQUIRED   resolution folder to draw                            [COMMON]
+  PLOT_GENOTYPES  list shape/trait -> genotype IDs, default: 3 genotypes per panel at the
+                  10/50/90 % quantile of the amplitude a (simulated) or of the genotype
+                  mean trait value (own data)
+  N_CURVE_POINTS  integer, default 200   points of the smooth mother curves (simulated)
 =============================================================================
 ```
 
@@ -775,12 +747,14 @@ plotting_resolution.R — resolution correlation plots
 =============================================================================
 WHAT IT DOES: Reads the per-resolution correlation CSVs and renders the resolution
   correlation plots across the defined reaction-norm ranges.
-REQUIRES:     correlations_*.csv files under the input directory (produced upstream).
-PRODUCES:     Resolution correlation figure(s).
-HOW TO RUN:   setwd("~/PlastQuant"); source(here::here("R","figures","plotting_resolution.R"))
+REQUIRES:     correlations_*.csv of resolution.R in POPULATION_DIR/analyses/correlation_summary_stats/.
+PRODUCES:     plots_<range>_<analysis>_per_score.pdf in POPULATION_DIR/plots/.
+HOW TO RUN:   setwd("~/PlastQuant")
+              POPULATION_DIR <- here::here("output", "populations", "ppi_comparison")
+              source(here::here("R","figures","plotting_resolution.R"))
 -----------------------------------------------------------------------------
 PARAMETERS (edit the named assignment near the top of the script)
-  dir_path     path   folder holding the correlations_*.csv inputs                       [COMMON]
+  POPULATION_DIR  path, REQUIRED (set before sourcing)   population folder                [COMMON]
   range_names  character vector, default c("full","partial1","partial2")  ranges plotted
 =============================================================================
 ```
@@ -793,12 +767,19 @@ rank_corr_biplot.R — rank-correlation biplot
 =============================================================================
 WHAT IT DOES: Builds the rank-correlation biplot of the plasticity indices (also used
   as a helper by plasticity_score_realisation_plot_maize.R).
-REQUIRES:     Rank-correlation inputs produced upstream (read from under output/).
-PRODUCES:     Rank-correlation biplot figure.
-HOW TO RUN:   setwd("~/PlastQuant"); source(here::here("R","figures","rank_corr_biplot.R"))
+  Includes the top-k overlap of the most plastic genotypes between indices (Figure 3).
+REQUIRES:     Simulated data: RESOLUTION_DIR with its PPIs (ppis/ppi_scores.rds from
+              compute_population_ppis(RESOLUTION_DIR)); the PPIs and summary statistics
+              are those of the population's own sampling resolution.
+              Maize (form_ranges of length 3): data/maize_scores_list.rds.
+PRODUCES:     RESOLUTION_DIR/plots/plasticity_comprehensive_analysis/ (PDF and CSV tables);
+              maize: output/plasticity_comprehensive_analysis_maize/.
+HOW TO RUN:   setwd("~/PlastQuant")
+              RESOLUTION_DIR <- here::here("output", "populations", "ppi_comparison", "n_6")
+              source(here::here("R","figures","rank_corr_biplot.R"))
 -----------------------------------------------------------------------------
-PARAMETERS (edit the named input path / selection assignments in the body)
-  the input path and index selection are set in the script body.
+PARAMETERS
+  RESOLUTION_DIR  path, REQUIRED for simulated data                                       [COMMON]
 =============================================================================
 ```
 
@@ -809,10 +790,13 @@ PARAMETERS (edit the named input path / selection assignments in the body)
 resolution.R — resolution experiment (dataprep + regression combined)
 =============================================================================
 WHAT IT DOES: Runs, in one pass, what regression_sumstats_dataprep.R and
-  regression_summarystats.R do together, for the resolution experiment. Auto-sources
-  03_plasticity_scores.R and analysis/summary_stats_vs_scores.R.
-REQUIRES:     03 (so H2 / CAUSAL_SNP_NUM / OUTPUT_BASE must be set).
-PRODUCES:     Resolution-experiment tables/figures under output/.
+  regression_summarystats.R do together, for the resolution experiment: Kendall
+  correlations (permutation test) between every score and every summary statistic,
+  pooled over the forms and per form, for every sub-range and sampling interval.
+REQUIRES:     POPULATION_DIR: a simulated population folder; its reaction norms are
+              sampled at every range x interval of a grid of global_initial_length points.
+PRODUCES:     correlations_<range>_interval_<i>_indices_<...>.csv in
+              POPULATION_DIR/analyses/correlation_summary_stats/ (read by plotting_resolution.R).
 HOW TO RUN:   setwd("~/PlastQuant"); source(here::here("R","figures","resolution.R"))
 -----------------------------------------------------------------------------
 PARAMETERS: inherits 03's parameters via the auto-source; resolution knobs are set in
@@ -820,3 +804,31 @@ PARAMETERS: inherits 03's parameters via the auto-source; resolution knobs are s
 =============================================================================
 ```
 
+### R/analysis/resolution_analysis.R
+
+```text
+=============================================================================
+resolution_analysis.R — sampling sensitivity: correlation and its regression
+=============================================================================
+WHAT IT DOES: From the resolution folders n_2 ... n_50 of a population (the same
+  reaction norms measured at 2, 3, 4, 5, 6, 11, 26 and 50 points; their PPIs and
+  summary statistics from regression_sumstats_dataprep.R) computes
+    - the Pearson correlation of every PPI with every summary statistic across all
+      genotypes, per number of sampling points,
+    - for every PPI-statistic pair the linear regression of that correlation on the
+      number of sampling points (slope, its standard error, t-test).
+  The figure script R/figures/combined_resolution_figure.R reads these results and
+  fits the mixed model on the tables.
+REQUIRES:     regression_sumstats_dataprep.R run on POPULATION_DIR.
+              The results span all resolutions and are written at population level.
+PRODUCES:     POPULATION_DIR/analyses/resolution/
+                correlations.csv            N_points, PPI, Stat, r
+                correlation_regression.csv  PPI, Stat, intercept, slope, se_slope, t_stat, p_value, nobs
+HOW TO RUN:   setwd("~/PlastQuant")
+              POPULATION_DIR <- here::here("output", "populations", "ppi_comparison")
+              source(here::here("R", "analysis", "resolution_analysis.R"))
+-----------------------------------------------------------------------------
+PARAMETERS
+  POPULATION_DIR  path, REQUIRED (set before sourcing)   population folder               [COMMON]
+=============================================================================
+```
