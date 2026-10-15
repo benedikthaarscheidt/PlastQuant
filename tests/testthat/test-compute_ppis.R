@@ -119,8 +119,16 @@ test_that("per replicate: each replicate's own reaction norm, nothing averaged",
     expect_equal(reps$Score[reps$Genotype_ID == g & reps$Replicate == r],
                  unname(coef(lm(own$Trait ~ own$Environment))[2]), tolerance = 1e-10)
   }
-  # the matrix of one replicate is its measurements; two values per cell are an error
-  M <- reaction_norm_matrix_of(d[d$Replicate == 2, ], x$env)
-  expect_equal(M["G1", ], d$Trait[d$Genotype == "G1" & d$Replicate == 2], ignore_attr = TRUE)
-  expect_error(reaction_norm_matrix_of(d, x$env), "more than one value")
+  # two values of one replicate in the same cell are an error, never silently averaged
+  dup <- rbind(d, d[d$Genotype == "G1" & d$Replicate == 1, ][1, ])
+  expect_error(ppi_per_replicate(reg$slope, dup, x$env), "replicate 1: more than one value")
+})
+
+test_that("averaged before the PPI: one value per genotype from its mean reaction norm", {
+  x <- toy()
+  d <- x$phenotypes$shapeA
+  v <- ppi_per_avg_genotype(reg$slope, d, x$env)
+  expect_equal(names(v), c("G1", "G2", "G3"))
+  g1 <- aggregate(Trait ~ Environment, d[d$Genotype == "G1", ], mean)
+  expect_equal(v[["G1"]], unname(coef(lm(g1$Trait ~ g1$Environment))[2]), tolerance = 1e-10)
 })

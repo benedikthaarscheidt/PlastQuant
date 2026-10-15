@@ -81,7 +81,7 @@ shape is a false positive.
 | `R/sim/simulate_reaction_norms.R` | `simulate_norms()` (true norms), `measure_norms()` (sampling at n points or at points t, with measurement error), `simulate_reaction_norms()` (both) |
 | `R/sim/variance_report.R` | `latent_variance()` (from the norms), `trait_variance()` (per measurement), `variance_report()` |
 | `R/ppi/ppi_registry.R` | PPI entries, `register_ppi()`, validation, default registry (28 PPIs) |
-| `R/ppi/compute_ppis.R` | replicate means; `compute_ppis()` with `exclude` and `replicate_handling`; `ppi_wide_table()` |
+| `R/ppi/compute_ppis.R` | `compute_ppis()` with `exclude` and `replicate_handling`: `ppi_per_avg_genotype()` (replicates averaged first) or `ppi_per_replicate()` (each replicate's own norm); `replicate_means()`; `ppi_wide_table()` |
 | `R/pipeline/pipeline_input.R` | in-memory data contract (phenotypes, environments, SNPs, truth) and its checks |
 | `R/pipeline/population_folder.R` | folder format: `write_population()`, `write_resolution()`, `read_population()`, `sample_population()`, `resolution_dirs()`, `resolution_path()` |
 | `R/pipeline/population_steps.R` | the steps: `simulate_population()`, `sample_resolution()`, `compute_population_ppis()`, `run_population_gwas()` |
