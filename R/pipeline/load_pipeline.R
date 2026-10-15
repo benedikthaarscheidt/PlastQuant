@@ -13,7 +13,7 @@ pipeline_function_files <- c(
   # PPI computation
   "ppi/ppi_registry.R", "ppi/compute_ppis.R", "ppi/compute_population_ppis.R",
   # GWAS and its evaluation
-  "gwas/gwas.R", "gwas/evaluate_power.R", "gwas/run_population_gwas.R", "gwas/combine_scenario_runs.R",
+  "gwas/gwas.R", "gwas/evaluate_power.R", "gwas/plot_gwas_power.R", "gwas/run_population_gwas.R", "gwas/combine_scenario_runs.R",
   # comparison of the PPIs
   "analysis/similarity.R", "analysis/resolution_stability.R"
 )

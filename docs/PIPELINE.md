@@ -56,7 +56,8 @@ PPIs take `RESOLUTION_DIR` and `REPLICATE_HANDLING` (default `"mean_before"`).
     simulate_population(cfg, POPULATION_DIR)          -> data/, variance/
       └─ sample_resolution(POPULATION_DIR, k)         -> n_<k>/data/, n_<k>/variance/
            └─ compute_population_ppis(n_<k>, replicate_handling) -> n_<k>/<handling>/ppis/
-                ├─ run_population_gwas(n_<k>, replicate_handling) -> n_<k>/<handling>/gwas/ ─▶ 05_evaluate_gwas
+                ├─ run_population_gwas(n_<k>, replicate_handling) -> n_<k>/<handling>/gwas/ (results, power)
+                │                                                  and plots/ (power heatmaps)
                 ├─ analysis/plasticity_score_realisation_plot, rank_corr_biplot,
                 │  correlation_summary_stats_PS, plotting_reaction_norms_all
                 ├─ analysis/regression_summarystats, kendall_rank_corr ─▶ kendall_tau_corr_clustering
@@ -96,7 +97,8 @@ shape is a false positive.
 | `R/sim/simulate_population.R` | `simulate_population()`: true norms of a population -> `data/`, `variance/` |
 | `R/pipeline/sample_resolution.R` | `sample_resolution()`: the population measured at n points -> `n_<n>/data/`, `n_<n>/variance/` |
 | `R/ppi/compute_population_ppis.R` | `compute_population_ppis()`: PPIs of a resolution -> `n_<n>/<replicate handling>/ppis/` |
-| `R/gwas/run_population_gwas.R` | `run_population_gwas()`: GWAS of the PPIs of a resolution -> `n_<n>/<replicate handling>/gwas/` |
+| `R/gwas/run_population_gwas.R` | `run_population_gwas()`: GWAS of the PPIs of a resolution and, with a truth table, the power per shape and its heatmaps -> `n_<n>/<replicate handling>/gwas/`, `plots/` |
+| `R/gwas/plot_gwas_power.R` | `plot_gwas_power()`: heatmaps of the power per shape (used by `run_population_gwas()`) |
 | `R/sim/plot_norms.R` | `plot_true_norms()`: the true norms, drawn into `data/reaction_norms.pdf` |
 | `R/gwas/gwas.R` | kinship matrix; `run_gwas()` per PPI and shape (rrBLUP mixed model) |
 | `R/gwas/evaluate_power.R` | power per shape against that shape's causal SNPs |
@@ -117,33 +119,6 @@ means and gives one value per genotype. To add a PPI:
 **Tests.** `Rscript --vanilla tests/run_tests.R` (from the project root).
 
 ## Scripts
-
-### R/gwas/05_evaluate_gwas.R
-
-```text
-=============================================================================
-05_evaluate_gwas.R — GWAS accuracy evaluation, per reaction-norm shape
-=============================================================================
-WHAT IT DOES: Compares the GWAS hits of one resolution of a population against the
-  population's causal SNPs.
-  Every shape is evaluated against its own causal SNPs only, so the power of a
-  parameter is always the power within one shape (a hit on a causal SNP of another
-  shape is a false positive). Draws one power heatmap per shape plus an overview.
-REQUIRES:     A resolution folder with GWAS results (<REPLICATE_HANDLING>/gwas/gwas_results.csv) of a
-              population with a truth table (<population>/data/truth.csv), e.g. from a scenario_*.R driver
-              or run_population_gwas() on own data with known causal SNPs.
-PRODUCES:     RESOLUTION_DIR/<REPLICATE_HANDLING>/gwas/gwas_accuracy_summary.csv and
-              RESOLUTION_DIR/<REPLICATE_HANDLING>/plots/gwas_power_heatmap.pdf.
-HOW TO RUN:   setwd("~/PlastQuant")
-              RESOLUTION_DIR <- here::here("output", "populations", "scenario_20_5", "n_6")
-              source(here::here("R", "gwas", "05_evaluate_gwas.R"))
------------------------------------------------------------------------------
-PARAMETERS — set these before sourcing (guarded defaults)
-  RESOLUTION_DIR  path, REQUIRED              resolution folder to evaluate         [COMMON]
-  REPLICATE_HANDLING  "mean_before" (default) or "replicates"   which PPIs of the resolution
-  ALPHA           numeric, default 0.05       Bonferroni level: P < ALPHA / n_SNPs
-=============================================================================
-```
 
 ### R/gwas/06_analyze_gwas_results.R
 
@@ -203,9 +178,9 @@ PARAMETERS — set these before sourcing (guarded defaults)
 scenario_20_5.R — heritability scenario: h2 = 0.2, 5 causal SNPs per parameter
 =============================================================================
 Simulates the population (R/sim) into output/populations/scenario_20_5/ (data/,
-variance/), measures it at 6 points (n_6/), computes all PPIs (n_6/ppis/), runs the
-GWAS and the per-shape evaluation (n_6/gwas/) and draws the power heatmaps
-(n_6/plots/, 05_evaluate_gwas.R).
+variance/), measures it at 6 points (n_6/), computes all PPIs from the replicate-averaged
+reaction norms (n_6/mean_before/ppis/) and runs the GWAS with the power per shape and
+its heatmaps (n_6/mean_before/gwas/, n_6/mean_before/plots/).
 All other settings (variance components, study space, ...) are the defaults of
 sim_config() in R/sim/simulation_config.R.
 HOW TO RUN: Rscript --vanilla R/gwas/scenarios/scenario_20_5.R   (from the repo root)
@@ -219,9 +194,9 @@ HOW TO RUN: Rscript --vanilla R/gwas/scenarios/scenario_20_5.R   (from the repo 
 scenario_20_10.R — heritability scenario: h2 = 0.2, 10 causal SNPs per parameter
 =============================================================================
 Simulates the population (R/sim) into output/populations/scenario_20_10/ (data/,
-variance/), measures it at 6 points (n_6/), computes all PPIs (n_6/ppis/), runs the
-GWAS and the per-shape evaluation (n_6/gwas/) and draws the power heatmaps
-(n_6/plots/, 05_evaluate_gwas.R).
+variance/), measures it at 6 points (n_6/), computes all PPIs from the replicate-averaged
+reaction norms (n_6/mean_before/ppis/) and runs the GWAS with the power per shape and
+its heatmaps (n_6/mean_before/gwas/, n_6/mean_before/plots/).
 All other settings (variance components, study space, ...) are the defaults of
 sim_config() in R/sim/simulation_config.R.
 HOW TO RUN: Rscript --vanilla R/gwas/scenarios/scenario_20_10.R   (from the repo root)
@@ -235,9 +210,9 @@ HOW TO RUN: Rscript --vanilla R/gwas/scenarios/scenario_20_10.R   (from the repo
 scenario_20_20.R — heritability scenario: h2 = 0.2, 20 causal SNPs per parameter
 =============================================================================
 Simulates the population (R/sim) into output/populations/scenario_20_20/ (data/,
-variance/), measures it at 6 points (n_6/), computes all PPIs (n_6/ppis/), runs the
-GWAS and the per-shape evaluation (n_6/gwas/) and draws the power heatmaps
-(n_6/plots/, 05_evaluate_gwas.R).
+variance/), measures it at 6 points (n_6/), computes all PPIs from the replicate-averaged
+reaction norms (n_6/mean_before/ppis/) and runs the GWAS with the power per shape and
+its heatmaps (n_6/mean_before/gwas/, n_6/mean_before/plots/).
 All other settings (variance components, study space, ...) are the defaults of
 sim_config() in R/sim/simulation_config.R.
 HOW TO RUN: Rscript --vanilla R/gwas/scenarios/scenario_20_20.R   (from the repo root)
@@ -251,9 +226,9 @@ HOW TO RUN: Rscript --vanilla R/gwas/scenarios/scenario_20_20.R   (from the repo
 scenario_40_5.R — heritability scenario: h2 = 0.4, 5 causal SNPs per parameter
 =============================================================================
 Simulates the population (R/sim) into output/populations/scenario_40_5/ (data/,
-variance/), measures it at 6 points (n_6/), computes all PPIs (n_6/ppis/), runs the
-GWAS and the per-shape evaluation (n_6/gwas/) and draws the power heatmaps
-(n_6/plots/, 05_evaluate_gwas.R).
+variance/), measures it at 6 points (n_6/), computes all PPIs from the replicate-averaged
+reaction norms (n_6/mean_before/ppis/) and runs the GWAS with the power per shape and
+its heatmaps (n_6/mean_before/gwas/, n_6/mean_before/plots/).
 All other settings (variance components, study space, ...) are the defaults of
 sim_config() in R/sim/simulation_config.R.
 HOW TO RUN: Rscript --vanilla R/gwas/scenarios/scenario_40_5.R   (from the repo root)
@@ -267,9 +242,9 @@ HOW TO RUN: Rscript --vanilla R/gwas/scenarios/scenario_40_5.R   (from the repo 
 scenario_40_10.R — heritability scenario: h2 = 0.4, 10 causal SNPs per parameter
 =============================================================================
 Simulates the population (R/sim) into output/populations/scenario_40_10/ (data/,
-variance/), measures it at 6 points (n_6/), computes all PPIs (n_6/ppis/), runs the
-GWAS and the per-shape evaluation (n_6/gwas/) and draws the power heatmaps
-(n_6/plots/, 05_evaluate_gwas.R).
+variance/), measures it at 6 points (n_6/), computes all PPIs from the replicate-averaged
+reaction norms (n_6/mean_before/ppis/) and runs the GWAS with the power per shape and
+its heatmaps (n_6/mean_before/gwas/, n_6/mean_before/plots/).
 All other settings (variance components, study space, ...) are the defaults of
 sim_config() in R/sim/simulation_config.R.
 HOW TO RUN: Rscript --vanilla R/gwas/scenarios/scenario_40_10.R   (from the repo root)
@@ -283,9 +258,9 @@ HOW TO RUN: Rscript --vanilla R/gwas/scenarios/scenario_40_10.R   (from the repo
 scenario_40_20.R — heritability scenario: h2 = 0.4, 20 causal SNPs per parameter
 =============================================================================
 Simulates the population (R/sim) into output/populations/scenario_40_20/ (data/,
-variance/), measures it at 6 points (n_6/), computes all PPIs (n_6/ppis/), runs the
-GWAS and the per-shape evaluation (n_6/gwas/) and draws the power heatmaps
-(n_6/plots/, 05_evaluate_gwas.R).
+variance/), measures it at 6 points (n_6/), computes all PPIs from the replicate-averaged
+reaction norms (n_6/mean_before/ppis/) and runs the GWAS with the power per shape and
+its heatmaps (n_6/mean_before/gwas/, n_6/mean_before/plots/).
 All other settings (variance components, study space, ...) are the defaults of
 sim_config() in R/sim/simulation_config.R.
 HOW TO RUN: Rscript --vanilla R/gwas/scenarios/scenario_40_20.R   (from the repo root)
@@ -299,9 +274,9 @@ HOW TO RUN: Rscript --vanilla R/gwas/scenarios/scenario_40_20.R   (from the repo
 scenario_60_5.R — heritability scenario: h2 = 0.6, 5 causal SNPs per parameter
 =============================================================================
 Simulates the population (R/sim) into output/populations/scenario_60_5/ (data/,
-variance/), measures it at 6 points (n_6/), computes all PPIs (n_6/ppis/), runs the
-GWAS and the per-shape evaluation (n_6/gwas/) and draws the power heatmaps
-(n_6/plots/, 05_evaluate_gwas.R).
+variance/), measures it at 6 points (n_6/), computes all PPIs from the replicate-averaged
+reaction norms (n_6/mean_before/ppis/) and runs the GWAS with the power per shape and
+its heatmaps (n_6/mean_before/gwas/, n_6/mean_before/plots/).
 All other settings (variance components, study space, ...) are the defaults of
 sim_config() in R/sim/simulation_config.R.
 HOW TO RUN: Rscript --vanilla R/gwas/scenarios/scenario_60_5.R   (from the repo root)
@@ -315,9 +290,9 @@ HOW TO RUN: Rscript --vanilla R/gwas/scenarios/scenario_60_5.R   (from the repo 
 scenario_60_10.R — heritability scenario: h2 = 0.6, 10 causal SNPs per parameter
 =============================================================================
 Simulates the population (R/sim) into output/populations/scenario_60_10/ (data/,
-variance/), measures it at 6 points (n_6/), computes all PPIs (n_6/ppis/), runs the
-GWAS and the per-shape evaluation (n_6/gwas/) and draws the power heatmaps
-(n_6/plots/, 05_evaluate_gwas.R).
+variance/), measures it at 6 points (n_6/), computes all PPIs from the replicate-averaged
+reaction norms (n_6/mean_before/ppis/) and runs the GWAS with the power per shape and
+its heatmaps (n_6/mean_before/gwas/, n_6/mean_before/plots/).
 All other settings (variance components, study space, ...) are the defaults of
 sim_config() in R/sim/simulation_config.R.
 HOW TO RUN: Rscript --vanilla R/gwas/scenarios/scenario_60_10.R   (from the repo root)
@@ -331,9 +306,9 @@ HOW TO RUN: Rscript --vanilla R/gwas/scenarios/scenario_60_10.R   (from the repo
 scenario_60_20.R — heritability scenario: h2 = 0.6, 20 causal SNPs per parameter
 =============================================================================
 Simulates the population (R/sim) into output/populations/scenario_60_20/ (data/,
-variance/), measures it at 6 points (n_6/), computes all PPIs (n_6/ppis/), runs the
-GWAS and the per-shape evaluation (n_6/gwas/) and draws the power heatmaps
-(n_6/plots/, 05_evaluate_gwas.R).
+variance/), measures it at 6 points (n_6/), computes all PPIs from the replicate-averaged
+reaction norms (n_6/mean_before/ppis/) and runs the GWAS with the power per shape and
+its heatmaps (n_6/mean_before/gwas/, n_6/mean_before/plots/).
 All other settings (variance components, study space, ...) are the defaults of
 sim_config() in R/sim/simulation_config.R.
 HOW TO RUN: Rscript --vanilla R/gwas/scenarios/scenario_60_20.R   (from the repo root)

@@ -125,3 +125,30 @@ test_that("the replicate handling is the second argument; a wrong registry is an
   expect_error(compute_population_ppis(res, registry = "replicates"), "registry")
   expect_error(compute_population_ppis(res, registry = list()), "registry")
 })
+
+test_that("the GWAS step evaluates the power and draws the power heatmaps when a truth exists", {
+  dir <- fresh_dir("gwas_eval")
+  simulate_population(sim_config(h2 = 0.6, Mc = 2, n_per_shape = 10, n_snps = 200), dir)
+  res <- sample_resolution(dir, 6)
+  suppressMessages(compute_population_ppis(res, registry = default_ppi_registry()[c("CV_t", "RN")]))
+  suppressMessages(run_population_gwas(res, alpha = 0.5))
+  expect_true(file.exists(file.path(res, "mean_before", "plots", "gwas_power_heatmap.pdf")))
+  power <- read.csv(file.path(res, "mean_before", "gwas", "gwas_power.csv"))
+  hits <- read.csv(file.path(res, "mean_before", "gwas", "gwas_results.csv"))
+  n_sig <- length(unique(hits$SNP[hits$P_Value < 0.5 / 200 & hits$Score == "RN" & hits$Type == "linear"]))
+  lin <- power[power$Shape == "linear" & power$Score == "RN", ]
+  expect_equal(sum(lin$Found), n_sig)                     # alpha = 0.5 is used for the threshold
+})
+
+test_that("without a truth the GWAS step writes the results only", {
+  ph <- data.frame(Genotype = rep(c("A", "B", "C", "D"), each = 2), Replicate = 1L, Environment = rep(c(1, 2), 4),
+                   Trait = c(1, 2, 1, 3, 2, 2, 1, 4))
+  X <- matrix(c(0, 1, 2, 2, 1, 0, 1, 1), 4, dimnames = list(c("A", "B", "C", "D"), c("s1", "s2")))
+  dir <- write_population(pipeline_input(list(biomass = ph), c(1, 2), X), fresh_dir("gwas_no_truth"))
+  res <- resolution_dirs(dir)
+  suppressMessages(compute_population_ppis(res, registry = default_ppi_registry()["CV_t"]))
+  suppressMessages(run_population_gwas(res))
+  expect_true(file.exists(file.path(res, "mean_before", "gwas", "gwas_results.csv")))
+  expect_false(file.exists(file.path(res, "mean_before", "gwas", "gwas_power.csv")))
+  expect_false(dir.exists(file.path(res, "mean_before", "plots")))
+})

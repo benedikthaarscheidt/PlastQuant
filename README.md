@@ -51,7 +51,7 @@ R/
   ppi/                            PPI registry and computation (uses ppindices),
                                   compute_population_ppis.R
   gwas/                           GWAS functions, run_population_gwas.R, power per shape,
-                                  05_evaluate_gwas.R (power heatmaps), 06_analyze_gwas_results.R
+                                  plot_gwas_power.R (power heatmaps), 06_analyze_gwas_results.R
                                   (scenario comparison), 06_analyze_maize_gwas_results.R
     scenarios/                    heritability scenarios, combine_scenarios.R, scenario_maize.R
                                   (the maize data through the pipeline)
@@ -184,17 +184,18 @@ compute_population_ppis(RESOLUTION_DIR, REPLICATE_HANDLING, registry = reg)
 The GWAS uses the PPIs of the chosen handling (step 3 must have been run for it):
 
 ```r
-run_population_gwas(RESOLUTION_DIR, REPLICATE_HANDLING)         # -> n_6/mean_before/gwas/
-source(here::here("R", "gwas", "05_evaluate_gwas.R"))           # power heatmaps -> n_6/mean_before/plots/
+run_population_gwas(RESOLUTION_DIR, REPLICATE_HANDLING)   # -> n_6/mean_before/gwas/, n_6/mean_before/plots/
 ```
 
-`05_evaluate_gwas.R` reads `RESOLUTION_DIR` and `REPLICATE_HANDLING` from the session, as
-all scripts that use PPIs do. For the other handling, set `REPLICATE_HANDLING <- "replicates"`
-and run steps 3 and 4 again; the results go to `n_6/replicates/`.
+rrBLUP mixed model with the kinship matrix, one GWAS per PPI and shape
+(`gwas/gwas_results.csv`). If the population has a truth table (always for simulated
+populations), the same step evaluates it: the power per shape (`gwas/gwas_power.csv`;
+Bonferroni `alpha` / number of SNPs, `alpha = 0.05` unless given) and its heatmaps
+(`plots/gwas_power_heatmap.pdf`). A parameter is evaluated within its own shape, and a hit
+on a SNP that is not causal for that shape counts as a false positive.
 
-rrBLUP mixed model with the kinship matrix, one GWAS per PPI and shape. With a truth
-table the power is computed per shape: a parameter is evaluated within its own shape,
-and a hit on a SNP that is not causal for that shape counts as a false positive.
+For the other handling, set `REPLICATE_HANDLING <- "replicates"` and run steps 3 and 4
+again; the results go to `n_6/replicates/`.
 
 ### Figures and analyses of one resolution
 
@@ -327,7 +328,7 @@ Notes:
 | Script | Simulated | Own data |
 |---|---|---|
 | PPIs, GWAS (`compute_population_ppis`, `run_population_gwas`) | yes | yes (GWAS with SNPs) |
-| Power heatmaps (`05_evaluate_gwas.R`) | yes | with SNPs and truth |
+| Power and its heatmaps (part of `run_population_gwas`) | yes | with SNPs and truth |
 | Fig. 2, Fig. 3, summary-statistic and Kendall analyses | yes | yes |
 | Measured reaction norms (`plotting_reaction_norms_all.R`) | yes | yes (genotype means instead of mother norms) |
 | Stability across resolutions | yes | no |
