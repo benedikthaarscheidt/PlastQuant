@@ -21,7 +21,7 @@ H2=0.8                  # share of the latent genetic variance from the causal S
 MC=5                    # causal SNPs per parameter
 SEED=1                  # seed of the population
 HANDLING="replicates"  # replicate handling of the PPIs: "mean_before" or "replicates"
-R_MODULE="lang/R/4.3.3-gfbf-2023b"
+R_MODULE="lang/R/4.3.3-gfbf-2023b""
 # ------------------------------------------------------------------------------
 
 set -uo pipefail
