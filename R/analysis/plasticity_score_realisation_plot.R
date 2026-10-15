@@ -46,14 +46,14 @@ library(vegan)      # for mantel()
 # Read 
 
 if (exists("form_ranges") && length(form_ranges) == 3) {
-  scores_list <- readRDS(here::here("data", "maize_scores_list.rds"))
-  scores_list_arr = array(unlist(scores_list),dim=c(732,3,28))
-  scores_list_arr2 = as.numeric(scores_list_arr[,1,])
-  dim(scores_list_arr2) = c(732,28)
-  colnames(scores_list_arr2) = names(scores_list)
-  df = data.frame(scores_list_arr2)
-  df$Genotype = seq(732)
-  fig_dir <- here::here("output", "plots")
+  # maize: the PPIs of scenario_maize.R (default output/populations/maize/n_8)
+  if (!exists("RESOLUTION_DIR")) RESOLUTION_DIR <- here::here("output", "populations", "maize", "n_8")
+  source(here::here("R", "pipeline", "load_pipeline.R"))
+  wide <- ppi_wide_table(readRDS(file.path(RESOLUTION_DIR, "ppis", "ppi_scores.rds")), shapes = names(form_ranges))
+  form_ranges <- split(seq_len(nrow(wide)), factor(wide$Shape, levels = names(form_ranges)))
+  df <- data.frame(wide[, setdiff(names(wide), c("Shape", "Genotype"))], check.names = FALSE)
+  df$Genotype <- seq_len(nrow(df))
+  fig_dir <- population_subdir(RESOLUTION_DIR, "plots")
 } else {
   # PPIs of the population at its own sampling resolution
   if (!exists("RESOLUTION_DIR")) stop("set RESOLUTION_DIR (a resolution folder, e.g. output/populations/<name>/n_6) first")

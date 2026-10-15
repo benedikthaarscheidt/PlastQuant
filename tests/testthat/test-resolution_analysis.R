@@ -96,3 +96,18 @@ test_that("score table of one resolution: stored PPIs and summary statistics", {
   expect_equal(nrow(tab), 20L)
   expect_equal(unique(tab$Shape), c("linear", "gaussian", "sinusoidal", "wave"))
 })
+
+test_that("inputs of the score analyses from a resolution folder: PPIs, mean reaction norms, shapes", {
+  dir <- file.path(tempdir(), "inputs_pop"); unlink(dir, recursive = TRUE)
+  simulate_population(sim_config(h2 = 0.4, Mc = 2, n_per_shape = 4, n_snps = 200), dir)
+  res <- sample_resolution(dir, 6)
+  expect_error(score_analysis_inputs(res), "compute_population_ppis")
+  suppressMessages(compute_population_ppis(res, registry = default_ppi_registry()[c("RN", "FW")]))
+  inp <- score_analysis_inputs(res)
+  expect_equal(inp$genotype_forms, c("linear", "gaussian", "sinusoidal", "wave"))
+  expect_equal(names(inp$scores_list), c("RN", "FW"))
+  expect_equal(dim(inp$rn_matrix_list$wave), c(4L, 6L))
+  # rows of the matrices in the order of the scores of that shape
+  sc <- inp$scores_list$RN
+  expect_equal(rownames(inp$rn_matrix_list$gaussian), sc$Genotype_ID[sc$Type == "gaussian"])
+})

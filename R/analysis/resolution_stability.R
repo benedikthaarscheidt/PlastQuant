@@ -170,3 +170,18 @@ population_score_table <- function(dir) {
   }
   cbind(wide, stats[match(paste(wide$Shape, wide$Genotype), paste(stats$Shape, stats$Genotype)), summary_stat_names])
 }
+
+# Inputs of the analyses that relate the PPIs of one resolution to its reaction norms
+# (summary_stats_vs_scores.R, clustering_rn_summary_stats.R): the PPIs
+# (compute_population_ppis()), the replicate-mean reaction norm of every genotype per
+# shape (genotypes x environments) and the shapes
+score_analysis_inputs <- function(res_dir) {
+  ppi_file <- file.path(res_dir, "ppis", "ppi_scores.rds")
+  if (!file.exists(ppi_file)) stop("no PPIs in ", res_dir, " (run compute_population_ppis() first)")
+  pop <- read_population(res_dir, with_snps = FALSE)
+  list(
+    scores_list    = readRDS(ppi_file),
+    rn_matrix_list = lapply(pop$phenotypes, replicate_means, environments = pop$environments),
+    genotype_forms = names(pop$phenotypes)
+  )
+}

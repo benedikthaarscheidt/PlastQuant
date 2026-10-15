@@ -49,14 +49,15 @@ R/
                                   norms; all settings in sim_config()), simulate_population.R,
                                   plot of the true norms
   ppi/                            PPI registry and computation (uses ppindices),
-                                  compute_population_ppis.R, 03_plasticity_scores(_maize).R
+                                  compute_population_ppis.R
   gwas/                           GWAS functions, run_population_gwas.R, power per shape,
-                                  04_run_gwas.R, 05_evaluate_gwas.R (power heatmaps),
-                                  06_analyze_gwas_results.R, 06_analyze_maize_gwas_results.R
+                                  05_evaluate_gwas.R (power heatmaps), 06_analyze_gwas_results.R
+                                  (scenario comparison), 06_analyze_maize_gwas_results.R
     scenarios/                    heritability scenarios, combine_scenarios.R, scenario_maize.R
+                                  (the maize data through the pipeline)
   analysis/                       comparison of the PPIs: analyses and their figures,
                                   resolution stability, summary statistics, rank correlation
-data/                             committed input datasets (maize data, maize scores)
+data/                             committed input datasets (maize phenotypes and genotypes)
 output/                           script outputs (git-ignored)
   populations/<name>/             one folder per population (see below)
 tests/                            unit tests (Rscript --vanilla tests/run_tests.R)
@@ -195,7 +196,8 @@ source(here::here("R", "analysis", "correlation_summary_stats_PS.R"))       # PP
 source(here::here("R", "analysis", "regression_summarystats.R"))           # PPIs regressed on summary statistics
 source(here::here("R", "analysis", "kendall_rank_corr.R"))                 # rank tables ...
 source(here::here("R", "analysis", "kendall_tau_corr_clustering.R"))       # ... and their agreement analyses
-source(here::here("R", "analysis", "clustering_rn_summary_stats.R"))       # clustering (via 03)
+source(here::here("R", "analysis", "clustering_rn_summary_stats.R"))       # clustering of the reaction norms
+source(here::here("R", "analysis", "summary_stats_vs_scores.R"))           # functions relating PPIs to summary statistics
 ```
 
 ### Stability across resolutions
@@ -232,7 +234,32 @@ Rscript --vanilla R/gwas/scenarios/combine_scenarios.R    # -> output/combined_s
 Rscript --vanilla R/gwas/06_analyze_gwas_results.R        # plots, precision/recall tables
 ```
 
-`scenario_maize.R` runs the GWAS on the empirical maize scores.
+### The maize data
+
+`scenario_maize.R` runs the empirical maize data (244 varieties; biomass, leaf area and
+WUE in 8 environments) through the same steps:
+
+```bash
+Rscript --vanilla R/gwas/scenarios/scenario_maize.R       # -> output/populations/maize/
+```
+
+1. **Load and structure.** It reads the three traits and the genotypes of the varieties
+   from `data/A-Datasets/` and writes them as a population folder: the SNPs (978,134,
+   stored as `.rds`) in `maize/data/`, the measurements as the resolution `maize/n_8/`.
+   The environments are not controlled, so each environment gets the mean biomass of
+   all varieties in it as its value (environment index as in Finlay–Wilkinson); the same
+   index is used for all three traits.
+2. **PPIs and GWAS.** `compute_population_ppis()` and `run_population_gwas()` on `n_8`.
+   There is no truth, so there is no power.
+3. **GWAS summary.** `06_analyze_maize_gwas_results.R`: hits per PPI and trait
+   (Bonferroni and −log10 P > 3, > 5), which PPI finds which SNP, the allele frequency of
+   the hit SNPs, the similarity of the PPIs.
+
+The maize figures read the maize PPIs from `maize/n_8/`:
+
+```r
+source(here::here("R", "analysis", "plasticity_score_realisation_plot_maize.R"))   # -> maize/n_8/plots/
+```
 
 ## Own data
 
@@ -275,7 +302,6 @@ Notes:
 | Power heatmaps (`05_evaluate_gwas.R`) | yes | with SNPs and truth |
 | Fig. 2, Fig. 3, summary-statistic and Kendall analyses | yes | yes |
 | Measured reaction norms (`plotting_reaction_norms_all.R`) | yes | yes (genotype means instead of mother norms) |
-| `03_plasticity_scores.R` and the analyses that source it | yes | no (needs the four shapes) |
 | Stability across resolutions | yes | no |
 | Heritability scenarios | yes | no |
 
@@ -296,7 +322,8 @@ vr       <- variance_report(measured)                   # latent and trait-level
 ## Earlier results
 
 `output/regression_summary_stats/`, `output/correlation_summary_stats/` and
-`output/rank_flops/` hold committed tables of the earlier simulation. No script writes
+`output/rank_flops/` hold committed tables of the earlier simulation, and
+`data/maize_scores_list.rds` the maize PPIs of the earlier computation. No script writes
 or reads them any more; all scripts work on population folders.
 
 ## Notes

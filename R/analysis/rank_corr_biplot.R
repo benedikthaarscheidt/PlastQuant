@@ -7,9 +7,10 @@
 # REQUIRES:     Simulated data: RESOLUTION_DIR with its PPIs (ppis/ppi_scores.rds from
 #               compute_population_ppis(RESOLUTION_DIR)); the PPIs and summary statistics
 #               are those of the population's own sampling resolution.
-#               Maize (form_ranges of length 3): data/maize_scores_list.rds.
+#               Maize (form_ranges of length 3): the maize PPIs of scenario_maize.R
+#               (RESOLUTION_DIR, default output/populations/maize/n_8).
 # PRODUCES:     RESOLUTION_DIR/plots/plasticity_comprehensive_analysis/ (PDF and CSV tables);
-#               maize: output/plasticity_comprehensive_analysis_maize/.
+#               (also for maize).
 # HOW TO RUN:   setwd("~/PlastQuant")
 #               RESOLUTION_DIR <- here::here("output", "populations", "ppi_comparison", "n_6")
 #               source(here::here("R", "analysis", "rank_corr_biplot.R"))
@@ -57,18 +58,13 @@ maize_pool_all <- !is_maize || is.null(maize_trait) || identical(maize_trait, "a
 
 # Always resolve the output directory inside this project. Set unconditionally so a
 # stray `output_dir` left over in the R session can never redirect writes elsewhere.
-# Simulated data: the PPIs of the population RESOLUTION_DIR at its own resolution.
-if (!is_maize) {
-  if (!exists("RESOLUTION_DIR")) stop("set RESOLUTION_DIR (a resolution folder, e.g. output/populations/<name>/n_6) first")
-  source(here::here("R", "pipeline", "load_pipeline.R"))
-}
-output_dir <- if (is_maize) {
-  here::here("output", "plasticity_comprehensive_analysis_maize")
-} else {
-  file.path(RESOLUTION_DIR, "plots", "plasticity_comprehensive_analysis")
-}
+# The PPIs of the resolution RESOLUTION_DIR (maize: by default the maize population of
+# scenario_maize.R, output/populations/maize/n_8)
+if (is_maize && !exists("RESOLUTION_DIR")) RESOLUTION_DIR <- here::here("output", "populations", "maize", "n_8")
+if (!exists("RESOLUTION_DIR")) stop("set RESOLUTION_DIR (a resolution folder, e.g. output/populations/<name>/n_6) first")
+source(here::here("R", "pipeline", "load_pipeline.R"))
+output_dir <- file.path(RESOLUTION_DIR, "plots", "plasticity_comprehensive_analysis")
 dir.create(output_dir, recursive = TRUE, showWarnings = FALSE)
-maize_scores_path    <- here::here("data", "maize_scores_list.rds")
 
 tau_threshold <- 0.8
 topk_values <- c(3, 5, 10, 15, 20)
@@ -95,8 +91,8 @@ scale_fill_div_pub <- function(lim = c(-1,1)) {
                        low = "#3B4CC0", mid = "#F7F7F7", high = "#B40426")
 }
 
-scale_color_disc_pub <- function() scale_color_manual(values = scales::hue_pal(l = 55)(10))
-scale_fill_disc_pub <- function() scale_fill_manual(values = scales::hue_pal(l = 55)(10))
+scale_color_disc_pub <- function() scale_color_manual(values = scales::hue_pal(l = 55)(30))
+scale_fill_disc_pub <- function() scale_fill_manual(values = scales::hue_pal(l = 55)(30))
 
 # CORRECTED: Proper correlation computations
 compute_correlations <- function(plasticity_scores) {
@@ -392,7 +388,7 @@ plot_genotype_pca_biplot <- function(plasticity_ranks, summary_stats, Tm, tau_th
                     size = 3.5, max.overlaps = 20, show.legend = FALSE,
                     box.padding = 0.5) +
     
-    scale_color_manual(values = scales::hue_pal(l = 55)(10), name = "τ-component") +
+    scale_color_manual(values = scales::hue_pal(l = 55)(30), name = "τ-component") +
     labs(
       x = paste0("PC1 (", variance_explained[1], "%)"),
       y = paste0("PC2 (", variance_explained[2], "%)")
@@ -411,22 +407,18 @@ main <- function() {
   # Load data
   if (is_maize) {
     trait_label <- if (maize_pool_all) "all (pooled)" else maize_trait
-    cat("Loading maize plasticity scores from RDS (trait: ", trait_label, ")\n", sep = "")
-    scores_list <- readRDS(maize_scores_path)
-    scores_arr  <- array(unlist(scores_list), dim = c(732, 3, 28))
-    plasticity_scores <- as.numeric(scores_arr[, 1, ])
-    dim(plasticity_scores)      <- c(732, 28)
-    colnames(plasticity_scores) <- names(scores_list)
-    rownames(plasticity_scores) <- paste0("Genotype_", seq_len(732))
+    cat("Loading the maize PPIs of ", RESOLUTION_DIR, " (trait: ", trait_label, ")\n", sep = "")
+    tab <- ppi_wide_table(readRDS(file.path(RESOLUTION_DIR, "ppis", "ppi_scores.rds")), shapes = names(form_ranges))
+    plasticity_scores <- as.matrix(tab[, setdiff(names(tab), c("Shape", "Genotype"))])
+    rownames(plasticity_scores) <- paste(tab$Shape, tab$Genotype, sep = "_")
 
-    # Optionally subset to a single trait (rows are biomass | leafArea | WUE stacked).
-    # Default behaviour: pool all 732 rows, mirroring the synthetic run which pools all forms.
+    # Optionally subset to a single trait. Default: pool all traits, mirroring the
+    # synthetic run which pools all forms.
     if (!maize_pool_all) {
-      if (!maize_trait %in% names(form_ranges)) {
-        stop("maize_trait '", maize_trait, "' not found in form_ranges (",
-             paste(names(form_ranges), collapse = ", "), ")")
+      if (!maize_trait %in% tab$Shape) {
+        stop("maize_trait '", maize_trait, "' not found (", paste(unique(tab$Shape), collapse = ", "), ")")
       }
-      plasticity_scores <- plasticity_scores[form_ranges[[maize_trait]], , drop = FALSE]
+      plasticity_scores <- plasticity_scores[tab$Shape == maize_trait, , drop = FALSE]
     }
 
     # No summary statistics available for the maize dataset.

@@ -1,89 +1,93 @@
 # =============================================================================
-# 06_analyze_maize_gwas_results.R — summarise empirical maize-GWAS results
+# 06_analyze_maize_gwas_results.R — summary of the maize GWAS
 # =============================================================================
-# WHAT IT DOES: Summarises the GWAS results for the empirical maize dataset across the
-#   selected plasticity indices (PPIs) and reaction-norm traits (RNs), rendering the
-#   maize result heatmaps/plots.
-# REQUIRES:     Maize GWAS result data (produced by the maize scenario / 03_maize + 04);
-#               data/maize_scores_list.rds.
-# PRODUCES:     Maize summary heatmaps/plots under OUTPUT_BASE.
-# HOW TO RUN:   setwd("~/PlastQuant"); source(here::here("R", "gwas", "06_analyze_maize_gwas_results.R"))
+# WHAT IT DOES: Summarises the GWAS hits of the maize data per plasticity index (PPI)
+#   and trait (biomass, leaf area, WUE): which SNPs each PPI finds, how many hits per
+#   PPI and trait, the allele frequency of the hit SNPs, and how similar the PPIs are.
+#   Hits: significant = Bonferroni P < ALPHA / number of SNPs; additionally all SNPs
+#   with -log10(P) > 3 and > 5.
+# REQUIRES:     The maize resolution folder with PPIs and GWAS (scenario_maize.R).
+# PRODUCES:     In RESOLUTION_DIR/gwas/: maize_hits_significant.csv, maize_hits_logp3.csv,
+#               maize_hit_counts.csv, maize_hit_snps.csv (SNP x PPI per trait, allele
+#               frequency); RESOLUTION_DIR/plots/maize_gwas_summary.pdf
+# HOW TO RUN:   setwd("~/PlastQuant")
+#               RESOLUTION_DIR <- here::here("output", "populations", "maize", "n_8")
+#               source(here::here("R", "gwas", "06_analyze_maize_gwas_results.R"))
 # -----------------------------------------------------------------------------
-# PARAMETERS (edit at the noted line)
-#   PPIs   character vector   plasticity indices to summarise; edit `PPIs <-`            [COMMON]
-#   RNs    character vector   reaction-norm traits (leafArea/WUE/biomass); edit `RNs <-` [COMMON]
-#   GWAS   logical            whether GWAS results are present
+# PARAMETERS — set these before sourcing (guarded defaults)
+#   RESOLUTION_DIR  path, default output/populations/maize/n_8   maize resolution folder [COMMON]
+#   ALPHA           numeric, default 0.05                         Bonferroni level
 # =============================================================================
 options(warn = -1)  # silence warnings even if the project .Rprofile was not loaded
-## Import causal snp truth data from text files
 library(pheatmap)
+source(here::here("R", "pipeline", "load_pipeline.R"))
 
-## ---- Import GWAS result data ---
-gwasresultsSignificant <- read.csv(
-  "../gwas_results_maize_significant.csv",
-  header = FALSE,
-  colClasses = c("character", "numeric", "factor", "factor", "numeric", "numeric"),
-  col.names = c("SNP", "pVal", "PPI", "RN_type", "log10_pVar", "eff_pVal"),
-  stringsAsFactors = TRUE
-)
+if (!exists("RESOLUTION_DIR")) RESOLUTION_DIR <- here::here("output", "populations", "maize", "n_8")
+if (!exists("ALPHA")) ALPHA <- 0.05
 
-gwasresults3plus <- read.csv(
-  "../gwas_results_maize_3plus.csv",
-  header = FALSE,
-  colClasses = c("character", "numeric", "factor", "factor", "numeric", "numeric"),
-  col.names = c("SNP", "pVal", "PPI", "RN_type", "log10_pVar", "eff_pVal"),
-  stringsAsFactors = TRUE
-)
+## ---- GWAS results and PPIs of the maize data ----
+gwas <- read.csv(file.path(RESOLUTION_DIR, "gwas", "gwas_results.csv"), stringsAsFactors = FALSE)
+n_snps <- length(unique(gwas$SNP))
+threshold <- ALPHA / n_snps
+significant <- gwas[gwas$P_Value < threshold, ]
+logp3 <- gwas[gwas$LogP > 3, ]
+logp5 <- gwas[gwas$LogP > 5, ]
+message("Maize GWAS: ", n_snps, " SNPs; ", nrow(significant), " significant hits (P < ",
+        format(threshold, digits = 2), "), ", nrow(logp3), " with -log10 P > 3, ", nrow(logp5), " > 5")
 
-gwasresults5plus = gwasresults3plus[gwasresults3plus$log10_pVar>5,]
+PPIs <- sort(unique(gwas$Score))
+RNs  <- c("leafArea", "WUE", "biomass")
 
-PPIs = c("APC", "CEV","CV_t", "D_slope","ESP","ESPI", "ESPIID", "EVS","FW","gPi",
-         "NRW",  "PFI", "PILSM","PImd", "PIR","PPF","PPi","PQ", "PR", "PSI",
-         "RC", "RDPI", "RN", "RNN",  "RPI", "RSI", "RTR", "SI")
-SNPs = unique(gwasresultsSignificant$SNP)
-SNPs5plus = unique(gwasresults5plus$SNP)
-RNs = c("leafArea", "WUE", "biomass") #unique(gwasresultsSignificant$RN_type)
-
-foundSNPs = gwasresultsSignificant;
-for(i in 1:length(PPIs))
-{
-  foundSNPs$PPI_i[foundSNPs$PPI == PPIs[i]] = i
+## ---- Hit counts per PPI and trait ----
+count_table <- function(hits, label) {
+  tab <- table(factor(hits$Score, levels = PPIs), factor(hits$Type, levels = RNs))
+  data.frame(Hits = label, PPI = rep(PPIs, times = length(RNs)), Trait = rep(RNs, each = length(PPIs)),
+             N_SNPs = as.vector(tab), stringsAsFactors = FALSE)
 }
-for(i in 1:length(SNPs))
-{
-  foundSNPs$SNP_i[foundSNPs$SNP == SNPs[i]] = i
+counts <- rbind(count_table(significant, "significant"), count_table(logp3, "logp3"), count_table(logp5, "logp5"))
+
+## ---- Which PPI finds which SNP (significant hits), per trait and over all traits ----
+SNPs <- sort(unique(significant$SNP))
+ppi_found <- function(hits) {
+  m <- matrix(FALSE, length(SNPs), length(PPIs), dimnames = list(SNPs, PPIs))
+  if (nrow(hits)) m[cbind(match(hits$SNP, SNPs), match(hits$Score, PPIs))] <- TRUE
+  m
 }
-for(i in 1:length(RNs))
-{
-  foundSNPs$RN_i[foundSNPs$RN_type == RNs[i]] = i
+ppiFoundSNPsMatrix <- ppi_found(significant)
+ppiFoundSNPsMatrixPerTrait <- lapply(setNames(RNs, RNs), function(rn) ppi_found(significant[significant$Type == rn, ]))
+
+## ---- Allele frequency of the hit SNPs ----
+pop <- read_population(RESOLUTION_DIR)
+X <- pop$snp_matrix[, SNPs, drop = FALSE]
+p <- colMeans(X) / 2
+hit_snps <- data.frame(SNP = SNPs, MAF = pmin(p, 1 - p), Carrier_Frequency = colMeans(X > 0),
+                       N_PPIs = rowSums(ppiFoundSNPsMatrix), stringsAsFactors = FALSE)
+for (rn in RNs) hit_snps[[paste0("PPIs_", rn)]] <- rowSums(ppiFoundSNPsMatrixPerTrait[[rn]])
+
+## ---- Similarity of the PPIs (pooled over the three traits) ----
+traits <- readRDS(file.path(RESOLUTION_DIR, "ppis", "ppi_scores.rds"))
+scores <- ppi_wide_table(traits, shapes = RNs)
+cor_scores <- cor(scores[, setdiff(names(scores), c("Shape", "Genotype"))], use = "pairwise.complete.obs",
+                  method = "kendall")
+
+## ---- Save ----
+gwas_dir <- population_subdir(RESOLUTION_DIR, "gwas")
+write.csv(significant, file.path(gwas_dir, "maize_hits_significant.csv"), row.names = FALSE)
+write.csv(logp3, file.path(gwas_dir, "maize_hits_logp3.csv"), row.names = FALSE)
+write.csv(counts, file.path(gwas_dir, "maize_hit_counts.csv"), row.names = FALSE)
+write.csv(hit_snps, file.path(gwas_dir, "maize_hit_snps.csv"), row.names = FALSE)
+
+plots_dir <- population_subdir(RESOLUTION_DIR, "plots")
+pdf(file.path(plots_dir, "maize_gwas_summary.pdf"), width = 12, height = 8)
+for (h in c("significant", "logp3", "logp5")) {
+  m <- matrix(counts$N_SNPs[counts$Hits == h], length(PPIs), length(RNs), dimnames = list(PPIs, RNs))
+  pheatmap(m, cluster_rows = FALSE, cluster_cols = FALSE, display_numbers = TRUE, number_format = "%d",
+           main = paste0("Maize: SNP hits per PPI and trait (", h, ")"))
 }
-
-ppiFoundSNPsMatrix = matrix(FALSE, ncol=length(PPIs), nrow = length(SNPs))
-ppiFoundSNPsMatrixBiomass = matrix(FALSE, ncol=length(PPIs), nrow = length(SNPs))
-ppiFoundSNPsMatrixLeafArea = matrix(FALSE, ncol=length(PPIs), nrow = length(SNPs))
-ppiFoundSNPsMatrixWUE = matrix(FALSE, ncol=length(PPIs), nrow = length(SNPs))
-
-for (iSNP in 1:length(SNPs)) {
-  ppiFoundSNPsMatrix[iSNP, foundSNPs$PPI_i[foundSNPs$SNP_i == iSNP]] = TRUE
-  ppiFoundSNPsMatrixBiomass[iSNP, foundSNPs$PPI_i[foundSNPs$SNP_i == iSNP & foundSNPs$RN_i == 1]] = TRUE
-  ppiFoundSNPsMatrixLeafArea[iSNP, foundSNPs$PPI_i[foundSNPs$SNP_i == iSNP & foundSNPs$RN_i == 2]] = TRUE
-  ppiFoundSNPsMatrixWUE[iSNP, foundSNPs$PPI_i[foundSNPs$SNP_i == iSNP & foundSNPs$RN_i == 3]] = TRUE
+if (length(SNPs) > 1) {
+  pheatmap(ppiFoundSNPsMatrix * 1, cluster_rows = FALSE, cluster_cols = FALSE, legend = FALSE,
+           main = "Significant SNPs (rows) found by each PPI (columns), all traits")
 }
-
-
-git_path = here::here("data", "A-Datasets")
-load(file.path(git_path, "Genotyping_matrix_Negro_et_al_2019.Rdata"))
-mat2 <- mat2[biomass_data_raw$Variety, ]
-mat2reduced = mat2[,colnames(mat2) %in% SNPs]
-MAF = colSums(mat2reduced>0)/244
-
-
-
-scores_list <- readRDS(here::here("output", "scenario_maize", "synthetic_data", "scores_output", "run_2026-06-19_11-04-38", "scores_list.rds"))
-
-scores_list_arr3 = as.numeric(scores_list_arr2)
-dim(scores_list_arr3)=c(732,28)
-cor_scores = cor(scores_list_arr3)
-scores_list_arr2 = scores_list_arr[,1,]
-scores_list_arr = array(unlist(scores_list),dim=c(732,3,28))
-
+pheatmap(cor_scores, main = "Kendall correlation of the PPIs (maize, all traits)")
+dev.off()
+message("Maize GWAS summary written to ", gwas_dir, " and ", plots_dir)

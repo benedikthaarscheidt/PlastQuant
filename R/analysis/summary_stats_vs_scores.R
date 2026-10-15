@@ -3,21 +3,22 @@
 # =============================================================================
 # WHAT IT DOES: Computes and visualises the relationship between reaction-norm summary
 #   statistics and the plasticity scores (correlation matrices, distance measures,
-#   clustering). Auto-sources 03_plasticity_scores.R when scores are not already loaded
-#   (guarded by the `data_loaded` flag at the top).
-# REQUIRES:     03 (so RESOLUTION_DIR must be set: a resolution folder of a simulated population).
+#   clustering). Reads the PPIs and reaction norms of RESOLUTION_DIR.
+# REQUIRES:     RESOLUTION_DIR with its PPIs (compute_population_ppis()).
 # PRODUCES:     Summary-stat vs score figures under RESOLUTION_DIR/analyses/summary_stats_vs_scores/.
-# HOW TO RUN:   setwd("~/PlastQuant"); source(here::here("R","analysis","summary_stats_vs_scores.R"))
+# HOW TO RUN:   setwd("~/PlastQuant"); RESOLUTION_DIR <- here::here("output", "populations", "<name>", "n_6")
+#               source(here::here("R","analysis","summary_stats_vs_scores.R"))
 # -----------------------------------------------------------------------------
-# PARAMETERS: inherits 03's parameters via the auto-source; analysis knobs are set in the
-#   body. Set `data_loaded <- TRUE` beforehand to reuse already-computed scores.
+# PARAMETERS
+#   RESOLUTION_DIR  path, REQUIRED (set before sourcing)   resolution folder               [COMMON]
+#   Analysis settings are set in the body of the script.
 # =============================================================================
 options(warn = -1)  # silence warnings even if the project .Rprofile was not loaded
 
-if (!exists("data_loaded") || !data_loaded) {
-  source(here::here("R", "ppi", "03_plasticity_scores.R"))
-  data_loaded = TRUE
-}
+# PPIs and replicate-mean reaction norms of the resolution RESOLUTION_DIR
+if (!exists("RESOLUTION_DIR")) stop("set RESOLUTION_DIR (a resolution folder, e.g. output/populations/<name>/n_6) first")
+source(here::here("R", "pipeline", "load_pipeline.R"))
+analysis_inputs <- score_analysis_inputs(RESOLUTION_DIR)
 
 library(factoextra)
 library(dbscan)
@@ -46,59 +47,9 @@ sig_stars <- function(p) {
 }
 
 # Define your scores_list
-scores_list = list(
-  CV_t = CV_t,
-  RN = RN,
-  RNN = RNN,
-  D_slope = D_slope,
-  RC = RC,
-  #CVm = CVm,comparative
-  #CVmd = CVmd,comparative
-  gPi = gPi,
-  PPF = PPF,
-  PPi = PPi,
-  PImd = PImd,
-  PILSM = PILSM,
-  RTR = RTR,
-  PIR = PIR,
-  RDPI = RDPI,
-  #RDPI_mean = RDPI_mean, comparative 
-  ESPI = ESPI,
-  ESPIID = ESPIID,
-  PSI = PSI,
-  RPI = RPI,
-  PQ = PQ,
-  PR = PR,
-  NRW = NRW,
-  ESP = ESP,
-  #PD = PD, control stress
-  #FPI = FPI,control stress
-  #TPS = TSP,control stress
-  CEV = CEV,
-  PFI = PFI,
-  APC = APC,
-  SI = SI,
-  RSI = RSI,
-  EVS = EVS,
-  #MVPi = MVPi, multivariate
-  #Plasticity_Ratio = Plasticity_Ratio
-  FW = FW
-)
-
-# Combine matrices for each genotype form.
-linear_matrix   = do.call(rbind, linear)
-gaussian_matrix = do.call(rbind, gaussian)
-sinusoidal_matrix = do.call(rbind, sinusoidal)
-wave_matrix     = do.call(rbind, wave)
-
-rn_matrix_list <- list(
-  linear = linear_matrix,    
-  gaussian = gaussian_matrix, 
-  sinusoidal = sinusoidal_matrix,
-  wave = wave_matrix
-)
-
-genotype_forms = c("linear", "gaussian", "sinusoidal", "wave")
+scores_list    <- analysis_inputs$scores_list      # one table per PPI: Score, Type (shape), Genotype_ID
+rn_matrix_list <- analysis_inputs$rn_matrix_list   # per shape: genotypes x environments (replicate means)
+genotype_forms <- analysis_inputs$genotype_forms
 
 
 

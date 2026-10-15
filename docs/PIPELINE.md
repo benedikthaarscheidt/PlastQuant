@@ -56,7 +56,7 @@ Own data: SNPs, kinship and truth in `<name>/data/`, the measurements in
                 ├─ analysis/plasticity_score_realisation_plot, rank_corr_biplot,
                 │  correlation_summary_stats_PS, plotting_reaction_norms_all
                 ├─ analysis/regression_summarystats, kendall_rank_corr ─▶ kendall_tau_corr_clustering
-                └─ 03_plasticity_scores ─▶ analysis/summary_stats_vs_scores, clustering_rn_summary_stats
+                └─ analysis/summary_stats_vs_scores, clustering_rn_summary_stats
 
     analysis/regression_sumstats_dataprep (POPULATION_DIR): n_2 ... n_50 (the three steps above per k)
       ├─ analysis/resolution_analysis ─▶ analysis/combined_resolution_figure
@@ -65,7 +65,8 @@ Own data: SNPs, kinship and truth in `<name>/data/`, the measurements in
 
     scenarios/scenario_<h2>_<Mc>: simulate -> n_6 -> PPIs -> GWAS -> 05
       └─ scenarios/combine_scenarios ─▶ 06_analyze_gwas_results
-    03_plasticity_scores_maize ─▶ 04_run_gwas (scenario_maize) ─▶ 06_analyze_maize_gwas_results
+    scenarios/scenario_maize: maize data -> population folder maize/ (SNPs) + n_8 (traits)
+      -> PPIs -> GWAS ─▶ 06_analyze_maize_gwas_results; analysis/plasticity_score_realisation_plot_maize
 
 The power of a parameter is always evaluated within its shape: its causal SNPs are
 searched only in the GWAS of that shape, and a hit on a SNP that is not causal for the
@@ -94,7 +95,7 @@ shape is a false positive.
 | `R/sim/plot_norms.R` | `plot_true_norms()`: the true norms, drawn into `data/reaction_norms.pdf` |
 | `R/gwas/gwas.R` | kinship matrix; `run_gwas()` per PPI and shape (rrBLUP mixed model) |
 | `R/gwas/evaluate_power.R` | power per shape against that shape's causal SNPs |
-| `R/analysis/resolution_stability.R` | summary statistics; `compute_resolutions()`, `resolution_score_tables()`, `population_score_table()`; correlations per resolution, their regression on n, the mixed model |
+| `R/analysis/resolution_stability.R` | summary statistics; `score_analysis_inputs()`; `compute_resolutions()`, `resolution_score_tables()`, `population_score_table()`; correlations per resolution, their regression on n, the mixed model |
 | `R/analysis/similarity.R` | similarity measures and their permutation test |
 | `R/gwas/combine_scenario_runs.R` | `combine_scenario_runs()` (the resolution n_6 of every scenario), `detection_counts()` per shape |
 | `R/pipeline/load_pipeline.R` | sources the three folders |
@@ -111,81 +112,6 @@ means and gives one value per genotype. To add a PPI:
 **Tests.** `Rscript --vanilla tests/run_tests.R` (from the project root).
 
 ## Scripts
-
-### R/ppi/03_plasticity_scores.R
-
-```text
-=============================================================================
-03_plasticity_scores.R — compute every plasticity index (pipeline hub)
-=============================================================================
-WHAT IT DOES: Loads a resolution of a simulated population (RESOLUTION_DIR, made with
-  simulate_population() and sample_resolution()) and computes every plasticity index
-  (via the ppindices package) for each genotype's reaction norm across the four forms
-  (linear, gaussian, sinusoidal, wave), assembling the `scores_list` consumed by GWAS
-  and analysis. Everything it writes goes to RESOLUTION_DIR/analyses/scores/.
-REQUIRES:     R/sim, R/ppi, R/pipeline (loaded via R/pipeline/load_pipeline.R);
-              library(ppindices). The caller MUST set RESOLUTION_DIR.
-PRODUCES:     `scores_list` in memory; outputs under RESOLUTION_DIR/analyses/scores/.
-HOW TO RUN:   setwd("~/PlastQuant")
-              RESOLUTION_DIR <- here::here("output", "populations", "my_population", "n_6")
-              source(here::here("R", "ppi", "03_plasticity_scores.R"))
------------------------------------------------------------------------------
-PARAMETERS — set these in a driver script or your R session before sourcing.
-  RESOLUTION_DIR        path,    REQUIRED      resolution folder of a simulated population  [COMMON]
-  indices, env          optional               subset of the measurement points and their
-                                               environment values (default: all points)
-  KEEP_REPLICATES       logical, default FALSE keep replicate rows
-  GWAS                  logical                run GWAS downstream (read by 04/05/06)
-  SAVE                  logical                write per-score CSVs under analyses/scores/
-All other model settings (variance components, study space) are the defaults of
-sim_config() in R/sim/simulation_config.R.
-=============================================================================
-```
-
-### R/ppi/03_plasticity_scores_maize.R
-
-```text
-=============================================================================
-03_plasticity_scores_maize.R — compute plasticity indices for the maize data
-=============================================================================
-WHAT IT DOES: Loads the empirical maize datasets and computes every plasticity index
-  (via the ppindices package) across the three phenotypes (biomass, leaf area, water-
-  use efficiency), producing the maize `scores_list`. Maize counterpart of
-  03_plasticity_scores.R (loads real data instead of simulating it).
-REQUIRES:     data/A-Datasets/ maize inputs; library(ppindices).
-PRODUCES:     Maize `scores_list` in memory; per-score CSVs under OUTPUT_BASE.
-HOW TO RUN:   setwd("~/PlastQuant"); source(here::here("R", "ppi", "03_plasticity_scores_maize.R"))
------------------------------------------------------------------------------
-PARAMETERS (edit the named assignment near the top / set in your session)
-  OUTPUT_BASE           path, default output/scenario_maize  where outputs go; edit `OUTPUT_BASE <-`
-  NUM_GENOTYPES         integer, default 800  guarded default (from data if provided)
-  NUM_SNPs              integer, default 200000  guarded default
-  KEEP_REPLICATES / STRUCTURED_POPULATION / GENETIC_VARIANCES  guarded defaults below
-=============================================================================
-```
-
-### R/gwas/04_run_gwas.R
-
-```text
-=============================================================================
-04_run_gwas.R — GWAS on plasticity scores
-=============================================================================
-WHAT IT DOES: Runs GWAS (rrBLUP / sommer) for each plasticity score against the
-  simulated genotypes, optionally with a kinship correction, and (unless suppressed)
-  writes Manhattan plots. Identifies which SNPs each index recovers.
-REQUIRES:     scores_list and genetics from 03_plasticity_scores.R (run 03 first, or
-              source it); data/A-Datasets/ genotype inputs; packages rrBLUP / sommer.
-PRODUCES:     GWAS result CSVs and Manhattan PDFs under OUTPUT_BASE.
-HOW TO RUN:   setwd("~/PlastQuant"); source(here::here("R", "gwas", "04_run_gwas.R"))
------------------------------------------------------------------------------
-PARAMETERS (edit at the noted line)
-  USE_KINSHIP           logical, default TRUE   include kinship (K) in the mixed model;
-                                                edit the `USE_KINSHIP <-` assignment below [COMMON]
-  DO_NOT_PLOT_MAHATTAN  if defined, Manhattan PDFs are skipped (faster)                 [COMMON]
-  GWAS                  logical (from caller/03) whether GWAS is run                     [COMMON]
-  OUTPUT_BASE           path (from caller/03)    where results are written
-=============================================================================
-```
 
 ### R/gwas/05_evaluate_gwas.R
 
@@ -242,20 +168,24 @@ PARAMETERS — set these before sourcing (guarded defaults)
 
 ```text
 =============================================================================
-06_analyze_maize_gwas_results.R — summarise empirical maize-GWAS results
+06_analyze_maize_gwas_results.R — summary of the maize GWAS
 =============================================================================
-WHAT IT DOES: Summarises the GWAS results for the empirical maize dataset across the
-  selected plasticity indices (PPIs) and reaction-norm traits (RNs), rendering the
-  maize result heatmaps/plots.
-REQUIRES:     Maize GWAS result data (produced by the maize scenario / 03_maize + 04);
-              data/maize_scores_list.rds.
-PRODUCES:     Maize summary heatmaps/plots under OUTPUT_BASE.
-HOW TO RUN:   setwd("~/PlastQuant"); source(here::here("R", "gwas", "06_analyze_maize_gwas_results.R"))
+WHAT IT DOES: Summarises the GWAS hits of the maize data per plasticity index (PPI)
+  and trait (biomass, leaf area, WUE): which SNPs each PPI finds, how many hits per
+  PPI and trait, the allele frequency of the hit SNPs, and how similar the PPIs are.
+  Hits: significant = Bonferroni P < ALPHA / number of SNPs; additionally all SNPs
+  with -log10(P) > 3 and > 5.
+REQUIRES:     The maize resolution folder with PPIs and GWAS (scenario_maize.R).
+PRODUCES:     In RESOLUTION_DIR/gwas/: maize_hits_significant.csv, maize_hits_logp3.csv,
+              maize_hit_counts.csv, maize_hit_snps.csv (SNP x PPI per trait, allele
+              frequency); RESOLUTION_DIR/plots/maize_gwas_summary.pdf
+HOW TO RUN:   setwd("~/PlastQuant")
+              RESOLUTION_DIR <- here::here("output", "populations", "maize", "n_8")
+              source(here::here("R", "gwas", "06_analyze_maize_gwas_results.R"))
 -----------------------------------------------------------------------------
-PARAMETERS (edit at the noted line)
-  PPIs   character vector   plasticity indices to summarise; edit `PPIs <-`            [COMMON]
-  RNs    character vector   reaction-norm traits (leafArea/WUE/biomass); edit `RNs <-` [COMMON]
-  GWAS   logical            whether GWAS results are present
+PARAMETERS — set these before sourcing (guarded defaults)
+  RESOLUTION_DIR  path, default output/populations/maize/n_8   maize resolution folder [COMMON]
+  ALPHA           numeric, default 0.05                         Bonferroni level
 =============================================================================
 ```
 
@@ -407,20 +337,27 @@ HOW TO RUN: Rscript --vanilla R/gwas/scenarios/scenario_60_20.R   (from the repo
 
 ```text
 =============================================================================
-scenario_maize.R — scenario driver: empirical maize dataset
+scenario_maize.R — the empirical maize data through the pipeline
 =============================================================================
-WHAT IT DOES: Sets the parameters for the empirical maize analysis and runs the GWAS
-  on the maize scores (04_run_gwas.R). The maize score computation
-  (03_plasticity_scores_maize.R) is available but sourced separately. There is no
-  simulated truth for maize, so 05_evaluate_gwas.R does not apply.
-REQUIRES:     None to launch — self-contained driver. Uses data/maize_scores_list.rds
-              and the maize datasets under data/A-Datasets/.
-PRODUCES:     Maize GWAS results under OUTPUT_BASE (output/scenario_maize/).
-HOW TO RUN:   setwd("~/PlastQuant"); source(here::here("R", "gwas", "scenarios", "scenario_maize.R"))
+WHAT IT DOES: Loads the maize data (244 varieties, traits biomass, leaf area and WUE in
+  8 environments: seasons S12, S13, S16, W13 under drought (WD) and well watered (WW))
+  and the SNPs of the varieties, writes them as a population folder (own data), and
+  runs the same steps as for simulated data: PPIs, GWAS, and the summary of the GWAS
+  hits (06_analyze_maize_gwas_results.R).
+  Environment values: the environments are not controlled, so every environment is
+  given the mean biomass of all varieties in it (environment index as in
+  Finlay-Wilkinson); the same index is used for all three traits. The environments
+  are ordered along this index.
+REQUIRES:     data/A-Datasets/: Biomass_RDPI_CV_Ratio.txt, Leaf_area_RDPI_CV_Ratio.txt,
+              WUE_RDPI_CV_Ratio.txt, Genotyping_matrix_Negro_et_al_2019.Rdata
+              (genotyping data: https://forgemia.inra.fr/gqe-base/djabali-drought-plasticity-qtls-article1)
+PRODUCES:     output/populations/maize/: data/ (SNPs), n_8/data/ (the three traits),
+              n_8/ppis/, n_8/gwas/, and the GWAS summary of 06_analyze_maize_gwas_results.R
+HOW TO RUN:   Rscript --vanilla R/gwas/scenarios/scenario_maize.R   (from the repo root)
 -----------------------------------------------------------------------------
-PARAMETERS (edit here — set UNCONDITIONALLY below so they override script defaults)
-  OUTPUT_BASE           output location for the maize run
-  DO_NOT_PLOT_MAHATTAN  = TRUE  skip Manhattan plots
+PARAMETERS — set these before sourcing (guarded defaults)
+  POPULATION_DIR  path, default output/populations/maize   population folder        [COMMON]
+  SNP_SUBSET      integer, default NULL (all 978134 SNPs)   use only the first SNPs (quick checks)
 =============================================================================
 ```
 
@@ -552,15 +489,15 @@ clustering_rn_summary_stats.R — cluster reaction-norm summary statistics
 =============================================================================
 WHAT IT DOES: Clusters genotypes / indices on their reaction-norm summary statistics
   (k-means, DBSCAN, hierarchical, mclust) and renders the associated heatmaps/plots.
-  Auto-sources 03_plasticity_scores.R when scores are not already loaded
-  (guarded by the `data_loaded` flag at the top).
-REQUIRES:     03 (so RESOLUTION_DIR must be set: a resolution folder of a simulated population).
+  Reads the PPIs and reaction norms of RESOLUTION_DIR.
+REQUIRES:     RESOLUTION_DIR with its PPIs (compute_population_ppis()).
 PRODUCES:     Clustering figures under RESOLUTION_DIR/analyses/clustering/.
-HOW TO RUN:   setwd("~/PlastQuant"); source(here::here("R","analysis","clustering_rn_summary_stats.R"))
+HOW TO RUN:   setwd("~/PlastQuant"); RESOLUTION_DIR <- here::here("output", "populations", "<name>", "n_6")
+              source(here::here("R","analysis","clustering_rn_summary_stats.R"))
 -----------------------------------------------------------------------------
-PARAMETERS: inherits 03's parameters via the auto-source; clustering knobs are set
-  in the body of the script (edit them there). Set `data_loaded <- TRUE` beforehand to
-  reuse already-computed scores instead of re-running 03.
+PARAMETERS
+  RESOLUTION_DIR  path, REQUIRED (set before sourcing)   resolution folder               [COMMON]
+  Analysis settings are set in the body of the script.
 =============================================================================
 ```
 
@@ -572,14 +509,15 @@ summary_stats_vs_scores.R — relate summary statistics to plasticity scores
 =============================================================================
 WHAT IT DOES: Computes and visualises the relationship between reaction-norm summary
   statistics and the plasticity scores (correlation matrices, distance measures,
-  clustering). Auto-sources 03_plasticity_scores.R when scores are not already loaded
-  (guarded by the `data_loaded` flag at the top).
-REQUIRES:     03 (so RESOLUTION_DIR must be set: a resolution folder of a simulated population).
+  clustering). Reads the PPIs and reaction norms of RESOLUTION_DIR.
+REQUIRES:     RESOLUTION_DIR with its PPIs (compute_population_ppis()).
 PRODUCES:     Summary-stat vs score figures under RESOLUTION_DIR/analyses/summary_stats_vs_scores/.
-HOW TO RUN:   setwd("~/PlastQuant"); source(here::here("R","analysis","summary_stats_vs_scores.R"))
+HOW TO RUN:   setwd("~/PlastQuant"); RESOLUTION_DIR <- here::here("output", "populations", "<name>", "n_6")
+              source(here::here("R","analysis","summary_stats_vs_scores.R"))
 -----------------------------------------------------------------------------
-PARAMETERS: inherits 03's parameters via the auto-source; analysis knobs are set in the
-  body. Set `data_loaded <- TRUE` beforehand to reuse already-computed scores.
+PARAMETERS
+  RESOLUTION_DIR  path, REQUIRED (set before sourcing)   resolution folder               [COMMON]
+  Analysis settings are set in the body of the script.
 =============================================================================
 ```
 
@@ -706,14 +644,14 @@ plasticity_score_realisation_plot_maize.R — plasticity-score realisations (mai
 =============================================================================
 WHAT IT DOES: Plots the realised plasticity scores for the empirical maize dataset.
   Sources analysis/rank_corr_biplot.R.
-REQUIRES:     Maize score outputs (data/maize_scores_list.rds and the maize pipeline
-              outputs); analysis/rank_corr_biplot.R.
+REQUIRES:     The maize PPIs of scenario_maize.R (RESOLUTION_DIR, default
+              output/populations/maize/n_8); analysis/rank_corr_biplot.R.
 PRODUCES:     Maize plasticity-score realisation figure(s).
 HOW TO RUN:   setwd("~/PlastQuant"); source(here::here("R", "analysis", "plasticity_score_realisation_plot_maize.R"))
 -----------------------------------------------------------------------------
 PARAMETERS (edit the named assignment near the top of the script)
   form_ranges  list  the reaction-norm ranges/forms plotted                              [COMMON]
-  the input score path is set in the script body.
+  RESOLUTION_DIR  path, default output/populations/maize/n_8   maize resolution folder
 =============================================================================
 ```
 
@@ -777,9 +715,10 @@ WHAT IT DOES: Builds the rank-correlation biplot of the plasticity indices (also
 REQUIRES:     Simulated data: RESOLUTION_DIR with its PPIs (ppis/ppi_scores.rds from
               compute_population_ppis(RESOLUTION_DIR)); the PPIs and summary statistics
               are those of the population's own sampling resolution.
-              Maize (form_ranges of length 3): data/maize_scores_list.rds.
+              Maize (form_ranges of length 3): the maize PPIs of scenario_maize.R
+              (RESOLUTION_DIR, default output/populations/maize/n_8).
 PRODUCES:     RESOLUTION_DIR/plots/plasticity_comprehensive_analysis/ (PDF and CSV tables);
-              maize: output/plasticity_comprehensive_analysis_maize/.
+              (also for maize).
 HOW TO RUN:   setwd("~/PlastQuant")
               RESOLUTION_DIR <- here::here("output", "populations", "ppi_comparison", "n_6")
               source(here::here("R", "analysis", "rank_corr_biplot.R"))
