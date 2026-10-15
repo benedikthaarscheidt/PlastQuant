@@ -84,7 +84,10 @@ shape is a false positive.
 | `R/ppi/compute_ppis.R` | `compute_ppis()` with `exclude` and `replicate_handling`: `ppi_per_avg_genotype()` (replicates averaged first) or `ppi_per_replicate()` (each replicate's own norm); `replicate_means()`; `ppi_wide_table()` |
 | `R/pipeline/pipeline_input.R` | in-memory data contract (phenotypes, environments, SNPs, truth) and its checks |
 | `R/pipeline/population_folder.R` | folder format: `write_population()`, `write_resolution()`, `read_population()`, `sample_population()`, `resolution_dirs()`, `resolution_path()` |
-| `R/pipeline/population_steps.R` | the steps: `simulate_population()`, `sample_resolution()`, `compute_population_ppis()`, `run_population_gwas()` |
+| `R/pipeline/simulate_population.R` | `simulate_population()`: true norms of a population -> `data/`, `variance/` |
+| `R/pipeline/sample_resolution.R` | `sample_resolution()`: the population measured at n points -> `n_<n>/data/`, `n_<n>/variance/` |
+| `R/pipeline/compute_population_ppis.R` | `compute_population_ppis()`: PPIs of a resolution -> `n_<n>/ppis/` |
+| `R/pipeline/run_population_gwas.R` | `run_population_gwas()`: GWAS of the PPIs of a resolution -> `n_<n>/gwas/` |
 | `R/pipeline/plot_norms.R` | `plot_true_norms()`: the true norms, drawn into `data/reaction_norms.pdf` |
 | `R/pipeline/gwas.R` | kinship matrix; `run_gwas()` per PPI and shape (rrBLUP mixed model) |
 | `R/pipeline/evaluate_power.R` | power per shape against that shape's causal SNPs |
