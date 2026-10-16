@@ -22,8 +22,13 @@ simulate_reaction_norms <- function(cfg) {
 simulate_norms <- function(cfg) {
   # Genetics: drawn first and from their own seed, so they are identical for every h2
   set.seed(cfg$seed)
-  geno <- simulate_snp_genotypes(length(cfg$shapes) * cfg$n_per_shape, cfg$n_snps)
-  causal <- draw_causal_snps(cfg)
+  if (is.null(cfg$ld_strength)) cfg$ld_strength <- 0   # settings saved before LD existed
+  if (is.null(cfg$ld_r2)) cfg$ld_r2 <- 0.1
+  geno <- simulate_snp_genotypes(length(cfg$shapes) * cfg$n_per_shape, cfg$n_snps, cfg$ld_strength)
+  # LD window (0 without LD): a GWAS hit within it of a causal SNP counts as finding it;
+  # causal SNPs of a shape lie further apart than two windows
+  cfg$ld_window <- if (cfg$ld_strength > 0) ld_window(geno$X, cfg$ld_r2) else 0L
+  causal <- draw_causal_snps(cfg, spacing = if (cfg$ld_window > 0) 2L * cfg$ld_window + 1L else 0L)
 
   # All standard-normal draws of the norms come from a second stream, also independent of h2
   set.seed(cfg$seed + 1)

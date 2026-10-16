@@ -12,6 +12,7 @@
 #     kinship.csv            Genotype, then one column per genotype (optional; otherwise
 #                            computed from the SNPs)
 #     truth.csv              Trait, Parameter, SNP: known causal SNPs (optional)
+#     causal_tags.csv        SNP, Tag, R2: SNPs in LD with each causal SNP (SNP panel only)
 #   variance/          latent variance components (simulated only)
 #   n_<k>/             one resolution: the population measured at k environments
 #     data/traits/<trait>.csv  first column Genotype (one row per plant: a genotype
@@ -100,6 +101,9 @@ write_population <- function(x, dir, snp_format = if (is.null(x$config)) "csv" e
     tr <- x$truth
     names(tr)[names(tr) == "Shape"] <- "Trait"
     write.csv(tr, file.path(data_dir, "truth.csv"), row.names = FALSE)
+  }
+  if (!is.null(x$causal_tags)) {   # population on a real SNP panel (snp_panel.R)
+    write.csv(x$causal_tags, file.path(data_dir, "causal_tags.csv"), row.names = FALSE)
   }
   if (simulated) {
     norms <- x[setdiff(names(x), c("environments", "phenotypes", "mother_curves", "measurement_sd"))]
@@ -222,6 +226,9 @@ read_population <- function(res_dir, with_snps = TRUE) {
   # the truth is checked against the SNPs; without SNPs it is only attached
   pop <- pipeline_input(phenotypes, environments, snp_matrix, if (with_snps) truth)
   pop$truth <- truth
+  if (file.exists(file.path(pop_data, "causal_tags.csv"))) {
+    pop$causal_tags <- read.csv(file.path(pop_data, "causal_tags.csv"), stringsAsFactors = FALSE)
+  }
   pop$kinship <- kinship
   if (!is.null(kinship)) {
     missing <- setdiff(unique(unlist(lapply(phenotypes, `[[`, "Genotype"))), rownames(kinship))

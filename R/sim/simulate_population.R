@@ -8,7 +8,13 @@
 # folder: data/ (norms, parameters, SNPs, truth, settings, plot of the true norms
 # reaction_norms.pdf) and variance/ (latent level)
 simulate_population <- function(cfg, dir) {
-  norms <- simulate_norms(cfg)
+  write_simulated_population(simulate_norms(cfg), dir)
+}
+
+# Write simulated norms (simulate_norms(), simulate_norms_from_snps()) as a population
+# folder: data/, the latent variance in variance/ and the plot of the true norms.
+# Returns dir.
+write_simulated_population <- function(norms, dir) {
   write_population(norms, dir)
   unlink(file.path(dir, "variance"), recursive = TRUE)
   var_dir <- population_subdir(dir, "variance")

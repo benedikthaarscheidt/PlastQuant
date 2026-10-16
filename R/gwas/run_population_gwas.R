@@ -7,9 +7,12 @@
 # GWAS of every PPI of a resolution and replicate handling (dir/<replicate_handling>/ppis)
 # against the population's SNPs -> dir/<replicate_handling>/gwas/gwas_results.csv
 # (kinship from the population's data/kinship.csv if present, otherwise from the SNPs);
-# with a truth table also the power per shape (Bonferroni alpha / number of SNPs) ->
-# gwas_power.csv and its heatmaps -> dir/<replicate_handling>/plots/gwas_power_heatmap.pdf
-run_population_gwas <- function(dir, replicate_handling = c("mean_before", "replicates"), alpha = 0.05) {
+# with a truth table also the power per shape (Bonferroni alpha / number of SNPs; with LD
+# per LD window, see evaluate_power.R) ->
+# gwas_power.csv and its heatmaps -> dir/<replicate_handling>/plots/gwas_power_heatmap.pdf.
+# n_cores > 1 runs the SNP tests on that many cores (forked processes: from the terminal
+# with Rscript, not in RStudio); the results are the same.
+run_population_gwas <- function(dir, replicate_handling = c("mean_before", "replicates"), alpha = 0.05, n_cores = 1) {
   replicate_handling <- match.arg(replicate_handling)
   set_dir <- ppi_set_path(dir, replicate_handling)
   ppi_file <- file.path(set_dir, "ppis", "ppi_scores.rds")
@@ -23,17 +26,25 @@ run_population_gwas <- function(dir, replicate_handling = c("mean_before", "repl
   unlink(gwas_dir, recursive = TRUE)
   dir.create(gwas_dir, recursive = TRUE, showWarnings = FALSE)
   kin <- if (is.null(pop$kinship)) kinship_matrix(pop$snp_matrix) else pop$kinship
-  res <- run_gwas(traits, pop$snp_matrix, kin)
+  res <- run_gwas(traits, pop$snp_matrix, kin, n_cores)
   write.csv(res, file.path(gwas_dir, "gwas_results.csv"), row.names = FALSE)
   if (!is.null(pop$truth)) {
     n_snps <- ncol(pop$snp_matrix)
-    power <- evaluate_power(res, pop$truth, n_snps, alpha = alpha)
+    # LD window of a simulation with LD (0 otherwise): hits within it of a causal SNP find it
+    window <- if (is.null(pop$config$ld_window)) 0 else pop$config$ld_window
+    snp_pos <- setNames(seq_len(n_snps), colnames(pop$snp_matrix))
+    # on a real SNP panel: hits on the tag SNPs of a causal SNP find it (data/causal_tags.csv)
+    tag_r2 <- if (is.null(pop$config$snp_panel)) 0.1 else pop$config$snp_panel$max_r2
+    power <- evaluate_power(res, pop$truth, n_snps, alpha = alpha, window = window, snp_pos = snp_pos,
+                            tags = pop$causal_tags, snp_matrix = pop$snp_matrix, tag_r2 = tag_r2)
     write.csv(power, file.path(gwas_dir, "gwas_power.csv"), row.names = FALSE)
     cfg <- pop$config
     subtitle <- paste0(
       if (!is.null(cfg)) paste0("h2 = ", cfg$h2, ", ", cfg$Mc, " causal SNPs per parameter, ",
                                 cfg$n_per_shape, " genotypes per shape, "),
-      n_snps, " SNPs, ", replicate_handling, "  (Bonferroni P < ", format(alpha / n_snps, digits = 2, scientific = TRUE), ")"
+      n_snps, " SNPs, ", if (window > 0) paste0("LD window ", window, " SNPs, "),
+      if (!is.null(pop$causal_tags)) "SNP panel (hits on tag SNPs), ",
+      replicate_handling, "  (Bonferroni P < ", format(alpha / n_snps, digits = 2, scientific = TRUE), ")"
     )
     unlink(file.path(set_dir, "plots", "gwas_power_heatmap.pdf"))
     plot_gwas_power(power, file.path(set_dir, "plots", "gwas_power_heatmap.pdf"), subtitle)

@@ -12,20 +12,21 @@
 #   Every GWAS only reads data/ and writes its own n_<n>/ folder, so the resolutions can
 #   run at the same time. combine_resolution_gwas.R collects the power afterwards.
 # HOW TO RUN:   from the repo root
-#   Rscript --vanilla R/gwas/scenarios/resolution_gwas.R simulate <population folder> <h2> <Mc> <seed>
+#   Rscript --vanilla R/gwas/scenarios/resolution_gwas.R simulate <population folder> <h2> <Mc> <seed> [ld_strength]
 #   Rscript --vanilla R/gwas/scenarios/resolution_gwas.R gwas <resolution folder> [mean_before|replicates]
 # -----------------------------------------------------------------------------
 # ARGUMENTS
 #   h2        numeric in [0, 1]   share of the latent genetic variance from the causal SNPs
 #   Mc        integer             causal SNPs per parameter
 #   seed      integer             seed of the population
+#   ld_strength  numeric in [0, 1)  LD between neighbouring SNPs (default 0: independent SNPs)
 #   handling  "mean_before" (default) or "replicates"   replicate handling of the PPIs
 # All other settings are the defaults of sim_config() in R/sim/simulation_config.R.
 # =============================================================================
 options(warn = -1)  # silence warnings even if the project .Rprofile was not loaded
 
 args <- commandArgs(trailingOnly = TRUE)
-usage <- paste("usage: resolution_gwas.R simulate <population folder> <h2> <Mc> <seed>\n",
+usage <- paste("usage: resolution_gwas.R simulate <population folder> <h2> <Mc> <seed> [ld_strength]\n",
                "      resolution_gwas.R gwas <resolution folder> [mean_before|replicates]")
 if (length(args) < 2 || !args[1] %in% c("simulate", "gwas")) stop(usage)
 source(here::here("R", "pipeline", "load_pipeline.R"))
@@ -35,11 +36,12 @@ if (args[1] == "simulate") {
   if (length(args) < 5) stop(usage)
   population_dir <- args[2]
   h2 <- as.numeric(args[3]); Mc <- as.integer(args[4]); seed <- as.integer(args[5])
-  if (anyNA(c(h2, Mc, seed))) stop(usage)
+  ld_strength <- if (length(args) >= 6) as.numeric(args[6]) else 0
+  if (anyNA(c(h2, Mc, seed, ld_strength))) stop(usage)
   if (file.exists(file.path(population_dir, "data", "norms.rds"))) {
     message("Population exists, kept: ", population_dir)
   } else {
-    simulate_population(sim_config(h2 = h2, Mc = Mc, seed = seed), population_dir)   # -> data/, variance/
+    simulate_population(sim_config(h2 = h2, Mc = Mc, seed = seed, ld_strength = ld_strength), population_dir)   # -> data/, variance/
     message("Population simulated in ", format(round(Sys.time() - t0, 1)), ": ", population_dir)
   }
 } else {

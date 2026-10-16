@@ -129,9 +129,68 @@ and `variance/`. Every setting of `sim_config()` is commented in
 - `h2`: share of the latent genetic variance from the causal SNPs
 - `Mc`: causal SNPs per parameter
 - `n_per_shape` (200), `n_rep` (3), `n_snps` (200000): population size
+- `ld_strength` (0): linkage disequilibrium (LD) between neighbouring SNPs. Every genotype
+  has two haplotypes; along each, a SNP copies the allele of the preceding SNP with
+  probability `ld_strength` and is otherwise drawn independently with its allele
+  frequency. The dosage is the sum of the two haplotypes. With 0 every SNP is drawn
+  independently (no LD). `ld_r2` (0.1) sets the LD window: the largest distance in SNPs
+  at which the mean r² is still at least `ld_r2`; it is measured from the simulated SNPs
+  and stored in `data/config.rds` (`ld_window`). With LD, the causal SNPs of a shape lie
+  more than two windows apart. `R/analysis/ld_decay.R` plots the mean r² against the
+  distance (`plots/ld_decay.pdf`).
 - `seed` (1): the same seed gives the same genetics for every `h2`
 - `sigma_L`, `repeatability_beta`, `error_share`: variance components
 - `study_space`: parameter ranges
+
+### 1b. Alternatively: simulate on a real SNP panel
+
+Simulated SNPs have idealised LD. For realistic LD, allele frequencies and relatedness, the
+reaction norms can instead be simulated on the SNPs of real lines (for example the maize
+panel in `data/A-Datasets/`):
+
+```r
+simulate_population_from_snps(sim_config(h2 = 0.4, Mc = 10), snps, POPULATION_DIR)
+```
+
+`snps` is a matrix (lines × SNPs, dosages 0/1/2, line IDs as row names, SNP IDs as column
+names, no missing values) or a file with it (`.rds`, or `.csv` with a first column
+`Genotype`). The result is a population folder like the one of step 1, and all following
+steps run unchanged. What differs from step 1 (`R/sim/snp_panel.R`):
+
+- **Genotypes:** every shape is simulated on all lines of the panel. The shapes stay
+  separate (their own reaction norms, PPIs and GWAS); `n_per_shape` and `n_snps` of
+  `sim_config()` are replaced by the panel.
+- **Causal SNPs:** only SNPs with minor allele frequency ≥ `min_maf` (0.05), and within a
+  shape no two causal SNPs in LD (r² ≥ `max_r2`, 0.1). L, a and V have the same causal SNPs
+  and effects in every shape, so the shapes can be compared; the shape parameters (c, w,
+  k, psi) get their own.
+- **Standardisation:** the dosages of a causal SNP are centred and scaled with their own
+  mean and SD over the lines. Simulated SNPs use 2p and √(2p(1−p)), which assumes
+  Hardy–Weinberg; real lines are often inbred (almost only 0 and 2), so their variance
+  would be wrong.
+- **Hits in LD:** for every causal SNP, `data/causal_tags.csv` lists the SNPs with
+  r² ≥ `max_r2` to it (its tag SNPs). In the GWAS evaluation a significant tag SNP finds
+  the causal SNP. False positives are the hits that tag no causal SNP of the shape, counted
+  as loci: hits with r² ≥ `max_r2` to each other count once.
+
+
+**Example: the maize panel shipped in `data/A-Datasets/`** (403 lines; here only the
+first 5000 SNPs, for a quick run):
+
+```r
+geno <- new.env()
+load(here::here("data", "A-Datasets", "Genotyping_matrix_Negro_et_al_2019.Rdata"), envir = geno)
+snps <- geno$mat2[, 1:5000]   # lines x SNPs, dosages 0/1/2; geno$mat2 for all 978 134 SNPs
+rm(geno)
+
+dir <- here::here("output", "populations", "maize_panel_test")
+simulate_population_from_snps(sim_config(h2 = 0.8, Mc = 5), snps, dir)   # -> data/, variance/
+res <- sample_resolution(dir, 6)                                          # -> n_6/data/
+compute_population_ppis(res, "mean_before")                               # -> n_6/mean_before/ppis/
+```
+
+The GWAS follows as in step 4. With many SNPs it takes long: run it from the terminal on
+several cores (see *Large populations* in step 4).
 
 ### 2. Measure it at a resolution
 
@@ -195,9 +254,33 @@ populations), the same step evaluates it: the power per shape (`gwas/gwas_power.
 Bonferroni `alpha` / number of SNPs, `alpha = 0.05` unless given) and its heatmaps
 (`plots/gwas_power_heatmap.pdf`). A parameter is evaluated within its own shape, and a hit
 on a SNP that is not causal for that shape counts as a false positive.
+With LD (`ld_strength` > 0), a causal SNP counts as found if a significant SNP lies within
+its LD window, and the false positives are counted as loci: significant SNPs outside the
+windows of all causal SNPs of the shape, where SNPs at most one window apart form one locus.
 
 For the other handling, set `REPLICATE_HANDLING <- "replicates"` and run steps 3 and 4
 again; the results go to `n_6/replicates/`.
+
+**Large populations.** With many genotypes or SNPs the GWAS needs a lot of memory and
+time, and an RStudio session can crash. Run it from the terminal with `Rscript` instead,
+and on several cores with `n_cores` (the SNP tests are split over forked processes, which
+RStudio does not handle well; the results are the same as on one core):
+
+```bash
+cd ~/PlastQuant
+OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 Rscript --vanilla -e '
+source(here::here("R", "pipeline", "load_pipeline.R"))
+dir <- "output/populations/My_population/n_6"
+compute_population_ppis(dir, "mean_before")            # -> n_6/mean_before/ppis/
+run_population_gwas(dir, "mean_before", n_cores = 8)    # -> n_6/mean_before/gwas/, plots/
+'
+```
+
+- `OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1`: one thread per process, so the processes do
+  not compete for the cores.
+- `--vanilla`: R starts without `.Rprofile` and saved workspace; the packages are taken
+  from the normal R library.
+- `n_cores`: at most the number of cores of the machine, minus one or two for the system.
 
 ### Figures and analyses of one resolution
 

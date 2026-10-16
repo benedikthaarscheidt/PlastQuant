@@ -9,6 +9,7 @@
 #   sigma_L             SD of ln(L) over mother norms (level)
 #   error_share         measurement error as share of the trait variance
 #   study_space         range and distribution of every bounded parameter
+#   ld_strength         linkage disequilibrium between neighbouring SNPs (0 = none)
 # =============================================================================
 
 # Shape parameters of each reaction-norm shape (besides level L and plasticity a):
@@ -44,6 +45,8 @@ sim_config <- function(h2,                                  # share of the laten
                        n_per_shape = 200,                   # genotypes (lines) per shape
                        n_rep = 3,                           # replicate plants per genotype
                        n_snps = 200000,                     # simulated SNPs (causal + neutral)
+                       ld_strength = 0,                     # LD: probability that a SNP copies the allele of the preceding SNP on the same haplotype (0 = independent SNPs)
+                       ld_r2 = 0.1,                         # r^2 that bounds the LD window (SNPs within it of a causal SNP count as finding it)
                        n_points = 6,                        # measurement points per reaction norm; environments 1 + 9 t
                        seed = 1,                            # seed for the genetics; seed + 1 for all other normal draws
                        sigma_L = 0.1,                       # SD of ln(L): spread of the level, L = exp(sigma_L * ell)
@@ -56,9 +59,12 @@ sim_config <- function(h2,                                  # share of the laten
   if (n_rep < 1) stop("n_rep must be at least 1")
   if (n_points < 2) stop("n_points must be at least 2")
   if (!(error_share >= 0 && error_share < 1)) stop("error_share must be in [0, 1)")
+  if (!(ld_strength >= 0 && ld_strength < 1)) stop("ld_strength must be in [0, 1)")
+  if (!(ld_r2 > 0 && ld_r2 < 1)) stop("ld_r2 must be in (0, 1)")
   shapes <- names(shape_parameters())
   list(
     h2 = h2, Mc = Mc, n_per_shape = n_per_shape, n_rep = n_rep, n_snps = n_snps,
+    ld_strength = ld_strength, ld_r2 = ld_r2,
     n_points = n_points, seed = seed, sigma_L = sigma_L,
     repeatability_beta = repeatability_beta, error_share = error_share,
     study_space = study_space, shapes = shapes, shape_parameters = shape_parameters()

@@ -7,7 +7,7 @@ pipeline_function_files <- c(
   # simulation model and simulating a population
   "sim/simulation_config.R", "sim/snp_genotypes.R", "sim/genetic_values.R", "sim/parameter_mapping.R",
   "sim/reaction_norm_shapes.R", "sim/measurement.R", "sim/simulate_reaction_norms.R", "sim/variance_report.R",
-  "sim/plot_norms.R", "sim/simulate_population.R",
+  "sim/plot_norms.R", "sim/simulate_population.R", "sim/snp_panel.R",
   # infrastructure: data contract, population folders, sampling a resolution
   "pipeline/pipeline_input.R", "pipeline/population_folder.R", "pipeline/sample_resolution.R",
   # PPI computation
