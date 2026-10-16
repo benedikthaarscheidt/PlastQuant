@@ -108,6 +108,8 @@ Load the functions once per R session, from the project root (again after the co
 has changed):
 
 ```r
+setwd("~/PlastQuant")
+here::i_am("R/pipeline/load_pipeline.R")   # resets the root to ~/PlastQuant
 source(here::here("R", "pipeline", "load_pipeline.R"))
 ```
 
@@ -215,6 +217,53 @@ source(here::here("R", "analysis", "kendall_tau_corr_clustering.R"))       # ...
 source(here::here("R", "analysis", "clustering_rn_summary_stats.R"))       # clustering of the reaction norms
 source(here::here("R", "analysis", "summary_stats_vs_scores.R"))           # functions relating PPIs to summary statistics
 ```
+
+### What the PPIs measure: true parameters against PPIs
+
+For a simulated population the true reaction norm parameters are known, so every PPI can
+be compared with them directly. `parameter_ppi_correlation.R` correlates, for every shape
+separately, every true parameter (L, a, rho and the shape parameters c, w, k, psi) with every
+PPI of one resolution:
+
+- `REPLICATE_HANDLING <- "replicates"`: one point per replicate plant — the plant's own
+  parameters (`data/plant_parameters.csv`) against the PPI of that plant's reaction norm.
+  FW has one value per genotype also here and is compared with the mother parameters.
+- `REPLICATE_HANDLING <- "mean_before"`: one point per genotype — the mother parameters
+  (`data/mother_parameters.csv`) against the PPI of the averaged reaction norm.
+
+```r
+RESOLUTION_DIR <- here::here("output", "populations", "my_population", "n_6")
+REPLICATE_HANDLING <- "replicates"
+compute_population_ppis(RESOLUTION_DIR, REPLICATE_HANDLING)   # if not done yet
+source(here::here("R", "analysis", "parameter_ppi_correlation.R"))
+res[res$Shape == "linear" & res$Parameter == "a", ]           # e.g. a against all PPIs
+```
+
+Results: `RESOLUTION_DIR/<REPLICATE_HANDLING>/analyses/parameter_ppi_correlation.csv` with
+Pearson `r`, Spearman `rho_s`, `r_within` (correlation of the deviations from the genotype
+mean, i.e. only the differences between replicates; `"replicates"` only) and `n`; heatmaps
+(PPI × parameter per shape) in `RESOLUTION_DIR/<REPLICATE_HANDLING>/plots/parameter_ppi_correlation.pdf`.
+
+How to read it:
+
+- In the model `y(t) = L (1 + a F°(t))`, L is the mean of a reaction norm and a its largest
+  relative deviation from that mean, for every shape. PPIs that measure the size of the
+  response are therefore functions of a (or of L·a), and correlate strongly with a in all
+  shapes; for the linear shape almost perfectly, since a is its only plasticity parameter.
+- The shape parameters act on a PPI only through how much of the amplitude the sampling
+  points catch (e.g. the width w of a peak, the frequency k). These correlations are weaker
+  and are hidden by the variation of a; a partial correlation given a and L shows them:
+  ```r
+  d <- merge(<PPI table of one shape>, plants, by = c("Genotype", "Replicate"))
+  cor(resid(lm(Score ~ a + L, d)), resid(lm(w ~ a + L, d)))
+  ```
+  The parameters are simulated independently of each other, so such a correlation is not
+  confounded by a.
+- The GWAS tests every SNP on its own: it sees the raw correlation of a PPI with a parameter,
+  not the partial one. The SNPs of a are therefore found by almost every PPI, the SNPs of
+  the shape parameters hardly.
+- Direction-based PPIs (RN, RTR, FW) follow a only where the response has a direction
+  (linear); for peaks and waves they depend on the position (c, psi).
 
 ### Stability across resolutions
 
