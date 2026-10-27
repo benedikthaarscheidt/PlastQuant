@@ -205,17 +205,17 @@ method_agreement_metrics <- function(Tm, tau_threshold, topk_df, flips_tbl) {
   med_tau <- apply(Tm, 1, function(x) median(x, na.rm = TRUE))
   avg_topk <- purrr::map_dfr(idx, function(m) {
     df <- topk_df |> filter(score_i == m | score_j == m) |> group_by(k) |>
-      summarize(avg_overlap = mean(overlap_frac, na.rm = TRUE), .groups = "drop")
+      dplyr::summarize(avg_overlap = mean(overlap_frac, na.rm = TRUE), .groups = "drop")
     if (nrow(df) == 0) tibble(method = m, k = NA_integer_, avg_overlap = NA_real_)
     else mutate(df, method = m, .before = 1)
   })
   avg_topk_overall <- avg_topk |> group_by(method) |>
-    summarize(avg_topk_overlap = mean(avg_overlap, na.rm = TRUE), .groups = "drop")
+    dplyr::summarize(avg_topk_overlap = mean(avg_overlap, na.rm = TRUE), .groups = "drop")
   flips_long <- flips_tbl |>
     mutate(method = score_i) |>
     bind_rows(flips_tbl |> transmute(method = score_j, flips_frac)) |>
     group_by(method) |>
-    summarize(avg_flips_frac = mean(flips_frac, na.rm = TRUE), .groups = "drop")
+    dplyr::summarize(avg_flips_frac = mean(flips_frac, na.rm = TRUE), .groups = "drop")
   tibble(method = idx) |>
     mutate(degree_ge_thresh = deg, avg_tau = avg_tau, med_tau = med_tau) |>
     left_join(avg_topk_overall, by = "method") |>
@@ -253,7 +253,7 @@ method_overlap_summary_from_topk <- function(topk_df, agree_thr = AGREE_THR_FULL
   )
   both %>%
     group_by(method, k) %>%
-    summarize(
+    dplyr::summarize(
       avg_overlap = mean(overlap_frac, na.rm = TRUE),
       min_overlap = suppressWarnings(min(overlap_frac, na.rm = TRUE)),
       frac_ge_thr = mean(overlap_frac >= agree_thr, na.rm = TRUE),
@@ -394,8 +394,8 @@ plot_method_stat_heatmap_stars <- function(cor_df, method_order = NULL, tag = ""
     scale_fill_div_pub(lim = c(-1,1)) +
     geom_text(aes(label = sprintf("%.2f%s", r, star)), size = 3) +
     labs(
-      title = paste0("Method × Summary-stat Kendall correlation (with p-stars) • ", tag),
-      x = "Summary Statistic", y = "Plasticity Score / Method", fill = "τ"
+      title = paste0("Method × Summary-stat Spearman correlation (with p-stars) • ", tag),
+      x = "Summary Statistic", y = "Plasticity Score / Method", fill = "ρ"
     ) +
     theme_pub() +
     theme(axis.text.x = element_text(angle = 60, hjust = 1, vjust = 1))
@@ -534,6 +534,15 @@ for (pairs_path in pairs_files) {
   ranks_path <- rank_files[grepl(tag, rank_files)]
   if (length(ranks_path) == 0) next
   ranks_path <- ranks_path[1]
+
+  # Setup sentences for the captions
+  setup <- paste(resolution_setup(RESOLUTION_DIR, REPLICATE_HANDLING), nrow(sumstats_score_table),
+                 "genotypes, all shapes pooled; genotypes ranked under every PPI (rank 1 = highest value).")
+  tau_txt <- "tau: Kendall rank correlation of two PPIs over the genotypes."
+  net_txt <- paste0("Agreement network: an edge joins two PPIs with tau >= ", tau_threshold, ".")
+  topk_txt <- "Top-k overlap: share of the k highest-ranked genotypes that two PPIs have in common."
+  flip_txt <- "Discordant pairs: share of genotype pairs that two PPIs order in opposite directions."
+  sumstat_txt <- "Summary statistics of the replicate-averaged measured reaction norm of each genotype."
   
   grid::grid.newpage()
   grid::grid.text(paste0("Analysis report • ", tag), x = 0.5, y = 0.9,
@@ -555,11 +564,23 @@ for (pairs_path in pairs_files) {
   }
   
   # --- τ visuals
-  print(plot_tau_heatmap(Tm, tag))
+  print(with_caption(plot_tau_heatmap(Tm, tag),
+    paste(setup, tau_txt, "PPIs ordered by average-linkage clustering of 1 - tau."),
+    "Red blocks: groups of PPIs that rank genotypes alike; blue: opposite rankings (e.g. stability against plasticity indices)."))
   sw <- threshold_sweep_stats(Tm, tau_seq = seq(0.3, 0.9, by = 0.05))
-  sw_plots <- plot_threshold_sweep(sw, tag); print(sw_plots$p1); print(sw_plots$p2)
-  print(plot_agreement_network(Tm, tau_threshold, tag))
-  print(plot_component_sizes(Tm, tau_threshold, tag))
+  sw_plots <- plot_threshold_sweep(sw, tag)
+  print(with_caption(sw_plots$p1,
+    paste(setup, "Number of PPI pairs with tau above the threshold, for thresholds 0.3 to 0.9."),
+    "A steep drop marks the tau level at which the agreement between PPIs breaks up; it guides the choice of the network threshold."))
+  print(with_caption(sw_plots$p2,
+    paste(setup, "Size of the largest group of PPIs connected by tau above the threshold, for thresholds 0.3 to 0.9."),
+    "Shows up to which tau most PPIs still form one connected group of agreeing indices."))
+  print(with_caption(plot_agreement_network(Tm, tau_threshold, tag),
+    paste(setup, net_txt, "Node size: number of such partners (degree); colour: connected component."),
+    "Each component is a group of PPIs that rank genotypes nearly identically; isolated PPIs rank genotypes in their own way."))
+  print(with_caption(plot_component_sizes(Tm, tau_threshold, tag),
+    paste(setup, net_txt, "Number of PPIs in each connected component."),
+    "One large component: most PPIs are interchangeable for ranking; many small ones: the choice of PPI matters."))
   
   # --- Ranks
   ranks_df <- read_csv(ranks_path, show_col_types = FALSE) |> ensure_gid()
@@ -580,26 +601,38 @@ for (pairs_path in pairs_files) {
   } else tibble(tag = character(), score_i = character(), score_j = character(),
                 flips_abs = integer(), n_pairs = integer(), flips_frac = numeric())
   write_csv(flips_tbl, file.path(out_dir, paste0("rank_flips_", tag, ".csv")))
-  if (nrow(flips_tbl) > 0) print(plot_flips_vs_tau(flips_tbl, pairs_df, tag))
+  if (nrow(flips_tbl) > 0) print(with_caption(plot_flips_vs_tau(flips_tbl, pairs_df, tag),
+    paste(setup, flip_txt, "Each point a pair of PPIs; line: loess fit."),
+    "Translates tau into ranking conflicts: the share of genotype pairs whose order changes when switching between the two PPIs (for tau without ties, discordant share = (1 - tau) / 2)."))
   
   topk_df <- topk_overlap_tbl(ranks_df, topk_values) |> mutate(tag = tag, .before = 1)
   write_csv(topk_df, file.path(out_dir, paste0("topk_overlap_", tag, ".csv")))
   
   metrics <- method_agreement_metrics(Tm, tau_threshold, topk_df, flips_tbl)
   write_csv(metrics, file.path(out_dir, paste0("method_agreement_metrics_", tag, ".csv")))
-  print(plot_method_agreement(metrics, tau_threshold, tag))
-  print(plot_method_flips(metrics, tag))
+  print(with_caption(plot_method_agreement(metrics, tau_threshold, tag),
+    paste(setup, "Per PPI: mean tau with all other PPIs against mean top-k overlap with them (over k =", paste(topk_values, collapse = ", "), "); point size: degree in the agreement network; dashed line: tau =", tau_threshold, "."),
+    "PPIs at the top right agree with most others in ranking and in the selected top genotypes; PPIs at the bottom left select different genotypes."))
+  print(with_caption(plot_method_flips(metrics, tag),
+    paste(setup, "Per PPI: mean tau with all other PPIs against the mean share of discordant genotype pairs; point size: degree in the agreement network."),
+    "PPIs with low tau change the order of many genotype pairs relative to the other PPIs."))
   
   mos <- method_overlap_summary_from_topk(topk_df, agree_thr = AGREE_THR_FULL)
   write_csv(mos, file.path(out_dir, paste0("method_overlap_summary_global_", tag, ".csv")))
-  print(plot_method_k_heatmap(mos, tag, value_col = "avg_overlap",
-                              title_suffix = "Average top-k overlap vs others (global)"))
-  print(plot_method_k_heatmap(mos, tag, value_col = "min_overlap",
-                              title_suffix = "Minimum top-k overlap vs others (global)"))
+  print(with_caption(plot_method_k_heatmap(mos, tag, value_col = "avg_overlap",
+                              title_suffix = "Average top-k overlap vs others (global)"),
+    paste(setup, topk_txt, "Per PPI and k: mean overlap with all other PPIs; white dot: full overlap with every other PPI."),
+    "Low values at small k: the PPI selects other top genotypes than the rest; overlap usually grows with k."))
+  print(with_caption(plot_method_k_heatmap(mos, tag, value_col = "min_overlap",
+                              title_suffix = "Minimum top-k overlap vs others (global)"),
+    paste(setup, topk_txt, "Per PPI and k: smallest overlap with any other PPI; white dot: full overlap with every other PPI."),
+    "Values near 0: at least one other PPI selects an entirely different set of top genotypes."))
   
   k_show <- max(topk_values)
   Om <- topk_overlap_matrix(ranks_df, rank_cols, k_show)
-  print(plot_topk_overlap_heatmap_matrix(Om, tag, k_show))
+  print(with_caption(plot_topk_overlap_heatmap_matrix(Om, tag, k_show),
+    paste(setup, topk_txt, "k =", k_show, "; PPIs ordered by average-linkage clustering of the overlap."),
+    "Blocks of high overlap: PPIs that select the same most plastic genotypes; low overlap between blocks: the choice of PPI changes the selection. For stability indices the top set is the least plastic genotypes."))
   
   # ================= PS–STAT LINK + PS–PS CORR HEATMAPS =================
   if (!is.null(sumstats_score_table)) {
@@ -624,28 +657,40 @@ for (pairs_path in pairs_files) {
     ord       <- ord[ord %in% common_methods]
     
     # (1) Method × stat Kendall with stars
-    print(plot_method_stat_heatmap_stars(cor_df, method_order = ord, tag = tag))
+    print(with_caption(plot_method_stat_heatmap_stars(cor_df, method_order = ord, tag = tag),
+      paste(setup, "Spearman rho between each PPI and each summary statistic (* p < 0.05, ** p < 0.01, *** p < 0.001, unadjusted).", sumstat_txt, "PPIs in the order of the tau clustering."),
+      "Shows which property of the reaction norm each PPI follows: level (min, max, mean, median, mean_lower, mean_upper), spread (range, variance) or direction (slope)."))
     # (2) Method × method Kendall (PS realisations) — as before
-    print(plot_method_corr_heatmap(r_mm_tau, order = ord, tag = tag,
+    print(with_caption(plot_method_corr_heatmap(r_mm_tau, order = ord, tag = tag,
                                    title = "Kendall correlation (τ) between plasticity score realisations",
-                                   fill_label = "τ"))
+                                   fill_label = "τ"),
+      paste(setup, tau_txt, "Same order as the tau heatmap."),
+      "Same information as the tau heatmap, restricted to the PPIs with summary statistics, for direct comparison with the next pages."))
     
     # (3) Link τ to stat-profile similarity
     S <- stat_profile_similarity_matrix_from_r(r_ms)
     write_csv(as_tibble(S, rownames = "method"),
               file.path(out_dir, paste0("stat_profile_similarity_matrix_", tag, ".csv")))
-    print(plot_matrix_link_scatter(Tm[common_methods, common_methods], S, tag))
+    print(with_caption(plot_matrix_link_scatter(Tm[common_methods, common_methods], S, tag),
+      paste(setup, "Each point a pair of PPIs: tau against the similarity of their summary-statistic profiles (Pearson correlation of their Spearman rho with the nine statistics); line: loess fit; Spearman correlation of the two matrices.", sumstat_txt),
+      "A strong increasing relation: PPIs agree in ranking because they follow the same reaction norm properties."))
     
     # (4) PCA biplot of method–stat Kendall correlations
-    print(plot_method_stat_pca_biplot(r_ms, Tm[common_methods, common_methods], tau_threshold, tag))
+    print(with_caption(plot_method_stat_pca_biplot(r_ms, Tm[common_methods, common_methods], tau_threshold, tag),
+      paste(setup, "PCA of the PPI x statistic matrix of Spearman rho (statistics centred and scaled); points: PPIs, coloured by agreement-network component (tau >=", tau_threshold, "); arrows: summary statistics.", sumstat_txt),
+      "PPIs close together follow the same statistics; the arrows next to a group show which reaction norm property it measures."))
     
     # === NEW PAGES AT THE END: Spearman & Pearson PS–PS HEATMAPS ===
-    print(plot_method_corr_heatmap(r_mm_spr, order = ord, tag = tag,
+    print(with_caption(plot_method_corr_heatmap(r_mm_spr, order = ord, tag = tag,
                                    title = "Spearman correlation (ρ) between plasticity score realisations",
-                                   fill_label = "ρ"))
-    print(plot_method_corr_heatmap(r_mm_pear, order = ord, tag = tag,
+                                   fill_label = "ρ"),
+      paste(setup, "Spearman rho between every pair of PPIs over the genotypes; order of the tau heatmap."),
+      "Same reading as tau; rho is larger in magnitude than tau for the same agreement."))
+    print(with_caption(plot_method_corr_heatmap(r_mm_pear, order = ord, tag = tag,
                                    title = "Pearson correlation (r) between plasticity score realisations",
-                                   fill_label = "r"))
+                                   fill_label = "r"),
+      paste(setup, "Pearson r between the raw values of every pair of PPIs; order of the tau heatmap."),
+      "Lower than the rank correlations where PPIs agree in ranking but not linearly (different scales, skew or outliers)."))
   } else {
     grid::grid.newpage()
     grid::grid.text("No summary statistics available.",

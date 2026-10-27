@@ -99,6 +99,14 @@ compare_summary_stats_with_scores <- function(rn_matrix_list, scores_list, genot
   # Define the nine summary statistics.
   stat_names <- c("min", "max", "mean", "median", "slope", "range", "variance", "mean_lower", "mean_upper")
   score_names <- names(scores_list)
+
+  # Captions
+  setup <- paste(resolution_setup(RESOLUTION_DIR, REPLICATE_HANDLING,
+                                  vapply(rn_matrix_list[genotype_forms], nrow, integer(1))),
+                 "Summary statistics of the replicate-averaged measured reaction norm of each genotype (slope against the index of the measurement point).")
+  perm_txt <- function(meth) paste0(meth, " correlation with a permutation test (", n_perm, " permutations; * p < 0.05, ** p < 0.01, *** p < 0.001).")
+  scatter_reading <- "Shows which reaction norm properties a PPI follows and whether the relation is monotone, driven by a few genotypes or split by shape."
+  table_reading <- "The marked statistics are the properties each PPI mainly measures; PPIs with the same marked rows measure the same properties."
   
   # Define a custom theme with reduced padding for a more filled cell.
   custom_theme <- ttheme_minimal(
@@ -161,7 +169,7 @@ compare_summary_stats_with_scores <- function(rn_matrix_list, scores_list, genot
             next
           }
           
-          par(mfrow = c(3, 3))
+          par(mfrow = c(3, 3)); caption_margin(4)
           for (st in stat_names) {
             x_vals <- stat_df_sub[[st]]
             y_vals <- score_vector
@@ -175,6 +183,8 @@ compare_summary_stats_with_scores <- function(rn_matrix_list, scores_list, genot
                  pch = 19, col = "blue")
             legend("topleft", legend = paste(meth, "=", round(corr_val, 3), "(", sig, ")"), bty = "n")
           }
+          base_caption(paste(setup, paste0("Shape: ", form, "."), "PPI", score_name, "against each summary statistic; each point a genotype;", perm_txt(meth)),
+                       scatter_reading)
           par(mfrow = c(1, 1))
         }
         
@@ -241,6 +251,8 @@ compare_summary_stats_with_scores <- function(rn_matrix_list, scores_list, genot
         pushViewport(viewport(width = 0.9, height = 1))
         grid.draw(tbl)
         popViewport()
+        grid_page_caption(paste(setup, paste0("Shape: ", form, "."), perm_txt(meth), "Rows: summary statistics, columns: PPIs; green: strongest, yellow: second strongest absolute correlation of each PPI."),
+                          table_reading)
         
         for (sc_idx in seq_along(score_names)) {
           sc_name <- score_names[sc_idx]
@@ -284,7 +296,7 @@ compare_summary_stats_with_scores <- function(rn_matrix_list, scores_list, genot
           message("Skipping ", score_name, " in global analysis: overall score vector is empty or all NA.")
           next
         }
-        par(mfrow = c(3, 3))
+        par(mfrow = c(3, 3)); caption_margin(4)
         for (st in stat_names) {
           x_vals <- combined_stats[[st]]
           y_vals <- overall_scores
@@ -300,6 +312,8 @@ compare_summary_stats_with_scores <- function(rn_matrix_list, scores_list, genot
           legend("topleft", legend = paste(meth, "=", round(corr_val, 3), "(", sig, ")"), bty = "n")
           legend("bottomright", legend = names(formSymbols), pch = formSymbols, bty = "n")
         }
+        base_caption(paste(setup, "All shapes pooled (symbols). PPI", score_name, "against each summary statistic; each point a genotype;", perm_txt(meth)),
+                     scatter_reading)
         par(mfrow = c(1, 1))
       }
       
@@ -364,6 +378,8 @@ compare_summary_stats_with_scores <- function(rn_matrix_list, scores_list, genot
       pushViewport(viewport(width = 0.9, height = 1))
       grid.draw(tbl)
       popViewport()
+      grid_page_caption(paste(setup, "All shapes pooled.", perm_txt(meth), "Rows: summary statistics, columns: PPIs; green: strongest, yellow: second strongest absolute correlation of each PPI."),
+                        table_reading)
       
       for (sc_idx in seq_along(score_names)) {
         sc_name <- score_names[sc_idx]
@@ -380,6 +396,7 @@ compare_summary_stats_with_scores <- function(rn_matrix_list, scores_list, genot
       
       # Create a new page and plot the barplot with fixed y-axis limits from -1 to 1
       grid.newpage()
+      caption_margin(4)
       bp1 <- barplot(avg_sig_corr,
                      main = paste("Average Significant Correlation for Scores (Method:", meth, ")"),
                      xlab = "Scores",
@@ -391,6 +408,8 @@ compare_summary_stats_with_scores <- function(rn_matrix_list, scores_list, genot
       # Add custom y-axis with ticks from -1 to 1
       axis(2, at = seq(-1, 1, by = 0.25), las = 2)
       box()
+      base_caption(paste(setup, "All shapes pooled. Mean of the significant (p < 0.05)", meth, "correlations of each PPI with the nine summary statistics."),
+                   "A mean near 0 can hide strong correlations of opposite sign; use the table for the individual statistics.")
       
       ## --- Bar Plot for Average Correlations (Range, Slope, Variance) ---
       subset_stats <- c("range", "slope", "variance")
@@ -398,6 +417,7 @@ compare_summary_stats_with_scores <- function(rn_matrix_list, scores_list, genot
       avg_subset_corr <- colMeans(subset_cor_mat, na.rm = TRUE)
       
       grid.newpage()
+      caption_margin(4)
       bp2 <- barplot(avg_subset_corr,
                      main = paste("Average Correlation (Range, Slope, Variance) for Scores (Method:", meth, ")"),
                      xlab = "Scores",
@@ -409,6 +429,8 @@ compare_summary_stats_with_scores <- function(rn_matrix_list, scores_list, genot
       # Add custom y-axis with ticks from -1 to 1
       axis(2, at = seq(-1, 1, by = 0.25), las = 2)
       box()
+      base_caption(paste(setup, "All shapes pooled. Mean", meth, "correlation of each PPI with the spread and direction statistics range, slope and variance."),
+                   "High values: the PPI follows how strongly the trait changes across environments rather than its level.")
     }
     dev.off()
     message("Global PDF saved as 'scores_vs_summary_stats_global.pdf'")

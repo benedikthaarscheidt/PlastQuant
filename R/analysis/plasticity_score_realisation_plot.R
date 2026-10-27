@@ -76,6 +76,12 @@ if (exists("form_ranges") && length(form_ranges) == 3) {
   fig_dir <- population_subdir(PPI_SET_DIR, "plots")
 }
 
+# Setup sentence for the captions
+setup <- if (exists("RESOLUTION_DIR")) {
+  resolution_setup(RESOLUTION_DIR, REPLICATE_HANDLING, lengths(form_ranges))
+} else ""
+clust_def <- "Clustering of the PPIs by their Kendall distance 1 - tau (tau: rank correlation of two PPIs over the genotypes), complete linkage."
+
 scores_long <- df %>%
   pivot_longer(
     cols       = -Genotype,       # all the metric columns
@@ -102,7 +108,9 @@ make_plot <- function(metric_name) {
 
 
 plots   <- lapply(unique(scores_long$Metric), make_plot)
-combined <- wrap_plots(plots, ncol = 4) 
+combined <- with_caption(wrap_plots(plots, ncol = 4),
+  paste(setup, "Distribution of each PPI over all genotypes (histogram and kernel density); panels in the order of the PPI columns."),
+  "Shape, skew and scale differ between PPIs; values are on each PPI's own scale and cannot be compared between panels.")
 print(combined)
 ggsave(create.dir = TRUE, file.path(fig_dir, "plasticity_scores_histograms.pdf"), combined, width = 6.3, height = 5,
        dpi = 900, units = "in", device = "pdf")
@@ -135,9 +143,12 @@ pp=ggplot(scores_long_trimmed, aes(x = Metric, y = Score)) +
     axis.ticks.length  = unit(1, "pt"),
     plot.margin        = margin(2, 2, 2, 2)
   )
-print(pp)
+pp_cap <- with_caption(pp,
+  paste(setup, "Boxplots of each PPI over all genotypes; values above the 95th percentile of each PPI removed."),
+  "PPIs differ by orders of magnitude in scale and spread, so raw values are not comparable between PPIs; comparisons need ranks or correlations.")
+print(pp_cap)
 
-ggsave(create.dir = TRUE, file.path(fig_dir, "plasticity_scores_boxplots.pdf"), pp, width = 6.3, height = 5,
+ggsave(create.dir = TRUE, file.path(fig_dir, "plasticity_scores_boxplots.pdf"), pp_cap, width = 6.3, height = 5,
        dpi = 900, units = "in", device = "pdf")
 
 ##########################################################
@@ -174,7 +185,9 @@ pp_violin = ggplot(scores_long_trimmed, aes(x = Metric, y = Score)) +
     plot.margin        = margin(2, 2, 2, 2)
   )
 
-print(pp_violin)
+print(with_caption(pp_violin,
+  paste(setup, "Violins and individual genotypes (points) of each PPI; values above the 95th percentile of each PPI removed."),
+  "Shows the same as the boxplots, plus multimodality and clumping of values within a PPI."))
 ############################################################
 
 df=df[,!names(df)=="Genotype"]
@@ -223,7 +236,9 @@ p_sil <- ggplot(sil_df, aes(x = k, y = avg_sil)) +
   scale_x_continuous(breaks = k_range) +
   labs(x = "Number of clusters (k)", y = "Average silhouette width") +
   theme_minimal(base_size = 10)
-print(p_sil)
+print(with_caption(p_sil,
+  paste(setup, clust_def, "Mean silhouette width of the clustering cut into k clusters, averaged over the shapes; dashed line: chosen k."),
+  "The chosen k separates the PPIs best into groups; a flat profile means no clear group structure."))
 
 # --- Cut all dendrograms at optimal k (for dendrogram colouring only) ---
 clusterings <- list()
@@ -344,7 +359,8 @@ plots_sep <- lapply(forms, function(f) {
   make_dend_plot(hc_list[[f]], title = f)
 })
 plot_comb <- make_dend_plot(hc_list[["combined"]], title = "combined")
-print(plot_comb)
+dend_reading <- "PPIs joined at a small height rank the genotypes almost identically. Label colours: the k clusters; symbols: functional group by formula. Clusters that mix symbols mean the formula does not predict which PPIs agree."
+print(with_caption(plot_comb, paste(setup, clust_def, "All shapes pooled."), dend_reading))
 
 if (length(plots_sep) == 3) {
 sep_panel <- (plot_comb | plots_sep[[2]]) /
@@ -355,6 +371,7 @@ sep_panel <- (plot_comb | plots_sep[[2]]) /
   plot_layout(guides = "collect") & theme(legend.position = "bottom")
 }
 
+sep_panel <- with_caption(sep_panel, paste(setup, clust_def, "All shapes pooled (combined) and per shape."), dend_reading)
 print(sep_panel)
 ggsave(create.dir = TRUE, 
   file.path(fig_dir, "plasticity_scores_dendrograms.pdf"),
@@ -363,7 +380,7 @@ ggsave(create.dir = TRUE,
 
 ggsave(create.dir = TRUE, 
   file.path(fig_dir, "dendrogram_linear.pdf"),
-  plots_sep[[1]],
+  with_caption(plots_sep[[1]], paste(setup, clust_def, paste0("Genotypes of the shape ", forms[1], ".")), dend_reading),
   width = 6.3, height = 4, dpi = 900, units = "in", device = "pdf")
 
 if (length(plots_sep) == 4) {
@@ -439,11 +456,14 @@ coord_fixed() +
     legend.position = "bottom",
     plot.margin     = margin(2, 2, 2, 2, "mm")
   )
-print(tbl_obs_plot)
+mantel_shown <- "Mantel correlation r between the Kendall distance matrices of the PPIs of two shapes (999 permutations; * p < 0.05, ** p < 0.01, *** p < 0.001)."
+mantel_reading <- "High r: the PPIs agree with each other in the same way whatever the reaction norm shape, so conclusions about PPI similarity do not depend on the shape."
+tbl_obs_cap <- with_caption(tbl_obs_plot, paste(setup, mantel_shown), mantel_reading)
+print(tbl_obs_cap)
 
 ggsave(create.dir = TRUE, 
   file.path(fig_dir, "plasticity_scores_mantel_table.pdf"),
-  tbl_obs_plot,
+  tbl_obs_cap,
   width = 6.3, height = 5, dpi = 900, units = "in", device = "pdf"
 )
 
@@ -475,6 +495,7 @@ BBBCCC
   )
 
 
+final_fig3 <- with_caption(final_fig3, paste(setup, "(A) Distribution of each PPI over all genotypes (values above the 95th percentile removed). (B)", clust_def, paste0("Genotypes of the shape ", forms[1], "; label colours: k clusters, symbols: functional group. (C)"), mantel_shown), "PPIs differ strongly in scale (A); they fall into a few groups that rank genotypes alike and that only partly match the formula-based groups (B); this structure is similar for all shapes (C).")
 print(final_fig3)
 
 ggsave(create.dir = TRUE, 
@@ -511,6 +532,7 @@ BBBBCC
     )
   )
 
+final_fig4 <- with_caption(final_fig4, sub("Distribution of", "Violins and genotypes of", paste(setup, "(A) Distribution of each PPI over all genotypes (values above the 95th percentile removed). (B)", clust_def, paste0("Genotypes of the shape ", forms[1], "; label colours: k clusters, symbols: functional group. (C)"), mantel_shown)), "PPIs differ strongly in scale (A); they fall into a few groups that rank genotypes alike and that only partly match the formula-based groups (B); this structure is similar for all shapes (C).")
 ggsave(create.dir = TRUE, 
   file.path(fig_dir, "figure2_3.pdf"),
   final_fig4,
@@ -562,6 +584,7 @@ CCDD
   )
 }
 
+final_fig7 <- with_caption(final_fig7, paste(setup, clust_def, paste0("Per shape (", paste(forms[-1], collapse = ", "), ") and all shapes pooled.")), dend_reading)
 ggsave(create.dir = TRUE, 
   file.path(fig_dir, "dendro_supp.pdf"),
   final_fig7,

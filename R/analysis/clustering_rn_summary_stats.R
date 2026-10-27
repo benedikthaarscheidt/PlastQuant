@@ -96,6 +96,17 @@ compare_clustering <- function(rn_matrix_list, scores_list, genotype_forms,
                                pdf_file = "clustering_combined.pdf",
                                return_results = FALSE) {
   pdf(pdf_file, width = 10, height = 8)
+
+  # Captions
+  setup <- paste(resolution_setup(RESOLUTION_DIR, REPLICATE_HANDLING,
+                                  vapply(rn_matrix_list[genotype_forms], nrow, integer(1))),
+                 if (global) "All shapes pooled." else "Each shape separately.")
+  clust_txt <- function(what, k) paste0("The genotypes are split into k = ", k, " clusters by hierarchical clustering (Euclidean distance, Ward.D2) of the values of one ", what, "; colour: cluster, star: cluster mean.")
+  stat_txt <- "Summary statistics of the replicate-averaged measured reaction norm (slope against the index of the measurement point)."
+  tbl_txt <- function(what) paste0("Table: cluster of every genotype (rows) under every ", what, " (columns); blue = cluster 1, yellow = cluster 2. Cluster numbers are assigned per column and do not correspond between columns.")
+  score_reading <- "Shows whether a PPI separates the genotypes into distinct groups (e.g. low and high plasticity) or varies continuously."
+  stat_reading <- "Shows how the genotypes split on a single property of the reaction norm; compare with the splits under the PPIs."
+  tbl_reading <- "Genotypes grouped together under many columns are classified alike by these measures; the adjusted Rand index (console) quantifies the agreement between PPI and statistic clusterings."
   
   ## Helper function to color table grob cells (using the "core-bg" components)
   color_table_cells <- function(mat, tbl, col1 = "blue", col2 = "yellow") {
@@ -133,7 +144,7 @@ compare_clustering <- function(rn_matrix_list, scores_list, genotype_forms,
     message("Performing LOCAL (per genotype form) score clustering...")
     for (form in genotype_forms) {
       local_cluster_list <- list()
-      par(mfrow = c(3,3))
+      par(mfrow = c(3,3)); caption_margin(4)
       
       # Plasticity (score) clustering for each score type
       for (score_name in names(scores_list)) {
@@ -180,7 +191,9 @@ compare_clustering <- function(rn_matrix_list, scores_list, genotype_forms,
         }
         legend("topright", legend = paste("Cluster", sort(unique(clusters))),
                col = sort(unique(clusters)), pch = 19, cex = 0.8)
+        base_caption_panel(paste(setup, paste0("Shape: ", form, "."), clust_txt("PPI", k_scores)), score_reading)
       }
+      base_caption_panel(paste(setup, paste0("Shape: ", form, "."), clust_txt("PPI", k_scores)), score_reading, end = TRUE)
       
       par(mfrow = c(1,1))
       if (length(local_cluster_list) > 0) {
@@ -203,6 +216,7 @@ compare_clustering <- function(rn_matrix_list, scores_list, genotype_forms,
           tbl <- tableGrob(as.data.frame(score_mat), rows = rownames(score_mat), theme = custom_theme)
           tbl <- color_table_cells(score_mat, tbl, col1 = "blue", col2 = "yellow")
           grid.draw(tbl)
+          grid_page_caption(paste(setup, paste0("Shape: ", form, "."), clust_txt("PPI", k_scores), tbl_txt("PPI")), tbl_reading)
           
           plasticity_clusters[[form]] <- local_cluster_list
         } else {
@@ -219,7 +233,7 @@ compare_clustering <- function(rn_matrix_list, scores_list, genotype_forms,
         summary_stats <- summary_stats[, c("genotype", setdiff(names(summary_stats), "genotype"))]
         
         summary_cluster_list <- list()
-        par(mfrow = c(3,3))
+        par(mfrow = c(3,3)); caption_margin(4)
         
         for (st in setdiff(names(summary_stats), "genotype")) {
           measure_vals <- summary_stats[[st]]
@@ -241,7 +255,9 @@ compare_clustering <- function(rn_matrix_list, scores_list, genotype_forms,
           points(center_indices, cluster_centers, col = unique(clusters), pch = 8, cex = 2)
           legend("topright", legend = paste("Cluster", sort(unique(clusters))),
                  col = sort(unique(clusters)), pch = 19, cex = 0.8)
+          base_caption_panel(paste(setup, paste0("Shape: ", form, "."), clust_txt("summary statistic", k_summary), stat_txt), stat_reading)
         }
+        base_caption_panel(paste(setup, paste0("Shape: ", form, "."), clust_txt("summary statistic", k_summary), stat_txt), stat_reading, end = TRUE)
         par(mfrow = c(1,1))
         
         if (length(summary_cluster_list) > 0) {
@@ -261,6 +277,7 @@ compare_clustering <- function(rn_matrix_list, scores_list, genotype_forms,
                                  rowhead = list(fg_params = list(cex = 0.3))))
           tbl_sum <- color_table_cells(sum_mat, tbl_sum, col1 = "blue", col2 = "yellow")
           grid.draw(tbl_sum)
+          grid_page_caption(paste(setup, paste0("Shape: ", form, "."), clust_txt("summary statistic", k_summary), stat_txt, tbl_txt("summary statistic")), tbl_reading)
           
           summary_clusters[[form]] <- summary_cluster_list
         }
@@ -271,7 +288,7 @@ compare_clustering <- function(rn_matrix_list, scores_list, genotype_forms,
     message("Performing GLOBAL (across genotype forms) score clustering...")
     global_cluster_list <- list()
     all_genos <- c()
-    par(mfrow = c(3,3))
+    par(mfrow = c(3,3)); caption_margin(4)
     
     for (score_name in names(scores_list)) {
       score_df <- scores_list[[score_name]]
@@ -307,7 +324,9 @@ compare_clustering <- function(rn_matrix_list, scores_list, genotype_forms,
       points(center_indices, cluster_centers, col = unique(clusters), pch = 8, cex = 2)
       legend("topright", legend = paste("Cluster", sort(unique(clusters))),
              col = sort(unique(clusters)), pch = 19, cex = 0.8)
+      base_caption_panel(paste(setup, clust_txt("PPI", k_scores)), score_reading)
     }
+    base_caption_panel(paste(setup, clust_txt("PPI", k_scores)), score_reading, end = TRUE)
     par(mfrow = c(1,1))
     
     if (length(global_cluster_list) > 0) {
@@ -339,6 +358,7 @@ compare_clustering <- function(rn_matrix_list, scores_list, genotype_forms,
                                   rowhead = list(fg_params = list(cex = 0.35))))
         tbl_global <- color_table_cells(score_mat_page, tbl_global, col1 = "blue", col2 = "yellow")
         grid.draw(tbl_global)
+        grid_page_caption(paste(setup, clust_txt("PPI", k_scores), tbl_txt("PPI")), tbl_reading)
       }
       plasticity_clusters <- global_cluster_list  # for global mode, save plasticity clusters
     }
@@ -354,7 +374,7 @@ compare_clustering <- function(rn_matrix_list, scores_list, genotype_forms,
     
     global_summary_cluster_list <- list()
     
-    par(mfrow = c(3,3))
+    par(mfrow = c(3,3)); caption_margin(4)
     
     for (st in setdiff(names(global_summary), "genotype")) {
       measure_vals <- global_summary[[st]]
@@ -376,7 +396,9 @@ compare_clustering <- function(rn_matrix_list, scores_list, genotype_forms,
       points(center_indices, cluster_centers, col = unique(clusters), pch = 8, cex = 2)
       legend("topright", legend = paste("Cluster", sort(unique(clusters))),
              col = sort(unique(clusters)), pch = 19, cex = 0.8)
+      base_caption_panel(paste(setup, clust_txt("summary statistic", k_summary), stat_txt), stat_reading)
     }
+    base_caption_panel(paste(setup, clust_txt("summary statistic", k_summary), stat_txt), stat_reading, end = TRUE)
     par(mfrow = c(1,1))
     
     if (length(global_summary_cluster_list) > 0) {
@@ -408,6 +430,7 @@ compare_clustering <- function(rn_matrix_list, scores_list, genotype_forms,
                                       rowhead = list(fg_params = list(cex = 0.35))))
         tbl_global_sum <- color_table_cells(sum_mat_page, tbl_global_sum, col1 = "blue", col2 = "yellow")
         grid.draw(tbl_global_sum)
+        grid_page_caption(paste(setup, clust_txt("summary statistic", k_summary), stat_txt, tbl_txt("summary statistic")), tbl_reading)
       }
       summary_clusters <- global_summary_cluster_list  # for global mode, save summary clusters
     }

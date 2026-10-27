@@ -235,7 +235,7 @@ plot_method_stat_heatmap_stars <- function(cor_df, method_order = NULL, tag = ""
     geom_tile(color = "white") +
     scale_fill_div_pub(lim = c(-1,1)) +
     geom_text(aes(label = sprintf("%.2f%s", r, star)), size = 3) +
-    labs(x = "Summary Statistic", y = "Plasticity Score / Method", fill = "τ") +
+    labs(x = "Summary Statistic", y = "Plasticity Score / Method", fill = "ρ") +
     theme_pub() +
     theme(axis.text.x = element_text(angle = 60, hjust = 1, vjust = 1))
 }
@@ -458,6 +458,12 @@ main <- function() {
     mutate(gid = row_number()) %>%
     relocate(gid, .before = 1)
   
+  # Setup sentence for the captions
+  setup <- paste(resolution_setup(RESOLUTION_DIR, REPLICATE_HANDLING),
+                 nrow(plasticity_scores), "genotypes", if (is_maize) "(maize)" else "(all shapes pooled)", "x",
+                 ncol(plasticity_scores), "PPIs.")
+  cluster_order <- "PPIs ordered by average-linkage clustering of 1 - tau."
+
   # Create output PDF
   pdf_path <- file.path(output_dir, "comprehensive_plasticity_analysis.pdf")
   pdf(pdf_path, width = 6.3, height = 7)
@@ -477,22 +483,30 @@ main <- function() {
   # 1. Kendall τ Heatmap (with clustering)
   cat("  Creating Kendall τ heatmap...\n")
   p1 <- plot_tau_heatmap(cor_results$kendall, "Plasticity Analysis")
-  print(p1)
+  print(with_caption(p1,
+    paste(setup, "Kendall rank correlation tau between every pair of PPIs over the genotypes.", cluster_order),
+    "Red blocks: PPIs that rank genotypes alike; blue: opposite rankings (e.g. stability indices against plasticity indices); white: unrelated rankings."))
   
   # 2. All Correlation Heatmaps (ALL with same clustering)
   cat("  Creating correlation heatmaps...\n")
   # These functions already use the internal clustering logic, but we include them here for context
   p2 <- plot_consistent_corr_heatmap(cor_results$kendall, "Plasticity Analysis",
                                      "Kendall correlation (τ) - Rank Agreement", "τ")
-  print(p2)
+  print(with_caption(p2,
+    paste(setup, "Kendall tau between every pair of PPIs (rank agreement).", cluster_order),
+    "Blocks of high tau are groups of interchangeable PPIs; PPIs outside them select different genotypes as plastic."))
   
   p3 <- plot_consistent_corr_heatmap(cor_results$spearman, "Plasticity Analysis",
                                      "Spearman correlation (ρ) - Rank Agreement", "ρ")
-  print(p3)
+  print(with_caption(p3,
+    paste(setup, "Spearman rho between every pair of PPIs (rank agreement).", cluster_order),
+    "Same reading as Kendall tau; rho is larger in magnitude than tau for the same agreement."))
   
   p4 <- plot_consistent_corr_heatmap(cor_results$pearson_absolute, "Plasticity Analysis",
                                      "Pearson correlation (r) - Absolute Values", "r")
-  print(p4)
+  print(with_caption(p4,
+    paste(setup, "Pearson r between the raw values of every pair of PPIs.", cluster_order),
+    "Compared with the rank correlations, lower r where PPIs agree in ranking but not linearly (different scales, skew or outliers)."))
   
   # 3. Method × Stat Correlation Heatmap (FIXED: now uses the clustered order)
   if (!is.null(method_stat_cor)) {
@@ -500,27 +514,35 @@ main <- function() {
     p5 <- plot_method_stat_heatmap_stars(method_stat_cor$cor_df,
                                          method_order = clustering_order, # <--- FIX: Passing the clustered order
                                          tag = "Plasticity Analysis")
-    print(p5)
+    print(with_caption(p5,
+      paste(setup, "Spearman rho between each PPI and each summary statistic of the replicate-averaged measured reaction norm (min, max, mean, median, slope, range, variance, mean_lower, mean_upper; * p < 0.05, ** p < 0.01, *** p < 0.001).", "PPIs in the order of the tau clustering."),
+      "Shows which property of the reaction norm each PPI follows: level (mean, median), spread (range, variance) or direction (slope)."))
   }
   
   # 4. Agreement Network
   cat("  Creating agreement network...\n")
   p6 <- plot_agreement_network(Tm, tau_threshold, "Plasticity Analysis")
-  print(p6)
+  print(with_caption(p6,
+    paste(setup, "Network of PPIs; an edge joins two PPIs with Kendall tau >=", tau_threshold, "; node size: number of such partners, colour: connected component."),
+    "Each component is a group of PPIs that rank genotypes nearly identically; isolated PPIs carry ranking information of their own."))
   
   # 5. Top-k Overlap Heatmaps
   cat("  Creating top-k overlap heatmaps...\n")
   for (k in topk_values) {
     Om <- topk_overlap_matrix(ranks_df, colnames(plasticity_scores), k)
     p_topk <- plot_topk_overlap_heatmap_matrix(Om, paste0("Plasticity Analysis (k=", k, ")"), k)
-    print(p_topk)
+    print(with_caption(p_topk,
+      paste(setup, "Overlap of the", k, "most plastic genotypes (highest values) between every pair of PPIs, as share of", k, "; PPIs ordered by average-linkage clustering of the overlap."),
+      "High overlap: the two PPIs select the same genotypes as most plastic; low overlap: choosing between them changes which genotypes are selected. For stability indices (high value = low plasticity) the top set is the least plastic genotypes."))
   }
   
   # 6. PCA Biplot (using ranks)
   cat("  Creating PCA biplot...\n")
   p7 <- plot_genotype_pca_biplot(cor_results$ranks, summary_stats, Tm, tau_threshold, 
                                  "Plasticity Analysis")
-  print(p7)
+  print(with_caption(p7,
+    paste(setup, "PCA of the genotype ranks under all PPIs (centred, scaled). Grey points: genotypes; coloured arrows: PPI loadings, coloured by the tau >=", tau_threshold, "component; red arrows: correlation of the summary statistics with PC1 and PC2. Arrows rescaled for display."),
+    "PPIs pointing in the same direction rank genotypes alike; the summary statistics next to a group of PPIs show which reaction norm property that group measures."))
   
   dev.off()
   

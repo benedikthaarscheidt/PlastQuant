@@ -10,6 +10,7 @@ pipeline_function_files <- c(
   "sim/plot_norms.R", "sim/simulate_population.R", "sim/snp_panel.R",
   # infrastructure: data contract, population folders, sampling a resolution
   "pipeline/pipeline_input.R", "pipeline/population_folder.R", "pipeline/sample_resolution.R",
+  "pipeline/plot_captions.R",
   # PPI computation
   "ppi/ppi_registry.R", "ppi/compute_ppis.R", "ppi/compute_population_ppis.R",
   # GWAS and its evaluation

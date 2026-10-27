@@ -25,6 +25,7 @@ ensure_dir_exists <- function(file_path) {
   }
 }
 if (!exists("POPULATION_DIR")) stop("set POPULATION_DIR (a population folder) first")
+source(here::here("R", "pipeline", "load_pipeline.R"))   # caption helpers
 dir_path <- file.path(POPULATION_DIR, "analyses", "correlation_summary_stats")
 output_dir <- file.path(POPULATION_DIR, "plots")
 ensure_dir_exists(dir_path)
@@ -67,6 +68,17 @@ data_all <- data_all %>% filter(p_value < 0.05)
 analysis_types <- unique(data_all$analysis)
 score_names    <- unique(data_all$score)
 
+# Captions
+range_txt <- c(full = "the whole gradient (grid points 1-50 of 50)",
+               partial1 = "the first half of the gradient (grid points 1-25 of 50)",
+               partial2 = "the second half of the gradient (grid points 25-50 of 50)")
+res_setup <- function(rn, analysis) paste0(
+  "Population ", basename(normalizePath(POPULATION_DIR)), "; reaction norms sampled within ", range_txt[[rn]],
+  " at the numbers of points on the x-axis; PPIs and summary statistics of the replicate-averaged reaction norm of each genotype, ",
+  if (analysis == "global") "all shapes pooled. " else "one shape. ",
+  "Kendall tau between the PPI and each summary statistic over the genotypes; only significant correlations shown (permutation test, 999 permutations, p < 0.05).")
+res_reading <- "Flat lines: the PPI follows the same reaction norm properties at every sampling density; changes along x: what the PPI measures depends on how many points are sampled. Missing points: not significant at that density."
+
 # Loop over each range.
 for (rn in range_names) {
   # Subset data for the current range.
@@ -100,7 +112,7 @@ for (rn in range_names) {
                  y = "Kendall Correlation",
                  color = "Summary Statistic") +
             theme_minimal()
-          print(p)
+          print(with_caption(p, res_setup(rn, "local"), res_reading))
         }
       } else {
         # For global analysis, plot one line per summary statistic.
@@ -114,7 +126,7 @@ for (rn in range_names) {
                y = "Kendall Correlation",
                color = "Summary Statistic") +
           theme_minimal()
-        print(p)
+        print(with_caption(p, res_setup(rn, "global"), res_reading))
       }
     }
     

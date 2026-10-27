@@ -39,6 +39,10 @@ regression_tables <- lapply(resolution_score_tables(POPULATION_DIR, c(2, 3, 4, 5
 files <- names(regression_tables)
 
 
+# Captions
+setup <- paste(resolutions_setup(POPULATION_DIR, n_samples), "All shapes pooled.")
+reg_txt <- "For every PPI and summary statistic: Pearson correlation over the genotypes at each n, regressed linearly on n."
+
 sel_idx   <- c(1,3,7,8)
 sel_files <- files[sel_idx]
 sel_n     <- n_samples[sel_idx]
@@ -117,6 +121,9 @@ path <- file.path(POPULATION_DIR, "plots")
 if (!dir.exists(dirname(path))) {
   dir.create(dirname(path), recursive = TRUE)
 }
+combined <- with_caption(combined,
+  paste(setup, "Boxplots over all genotypes of every PPI (blue) and summary statistic (red) at n =", paste(sel_n, collapse = ", "), "points; common y-axis."),
+  "Shows how the distribution of each PPI changes when fewer or more points are measured: shifts or widening with n mean the PPI depends on the sampling design; most PPIs and statistics are on very different scales.")
 ggsave(create.dir = TRUE, 
   combined,
   filename = file.path(path, "boxplot_resolution.pdf"),
@@ -283,7 +290,9 @@ p_heatmap <- ggplot(hm_long, aes(x = Stat, y = PS, fill = flag)) +
     axis.text.y     = element_text(size = 8),
     legend.position = "bottom"
   )
-print(p_heatmap)
+print(with_caption(p_heatmap,
+  paste(setup, reg_txt, "Robust (green): slope equivalent to 0 by two one-sided tests (|slope| < ", delta, ", p < 0.05); sensitive (red): not shown to be equivalent."),
+  "Red cells: the relation between the PPI and that property of the reaction norm cannot be shown to be stable across sampling densities (lack of power with few resolutions also gives red)."))
 
 
 summary_counts <- hm_long %>%
@@ -306,7 +315,9 @@ p_summary <- ggplot(summary_counts, aes(x = reorder(PS, prop), y = prop)) +
   ) +
   theme_minimal(base_size = 10)
 
-print(p_summary)
+print(with_caption(p_summary,
+  paste(setup, reg_txt, "Share of the nine summary statistics for which the slope of the PPI is equivalent to 0 (two one-sided tests, |slope| <", delta, ")."),
+  "PPIs with a high share keep their relation to the reaction norm properties regardless of how many points are measured."))
 
 ###############################################################
 # Heatmap: slope of correlation ~ sample_size, labelled with p-values
@@ -345,6 +356,9 @@ p_slope_heat <- ggplot(slope_heat, aes(x = Stat, y = PS, fill = slope)) +
     panel.grid      = element_blank()
   )
 
+p_slope_heat <- with_caption(p_slope_heat,
+  paste(setup, reg_txt, "Colour: slope (change of the correlation per additional point); * p < 0.05, ** p < 0.01, *** p < 0.001 (slope different from 0)."),
+  "Non-zero slopes: the PPI follows that property of the reaction norm more (red) or less (blue) closely as the sampling gets denser.")
 print(p_slope_heat)
 
 ggsave(create.dir = TRUE, 

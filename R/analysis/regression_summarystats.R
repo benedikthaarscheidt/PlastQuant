@@ -149,6 +149,13 @@ tt_small <- ttheme_minimal(
   colhead = list(fg_params = list(fontsize = 7, fontface = "bold"))
 )
 
+# Setup sentences for the captions
+setup <- paste(resolution_setup(RESOLUTION_DIR, REPLICATE_HANDLING), nrow(combined_df),
+               "genotypes, all shapes pooled. Predictors: nine summary statistics (min, max, mean, median, slope, range, variance, mean_lower, mean_upper) of the replicate-averaged measured reaction norm of each genotype.")
+split_txt <- "Models fitted on a random 80 % of the genotypes (training set), evaluated on the other 20 % (test set)."
+stars_txt <- "Stars: * p < 0.05, ** p < 0.01, *** p < 0.001."
+full_txt <- "Full model: the PPI regressed on all statistics that are not collinear with the others; simple models: one statistic each."
+
 set.seed(123)
 full_models <- list()
 
@@ -258,23 +265,38 @@ for (score in score_names) {
   # Save per-score PDF
   out_pdf <- file.path(output_folder, paste0("full_summary_", score, ".pdf"))
   pdf(out_pdf, width = 14, height = 8.5)
+  score_setup <- paste(setup, paste0("PPI: ", score, "."), split_txt)
   grid.arrange(full_grob,
                top = textGrob("Full Model: Estimates* (with significance stars)",
-                              gp = gpar(fontsize = 14, fontface = "bold")))
+                              gp = gpar(fontsize = 14, fontface = "bold")),
+               bottom = caption_grob(paste(score_setup, full_txt, "Coefficients with R2 and adjusted R2.", stars_txt),
+                                     "Significant coefficients show which statistics explain the PPI when the others are held fixed; R2 shows how much of the PPI the statistics explain together."))
   grid.newpage()
   grid.arrange(simple_grob,
-               top = textGrob("Simple Models: Estimates*", gp = gpar(fontsize = 14, fontface = "bold")))
+               top = textGrob("Simple Models: Estimates*", gp = gpar(fontsize = 14, fontface = "bold")),
+               bottom = caption_grob(paste(score_setup, "Slope of each simple model PPI ~ statistic.", stars_txt),
+                                     "Shows on which statistics the PPI depends on its own; slopes are in the units of PPI and statistic."))
   grid.newpage()
   grid.arrange(simple_adj_grob,
-               top = textGrob("Simple Models: Adjusted R-squared", gp = gpar(fontsize = 14, fontface = "bold")))
+               top = textGrob("Simple Models: Adjusted R-squared", gp = gpar(fontsize = 14, fontface = "bold")),
+               bottom = caption_grob(paste(score_setup, "Adjusted R2 of each simple model PPI ~ statistic."),
+                                     "The statistic with the highest R2 is the single reaction norm property that best describes the PPI."))
   grid.newpage(); grid.arrange(pred_grid,
-                               top = textGrob("Predicted vs Observed", gp = gpar(fontsize = 14, fontface = "bold")))
+                               top = textGrob("Predicted vs Observed", gp = gpar(fontsize = 14, fontface = "bold")),
+                               bottom = caption_grob(paste(score_setup, "Observed PPI of the test genotypes against the prediction of four models: full, range only, mean_upper only, ridge regression (lambda = 0.001) on all statistics; dashed: identity line."),
+                                                     "Points close to the identity line: the model predicts the PPI of new genotypes well; systematic curvature: the relation is not linear."))
   grid.newpage(); grid.arrange(coef_grid,
-                               top = textGrob("Coefficient Plots", gp = gpar(fontsize = 14, fontface = "bold")))
+                               top = textGrob("Coefficient Plots", gp = gpar(fontsize = 14, fontface = "bold")),
+                               bottom = caption_grob(paste(score_setup, "Coefficients of the four models with 95 % confidence intervals (estimate +- 1.96 SE, where available)."),
+                                                     "Intervals that exclude 0 mark statistics with a clear effect; wide intervals in the full model reflect collinear statistics."))
   grid.newpage(); grid.arrange(effect_grid,
-                               top = textGrob("Effect Plots (Full Model)", gp = gpar(fontsize = 14, fontface = "bold")))
+                               top = textGrob("Effect Plots (Full Model)", gp = gpar(fontsize = 14, fontface = "bold")),
+                               bottom = caption_grob(paste(score_setup, "Partial effect of each statistic in the full model (visreg: the other statistics at their median), with partial residuals and confidence band."),
+                                                     "Steep lines with a narrow band: statistics that drive the PPI; residuals that curve away from the line: non-linear dependence."))
   grid.newpage(); grid.arrange(best_grid,
-                               top = textGrob("Simple Models: Top 2 Predictors", gp = gpar(fontsize = 14, fontface = "bold")))
+                               top = textGrob("Simple Models: Top 2 Predictors", gp = gpar(fontsize = 14, fontface = "bold")),
+                               bottom = caption_grob(paste(score_setup, "Test genotypes: observed PPI against the two statistics with the smallest p in the full model; dashed: simple regression line fitted on the training set."),
+                                                     "Shows how well one statistic alone predicts the PPI of new genotypes."))
   dev.off()
   message("Saved: ", out_pdf)
 }
@@ -319,19 +341,27 @@ rownames(simple_adj_mat) <- predictor_names
 pdf(file.path(output_folder, "all_scores_wide.pdf"), width = 18, height = 8)
 # Page 1: Full-model estimates
 grid.arrange(tableGrob(full_wide, rows = NULL, theme = tt_small),
-             top = textGrob("Full Estimates* with Stars", gp = gpar(fontsize=12, fontface="bold")))
+             top = textGrob("Full Estimates* with Stars", gp = gpar(fontsize=12, fontface="bold")),
+             bottom = caption_grob(paste(paste(setup, "All PPIs."), split_txt, full_txt, "Coefficients of the full model (rows: statistics, columns: PPIs).", stars_txt),
+                                   "Columns with the same pattern of significant coefficients belong to PPIs that measure the same reaction norm properties."))
 # Page 2: Simple-model estimates
 grid.newpage()
 grid.arrange(tableGrob(simple_wide, rows = NULL, theme = tt_small),
-             top = textGrob("Simple Estimates* with Stars", gp = gpar(fontsize=12, fontface="bold")))
+             top = textGrob("Simple Estimates* with Stars", gp = gpar(fontsize=12, fontface="bold")),
+             bottom = caption_grob(paste(paste(setup, "All PPIs."), "Slopes of the simple models PPI ~ statistic, fitted on all genotypes (rows: statistics, columns: PPIs).", stars_txt),
+                                   "Shows for every PPI which statistics it depends on on its own and in which direction."))
 # Page 3: R² & Adj R²
 grid.newpage()
 grid.arrange(tableGrob(r2_mat, rows = c("R-squared","Adj R-squared"), theme = tt_small),
-             top = textGrob("R² & Adj R² (Full Models)", gp = gpar(fontsize=12, fontface="bold")))
+             top = textGrob("R² & Adj R² (Full Models)", gp = gpar(fontsize=12, fontface="bold")),
+             bottom = caption_grob(paste(paste(setup, "All PPIs."), split_txt, "R2 and adjusted R2 of the full model of each PPI (training set)."),
+                                   "High R2: the PPI is close to a linear function of the summary statistics; low R2: it captures something they do not."))
 # Page 4: Simple-model Adjusted R²
 grid.newpage()
 grid.arrange(tableGrob(simple_adj_mat, rows = predictor_names, theme = tt_small),
-             top = textGrob("Adjusted R² for Simple Models", gp = gpar(fontsize=12, fontface="bold")))
+             top = textGrob("Adjusted R² for Simple Models", gp = gpar(fontsize=12, fontface="bold")),
+             bottom = caption_grob(paste(paste(setup, "All PPIs."), "Adjusted R2 of each simple model PPI ~ statistic, fitted on all genotypes."),
+                                   "The highest value of a column is the single statistic that best describes that PPI."))
 
 simple_r2_mat <- sapply(score_names, function(score) {
   df <- data.frame(y = combined_df[[score]], combined_df[predictor_names])
@@ -373,7 +403,9 @@ grid.arrange(
   top = textGrob(
     "Average R² for Simple (Single-Predictor) Models",
     gp  = gpar(fontsize = 12, fontface = "bold")
-  )
+  ),
+  bottom = caption_grob(paste(paste(setup, "All PPIs."), "R2 of the simple models PPI ~ statistic, averaged over all PPIs."),
+                        "Statistics with a high average R2 are the reaction norm properties that most PPIs follow.")
 )
 # --- NEW Page 6: Hierarchical Clustering of Scores ---
 grid.newpage()
@@ -389,7 +421,9 @@ k <- 4
 # get a distinct palette
 cluster_cols <- RColorBrewer::brewer.pal(k, "Set1")
 
-# plot the dendrogram
+# plot the dendrogram (caption in the outer margin)
+old_par <- par(no.readonly = TRUE)
+caption_margin(4)
 plot(
   hc_scores,
   main = "Score Clustering by Simple-Model R² Profiles",
@@ -412,6 +446,9 @@ legend(
   bty    = "n",
   cex    = 0.8
 )
+base_caption(paste(paste(setup, "All PPIs."), "Hierarchical clustering (Euclidean distance, Ward.D2) of the PPIs by their profile of simple-model R2 over the nine statistics; boxes: k =", k, "clusters."),
+             "PPIs in one cluster are explained by the same statistics, i.e. measure the same reaction norm properties.")
+par(old_par)
 
 clusters   <- cutree(hc_scores, k = k)
 sil        <- silhouette(clusters, dist_scores)
@@ -439,7 +476,9 @@ grid.arrange(
   top = textGrob(
     paste0("Silhouette Widths (k = ", k, ")"),
     gp  = gpar(fontsize = 12, fontface = "bold")
-  )
+  ),
+  bottom = caption_grob(paste(paste(setup, "All PPIs."), "Silhouette width of each PPI in the clustering of the R2 profiles (k =", k, ")."),
+                        "Values near 1: the PPI fits its cluster well; near 0 or negative: it lies between clusters.")
 )
 # And a small summary table beneath it
 grid.newpage()
@@ -455,7 +494,9 @@ grid.arrange(
   top = textGrob(
     "Average Silhouette Width by Cluster",
     gp  = gpar(fontsize = 12, fontface = "bold")
-  )
+  ),
+  bottom = caption_grob(paste(paste(setup, "All PPIs."), "Mean silhouette width per cluster and overall."),
+                        "Higher means indicate more distinct clusters.")
 )
 # --- NEW: permutation tests (overall & per-cluster) for silhouette means ---
 set.seed(123)
@@ -497,7 +538,9 @@ grid.arrange(
   top = textGrob(
     paste0("Permutation Test for Mean Silhouette (n = ", n_perm, ")"),
     gp  = gpar(fontsize = 12, fontface = "bold")
-  )
+  ),
+  bottom = caption_grob(paste(paste(setup, "All PPIs."), "Observed mean silhouette width against", n_perm, "random permutations of the cluster labels; p = share of permutations with a mean at least as high."),
+                        "Small p: the clusters of the R2 profiles are more distinct than random groupings.")
 )
 
 # now close the PDF

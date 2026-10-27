@@ -163,6 +163,10 @@ p_forest <- ggplot(plot_tbl, aes(x = estimate, y = variable, colour = class)) +
     panel.grid.minor = element_blank()
   )
 
+p_forest <- with_caption(p_forest,
+  paste(resolutions_setup(POPULATION_DIR, n_samples), "All shapes pooled.",
+        "For every PPI: effect of n in the mixed model PPI ~ n + nine summary statistics + (1 | genotype) over all resolutions, with 95 % CI; sample-size-sensitive (red): BH-adjusted p < 0.05 and |estimate| >= 0.001, otherwise robust (blue)."),
+  "Sensitive PPIs change their values with the number of points even after accounting for the reaction norm statistics. The estimate is in the units of each PPI, so the 0.001 threshold is not comparable between PPIs; PPIs computed on the index of the measurement point change with n by construction.")
 print(p_forest)
 
 path <- file.path(POPULATION_DIR, "plots")

@@ -96,24 +96,26 @@ simulate_shape_norms <- function(cfg, shape, geno, causal, rows) {
   ids <- rownames(geno$X)[rows]
   n <- length(rows)
 
-  # Genetic value of the mother norm for every parameter and for V
-  S <- list(); ell <- list()
+  # Genetic value of the mother norm for every parameter (Var h2) and of the stability V
+  # (Var 1), see genetic_values.R
+  S <- list(); B <- list(); G <- list()
   for (theta in c(thetas, "V")) {
     cs <- causal[causal$Shape == shape & causal$Parameter == theta, ]
     S[[theta]] <- snp_score(geno$X, geno$p, rows, cs$SNP_index, cs$Effect)
-    ell[[theta]] <- genetic_value(S[[theta]], rnorm(n), cfg$h2)
+    B[[theta]] <- rnorm(n)
+    G[[theta]] <- genetic_value(S[[theta]], B[[theta]], if (theta == "V") 1 else cfg$h2, cfg$q)
   }
 
-  # Repeatability and spread of the replicates
-  rho <- repeatability_from_latent(ell$V, cfg$repeatability_beta)
-  tau <- replicate_spread(rho)
+  # Stability: relative spread of the replicates and repeatability of every genotype
+  sigma2 <- replicate_spread(G$V, cfg$stability_sd)
+  rho <- repeatability(sigma2, cfg$h2)
 
   # Latent values of the plants and parameter values (genotypes x replicates)
   plant <- list(); mother <- list()
   for (theta in thetas) {
     zeta <- matrix(rnorm(n * cfg$n_rep), n, cfg$n_rep)
-    plant[[theta]] <- latent_to_parameter(plant_latent_values(ell[[theta]], tau, zeta), theta, shape, cfg)
-    mother[[theta]] <- latent_to_parameter(ell[[theta]], theta, shape, cfg)
+    plant[[theta]] <- latent_to_parameter(plant_latent_values(G[[theta]], sigma2, zeta, cfg$h2), theta, shape, cfg)
+    mother[[theta]] <- latent_to_parameter(G[[theta]], theta, shape, cfg)
   }
 
   # one row per plant, genotype-major, replicates in order
@@ -128,7 +130,7 @@ simulate_shape_norms <- function(cfg, shape, geno, causal, rows) {
       as.data.frame(lapply(plant, function(m) as.vector(m)[ord])), rho = rep(rho, times = cfg$n_rep)[ord],
       stringsAsFactors = FALSE
     ),
-    latent = list(snp_score = S, genetic_value = ell, tau = tau)
+    latent = list(snp_score = S, background = B, genetic_value = G, sigma2 = sigma2)
   )
 }
 

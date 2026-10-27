@@ -55,6 +55,18 @@ plots_dir <- population_subdir(PPI_SET_DIR, "plots")
 
 
 stat_cols <- c("min","max","mean","median","slope","range","variance","mean_lower","mean_upper")
+
+# Setup sentences for the captions
+setup <- paste(resolution_setup(RESOLUTION_DIR, REPLICATE_HANDLING), nrow(df),
+               "genotypes, all shapes pooled. Summary statistics (min, max, mean, median, slope, range, variance, mean_lower, mean_upper) of the replicate-averaged measured reaction norm of each genotype.")
+stars_txt <- "Stars: * p < 0.05, ** p < 0.01, *** p < 0.001 (unadjusted)."
+prec_txt <- "Precision = 1 - (95 % CI width / largest CI width of the heatmap)."
+sub_txt <- "Subset model: mean, median, slope, range, variance, mean_lower (min, max and mean_upper left out)."
+full_txt <- "Full model: all nine statistics; range (= max - min) and mean_upper (determined by mean and mean_lower) are collinear and not estimable (NA)."
+corr_reading <- "Shows which property of the reaction norm each PPI follows: level (min, max, mean, median, mean_lower, mean_upper), spread (range, variance) or direction (slope)."
+coef_reading <- "Partial effects: which statistic explains a PPI when the others are held fixed. Coefficients are in the units of PPI and statistic and depend on the collinearity of the statistics; read sign and significance rather than size."
+r2_reading <- "High R2: the PPI is close to a linear function of simple reaction norm statistics; low R2: it carries information the statistics do not capture linearly."
+
 PS      <- df[, !colnames(df) %in% c(colnames(df)[1], stat_cols), drop = FALSE]
 sumstat <- df[, stat_cols, drop = FALSE]
 
@@ -91,10 +103,14 @@ pval_mat      <- slope_mat   # same dims for the p‐values
 slope_ci_lo   <- slope_mat   # lower CIs
 slope_ci_hi   <- slope_mat   # upper CIs
 
+# Standardised slopes: PPI and statistic are z-scored over the genotypes before the fit,
+# so the slopes (and their CIs) are unit-free and comparable between PPIs and statistics;
+# with a single predictor the standardised slope equals the Pearson correlation r
 for(ps in PS_names) {
   for(st in Stat_names) {
     sub <- na.omit(df[, c(ps, st)])
-    fm  <- lm(sub[[ps]] ~ sub[[st]])
+    if (nrow(sub) < 3 || sd(sub[[ps]]) == 0 || sd(sub[[st]]) == 0) next   # constant: no slope
+    fm  <- lm(as.vector(scale(sub[[ps]])) ~ as.vector(scale(sub[[st]])))
     td  <- broom::tidy(fm, conf.int = TRUE)
     
     slope_mat[ps, st]     <- td$estimate[2]
@@ -160,7 +176,8 @@ p_corr <- ggplot(cor_df, aes(x = Stat, y = PS, fill = r)) +
   theme_prof
 
 
-print(p_corr)
+print(with_caption(p_corr,
+  paste(setup, "Pearson r between each PPI and each summary statistic over the genotypes.", stars_txt), corr_reading))
 #ggsave(create.dir = TRUE, "heatmap_correlation.png", p_corr, width = 12, height = 9, dpi = 300)
 
 
@@ -184,7 +201,9 @@ p_slope <- ggplot(slope_df, aes(x = Stat, y = PS, fill = precision)) +
   theme_prof +
   theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1))
 
-print(p_slope)
+print(with_caption(p_slope,
+  paste(setup, "Standardised slope of the regression PPI ~ statistic (both z-scored over the genotypes; equals Pearson r), one model per pair (numbers; stars: p). Colour:", prec_txt, stars_txt),
+  "Slopes are unit-free and comparable between PPIs and statistics; strong slopes mark the reaction norm properties a PPI follows. Light tiles: imprecise slopes."))
 #ggsave(create.dir = TRUE, file.path(plots_dir, "scatter_plots", "heatmap_slope_with_stars.png"), p_slope, width = 12, height = 9, dpi = 300)
 
 ################################################################ this creates scatter plots for each and every combination of summary stat and plasticity score --> linear regression plot 
@@ -230,7 +249,9 @@ if (!dir.exists(out_base)) {
 for(ps in colnames(PS)) {
   dir.create(file.path(out_base, ps), recursive = TRUE, showWarnings = FALSE)
   for(st in colnames(sumstat)) {
-    p_sc <- plot_scatter(df, st, ps)
+    p_sc <- with_caption(plot_scatter(df, st, ps),
+      paste(setup, "Each point a genotype; line: least-squares fit with r, R2, slope beta1 (95 % CI) and p."),
+      "Shows whether the relation is linear, driven by a few genotypes, or split into separate point clouds (shapes).", width = 100)
     ggsave(create.dir = TRUE, 
       filename = file.path(out_base, ps, paste0(ps, "_vs_", st, ".png")),
       plot     = p_sc,
@@ -276,7 +297,9 @@ d_ps <- dist(r_mat)
 hc_ps <- hclust(d_ps, method = "complete")
 # Plot with coloured branches, k = 3 clusters
 p_dend_ps <- make_dend_plot(hc_ps, "Clustering of plasticity scores with regards to correlation withsummary stat ", k = 3)
-print(p_dend_ps)
+dend_shown <- "Hierarchical clustering (Euclidean distance, complete linkage) of the PPIs by their profile of Pearson correlations with the nine summary statistics; three clusters coloured."
+dend_reading <- "PPIs in one cluster follow the same reaction norm properties; compare with the clustering of the PPI values themselves."
+print(with_caption(p_dend_ps, paste(setup, dend_shown), dend_reading))
 # one can yet again confirm that the clustering is in agreement with the other previous clusterings but there might also be no point in that 
 
 
@@ -332,7 +355,8 @@ p_multi_full <- ggplot(multi_df_full, aes(x = Stat, y = PS)) +
   labs(x = "Summary Statistic", y = "Plasticity Score") +
   theme_prof +
   theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1))
-print(p_multi_full)
+print(with_caption(p_multi_full,
+  paste(setup, "Coefficients beta of the multiple regression PPI ~ summary statistics, one model per PPI (numbers; stars: p).", full_txt, "Transparency:", prec_txt, stars_txt), coef_reading))
 
 ########################################
 
@@ -347,7 +371,7 @@ p_r2_full <- ggplot(r2_full_df, aes(x = PS, y = R2)) +
   labs(x = "Plasticity Score", y = expression(R^2)) +
   theme_prof +
   theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1))
-print(p_r2_full)
+print(with_caption(p_r2_full, paste(setup, "R2 of the multiple regression of each PPI on all nine summary statistics."), r2_reading))
 
 
 ############################################### multiple predictor regression heatmap with the collinearities removed such that we dont get NA for range and mean_upper
@@ -399,7 +423,8 @@ p_multi_sub <- ggplot(multi_df_sub, aes(x = Stat, y = PS)) +
   labs(x = "Summary Statistic", y = "Plasticity Score") +
   theme_prof +
   theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1))
-print(p_multi_sub)
+print(with_caption(p_multi_sub,
+  paste(setup, "Coefficients beta of the multiple regression PPI ~ summary statistics, one model per PPI (numbers; stars: p).", sub_txt, "Transparency:", prec_txt, stars_txt), coef_reading))
 
 ################################# R² FOR SUBSET MULTI-PREDICTOR MODELS 
 
@@ -413,7 +438,7 @@ p_r2_sub <- ggplot(r2_sub_df, aes(x = PS, y = R2)) +
   labs(x = "Plasticity Score", y = expression(R^2)) +
   theme_prof +
   theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1))
-print(p_r2_sub)
+print(with_caption(p_r2_sub, paste(setup, "R2 of the multiple regression of each PPI on six summary statistics.", sub_txt), r2_reading))
 
 
 ###########################################
@@ -426,7 +451,8 @@ p_multi_precision <- ggplot(multi_df_full, aes(x = Stat, y = PS, fill = precisio
   geom_text(aes(label = sprintf("%.2f%s", beta, star)), size = 3) +
   labs(x = "Summary Statistic", y = "Plasticity Score") +
   theme_prof
-print(p_multi_precision)
+print(with_caption(p_multi_precision,
+  paste(setup, "Coefficients beta (numbers; stars: p) of the multiple regression, full model.", full_txt, "Colour:", prec_txt, stars_txt), coef_reading))
 
 # --- PRECISION-ONLY HEATMAP FOR SUBSET MODEL ----
 p_multi_precision_sub <- ggplot(multi_df_sub, aes(x = Stat, y = PS, fill = precision)) +
@@ -437,7 +463,8 @@ p_multi_precision_sub <- ggplot(multi_df_sub, aes(x = Stat, y = PS, fill = preci
   geom_text(aes(label = sprintf("%.2f%s", beta, star)), size = 3) +
   labs(x = "Summary Statistic", y = "Plasticity Score") +
   theme_prof
-print(p_multi_precision_sub)
+print(with_caption(p_multi_precision_sub,
+  paste(setup, "Coefficients beta (numbers; stars: p) of the multiple regression, subset model.", sub_txt, "Colour:", prec_txt, stars_txt), coef_reading))
 
 
 ######################################
@@ -461,6 +488,10 @@ CCCCCC
     )
   )
 
+final_fig3 <- with_caption(final_fig3,
+  paste(setup, "(A) Pearson r between each PPI and each summary statistic. (B) Standardised slope of the regression PPI ~ statistic (both z-scored), one model per pair; colour:", prec_txt,
+        "(C)", dend_shown, stars_txt),
+  paste(corr_reading, dend_reading))
 print(final_fig3)
 
 
@@ -480,7 +511,7 @@ ggsave(create.dir = TRUE,
 
 ggsave(create.dir = TRUE, 
   filename = file.path(plots_dir, "hclust_dend_corrdist.pdf"),
-  plot     = p_dend_ps,
+  plot     = with_caption(p_dend_ps, paste(setup, dend_shown), dend_reading),
   device   = "pdf",
   width    = 6.3,
   height   = 5,
@@ -512,6 +543,10 @@ CCCDDD
     )
   )
 
+final_fig4 <- with_caption(final_fig4,
+  paste(setup, "Multiple regression PPI ~ summary statistics, one model per PPI. (A) Full model, (B) subset model: coefficients beta (numbers; stars: p), colour:", prec_txt,
+        "(C, D) R2 of the full and subset model.", full_txt, sub_txt, stars_txt),
+  paste(coef_reading, r2_reading))
 print(final_fig4)
 
 ggsave(create.dir = TRUE, 
@@ -697,7 +732,8 @@ woho=ggplot(slope_df_sig, aes(x = Stat, y = PS)) +
     mid      = "white",       # around zero
     high     ="firebrick",  
     midpoint = 0,
-    name     = expression(beta[1])
+    limits   = c(-1, 1),
+    name     = "standardised\nslope"
   ) +
   scale_size_continuous(
     range = c(5, 12),         # adjust min/max point size
@@ -718,6 +754,9 @@ woho=ggplot(slope_df_sig, aes(x = Stat, y = PS)) +
     plot.margin     = margin(t = 10, r = 5, b = 10, l = 5, unit = "pt")
   )
 
+woho <- with_caption(woho,
+  paste(setup, "Significant (p < 0.05) standardised slopes of the regression PPI ~ statistic, one model per pair: PPI and statistic z-scored over the genotypes, so the slope equals Pearson r. Fill: standardised slope; point size:", prec_txt, stars_txt),
+  "Slopes are unit-free and comparable between PPIs: dark cells mark the reaction norm properties a PPI follows, in agreement with the rank correlations (Spearman rho) where the relation is monotone and not driven by a few genotypes; empty cells: no significant linear relation.")
 ggsave(create.dir = TRUE, file.path(plots_dir, "single_predictor_regression.pdf"), woho, width = 6.3, height = 8, units = "in", dpi = 900)
 
 
@@ -858,6 +897,10 @@ CCCCCC
     )
   )
 
+final_fig6 <- with_caption(final_fig6,
+  paste(setup, "Multiple regression PPI ~ summary statistics, one model per PPI. (A) Full model, (B) subset model: significant coefficients (p < 0.05); fill: beta, point size:", prec_txt,
+        "(C) R2 of the full (left, blue) and subset model (right, red) per PPI.", full_txt, sub_txt, stars_txt),
+  paste(coef_reading, r2_reading))
 print(final_fig6)
 ggsave(create.dir = TRUE, 
   filename = file.path(plots_dir, "fig5.pdf"),

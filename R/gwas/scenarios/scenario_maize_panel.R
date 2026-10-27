@@ -15,7 +15,7 @@
 # -----------------------------------------------------------------------------
 # PARAMETERS — set these before sourcing (guarded defaults)
 #   POPULATION_DIR      path, default output/populations/maize_panel_<h2*100>_<Mc>
-#   H2                  numeric (0.8)          share of the latent genetic variance from the causal SNPs
+#   H2                  numeric (0.8)          narrow-sense heritability on the latent scale
 #   MC                  integer (5)            causal SNPs per parameter
 #   SEED                integer (1)            seed of the genetics
 #   SNP_SUBSET          integer, NULL (all)    use only the first SNPs (quick checks)

@@ -16,7 +16,7 @@
 #   Rscript --vanilla R/gwas/scenarios/resolution_gwas.R gwas <resolution folder> [mean_before|replicates]
 # -----------------------------------------------------------------------------
 # ARGUMENTS
-#   h2        numeric in [0, 1]   share of the latent genetic variance from the causal SNPs
+#   h2        numeric in [0, 1]   narrow-sense heritability on the latent scale
 #   Mc        integer             causal SNPs per parameter
 #   seed      integer             seed of the population
 #   ld_strength  numeric in [0, 1)  LD between neighbouring SNPs (default 0: independent SNPs)

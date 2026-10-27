@@ -2,8 +2,9 @@
 # variance_report.R — where the variance of a simulation comes from
 # =============================================================================
 # Two levels:
-#   latent: per parameter, the level on which h2 and the repeatability are set
-#           (SNP share of the genetic variance between mother norms = h2)
+#   latent: per parameter, the level on which the heritability is set: target and
+#           realised V_A, V_Q (causal SNPs), V_W (replicates), h2 = V_A / V_P and the
+#           share of the causal SNPs (see genetic_values.R)
 #   trait:  per measurement y(t), the variance that results from the model:
 #           causal SNPs, genetic background, their non-linear interaction,
 #           replicates within genotypes and measurement error
@@ -13,16 +14,24 @@ variance_report <- function(sim, n_mc = 2000) {
   c(list(latent = latent_variance(sim)), trait_variance(sim, n_mc))
 }
 
-# Latent level: needs only the reaction norms (simulate_norms() or a measured simulation)
+# Latent level: needs only the reaction norms (simulate_norms() or a measured simulation).
+# Targets (exact in the population) next to the values realised over the genotypes of
+# the population: V_A = Var(G), V_Q = Var(sqrt(q h2) S), V_W = (1 - h2) mean(sigma_i^2).
 latent_variance <- function(norms) {
   cfg <- norms$config
   do.call(rbind, lapply(cfg$shapes, function(s) {
     lat <- norms$latent[[s]]
+    V_W <- (1 - cfg$h2) * mean(lat$sigma2)
     do.call(rbind, lapply(reaction_norm_parameters(cfg, s), function(theta) {
+      V_A <- var(lat$genetic_value[[theta]])
+      V_Q <- var(sqrt(cfg$q * cfg$h2) * lat$snp_score[[theta]])
       data.frame(
-        Shape = s, Parameter = theta, target_h2 = cfg$h2,
-        snp_share = var(sqrt(cfg$h2) * lat$snp_score[[theta]]) / var(lat$genetic_value[[theta]]),
-        mean_repeatability = mean(1 / (1 + lat$tau^2)),
+        Shape = s, Parameter = theta,
+        target_h2 = cfg$h2, h2 = V_A / (V_A + V_W),
+        target_snp_share = cfg$q * cfg$h2, snp_share = V_Q / (V_A + V_W),
+        target_per_snp = cfg$q * cfg$h2 / cfg$Mc,
+        V_A = V_A, V_Q = V_Q, V_W = V_W,
+        mean_repeatability = mean(repeatability(lat$sigma2, cfg$h2)),
         stringsAsFactors = FALSE
       )
     }))
@@ -60,14 +69,17 @@ trait_variance <- function(measured, n_mc = 2000) {
 trait_variance_decomposition <- function(cfg, shape, n_mc = 2000, t = (seq_len(cfg$n_points) - 1) / (cfg$n_points - 1)) {
   traits <- c(reaction_norm_parameters(cfg, shape), "V")
   draw <- function() setNames(lapply(traits, function(x) rnorm(n_mc)), traits)
+  thetas <- setdiff(traits, "V")
   curves <- function(S, B, Z) {
-    ell <- lapply(traits, function(x) genetic_value(S[[x]], B[[x]], cfg$h2))
-    names(ell) <- traits
-    tau <- replicate_spread(repeatability_from_latent(ell$V, cfg$repeatability_beta))
-    p <- lapply(setdiff(traits, "V"), function(x) {
-      latent_to_parameter(plant_latent_values(ell[[x]], tau, Z[[x]]), x, shape, cfg)
-    })
-    names(p) <- setdiff(traits, "V")
+    plant <- if (is.null(cfg$q)) {
+      legacy_plant_latent_values(S, B, Z, cfg)   # settings saved before the narrow-sense model
+    } else {
+      sigma2 <- replicate_spread(genetic_value(S$V, B$V, 1, cfg$q), cfg$stability_sd)
+      lapply(setNames(thetas, thetas), function(x) {
+        plant_latent_values(genetic_value(S[[x]], B[[x]], cfg$h2, cfg$q), sigma2, Z[[x]], cfg$h2)
+      })
+    }
+    p <- lapply(setNames(thetas, thetas), function(x) latent_to_parameter(plant[[x]], x, shape, cfg))
     reaction_norm_matrix(shape, t, p, cfg)
   }
   S <- draw(); B <- draw(); S2 <- draw(); B2 <- draw(); Z1 <- draw(); Z2 <- draw()

@@ -88,7 +88,7 @@ output/populations/<name>/
     kinship.csv              optional; otherwise computed from the SNPs
     truth.csv                causal SNPs: Trait, Parameter, SNP
     config.rds               all simulation settings
-  variance/                latent variance components (SNP share = h2, repeatability)
+  variance/                latent variance components (target and realised h2, share of the causal SNPs)
   n_6/                     the population measured at 6 points
     data/traits/<shape>.csv  measured values: Genotype, then one column per environment
     data/environments.csv    numeric value of every environment column
@@ -123,24 +123,93 @@ simulate_population(sim_config(h2 = 0.4, Mc = 5, n_per_shape = 20), POPULATION_D
 This simulates the SNPs, the genetic values and the true reaction norms of every
 genotype (mother norm) and its replicate plants, for the four shapes (linear, Gaussian,
 sinusoidal, wave), and writes `data/` (including the plot `data/reaction_norms.pdf`)
-and `variance/`. Every setting of `sim_config()` is commented in
-`R/sim/simulation_config.R`:
+and `variance/`.
 
-- `h2`: share of the latent genetic variance from the causal SNPs
+All settings of a simulation are arguments of `sim_config()`,
+defined in one file, `R/sim/simulation_config.R. 
+The same file holds the shapes and their parameters (`shape_parameters()`) and the
+ranges and distributions of the parameters (`default_study_space()`); to change a range,
+edit `default_study_space()` or pass a modified copy as `study_space`. A few fixed model
+choices are in the model code itself: allele frequencies U(0.2, 0.8) and effects ±1 in
+`R/sim/snp_genotypes.R`, the shape functions in `R/sim/reaction_norm_shapes.R`.
+
+Every argument with its default, to copy and adapt:
+
+```r
+cfg <- sim_config(
+  h2           = 0.5,                    
+  Mc           = 5,                      
+  q            = 0.5,
+  stability_sd = 0.2,
+  n_per_shape  = 200,
+  n_rep        = 3,
+  n_snps       = 200000,
+  ld_strength  = 0,
+  ld_r2        = 0.1,
+  n_points     = 6,
+  seed         = 1,
+  sigma_L      = 0.1,
+  error_share  = 0.02,
+  study_space  = default_study_space()
+)
+```
+
+The settings:
+
+Required:
+
+- `h2`: narrow-sense heritability of every reaction norm parameter on the latent scale
+  (see *Heritability* below)
 - `Mc`: causal SNPs per parameter
-- `n_per_shape` (200), `n_rep` (3), `n_snps` (200000): population size
-- `ld_strength` (0): linkage disequilibrium (LD) between neighbouring SNPs. Every genotype
-  has two haplotypes; along each, a SNP copies the allele of the preceding SNP with
-  probability `ld_strength` and is otherwise drawn independently with its allele
-  frequency. The dosage is the sum of the two haplotypes. With 0 every SNP is drawn
-  independently (no LD). `ld_r2` (0.1) sets the LD window: the largest distance in SNPs
-  at which the mean r² is still at least `ld_r2`; it is measured from the simulated SNPs
-  and stored in `data/config.rds` (`ld_window`). With LD, the causal SNPs of a shape lie
-  more than two windows apart. `R/analysis/ld_decay.R` plots the mean r² against the
-  distance (`plots/ld_decay.pdf`).
-- `seed` (1): the same seed gives the same genetics for every `h2`
-- `sigma_L`, `repeatability_beta`, `error_share`: variance components
-- `study_space`: parameter ranges
+
+With defaults:
+
+- `q` (default 0.5): share of the additive genetic variance that comes from the causal
+  SNPs; the rest is polygenic background. Each causal SNP explains `q · h2 / Mc` of the
+  variance
+- `stability_sd` (default 0.2): how much the genotypes differ in the spread of their
+  replicates, as the SD of ln ν_i over the genotypes (ν_i: within-genotype variance of
+  genotype i relative to the average, mean 1). 
+- `n_per_shape` (default 200): genotypes per shape
+- `n_rep` (default 3): replicate plants per genotype
+- `n_snps` (default 200000): simulated SNPs
+- `ld_strength` (default 0): linkage disequilibrium (LD) between neighbouring SNPs. With 0 every SNP is drawn
+  independently (no LD). With LD, the causal SNPs of a shape lie more than two LD windows
+  apart. `R/analysis/ld_decay.R` plots the mean r² against the distance
+  (`plots/ld_decay.pdf`)
+- `ld_r2` (default 0.1): sets the LD window, the largest distance in SNPs at which the
+  mean r² is still at least `ld_r2`; measured from the simulated SNPs and stored in
+  `data/config.rds` (`ld_window`). Only used with `ld_strength` > 0
+- `n_points` (default 6): measurement points used by `simulate_reaction_norms()` when
+  working in memory; `sample_resolution()` takes its own number of points
+- `seed` (default 1): the same seed gives the same genetics for every `h2`
+- `sigma_L` (default 0.1): SD of ln L over the plants
+- `error_share` (default 0.02): measurement error as share of the trait variance
+- `study_space` (default `default_study_space()`): range and distribution of every
+  bounded parameter
+
+**Heritability.** Each reaction norm parameter θ (L, a, c, w, k, ψ) is generated on a
+latent scale with phenotypic variance 1 (`R/sim/genetic_values.R`). For genotype i and
+replicate plant r:
+
+| Quantity | Definition | Variance |
+|---|---|---|
+| genetic value | G_i = √h2 · (√q · S_i + √(1−q) · B_i) | V_A = h2 |
+| causal SNPs | √(h2·q) · S_i (S: SNP score of the causal SNPs) | V_Q = q · h2 |
+| polygenic background | √(h2·(1−q)) · B_i | (1 − q) · h2 |
+| stability of genotype i | σ_i² = exp(s · ℓ_iV − s²/2), s = `stability_sd` | mean 1 |
+| plant | ℓ_ir = G_i + √((1−h2) · σ_i²) · ζ_ir | V_P = 1 |
+
+S, B and ζ are standard normal and independent; S and B are additive, so V_A = V_G. The
+within-genotype variance is V_W = (1 − h2) · E[σ_i²] = 1 − h2, so **h2 = V_A / V_P is the
+narrow-sense heritability on the latent scale**, exact in the population (in a finite
+population the realised values deviate by chance; `variance/variance_latent.csv` lists
+target and realised values). The stability ℓ_iV has its own causal SNPs (V in the truth
+table); they change only the spread of the replicates, not their mean, so they add
+nothing to V_A. The repeatability of genotype i is ρ_i = h2 / (h2 + (1 − h2) · σ_i²)
+(column `rho` of the parameter tables). The parameters are then mapped from the latent
+scale to their ranges (`study_space`); on the parameter scale and for the PPIs the
+heritability is therefore no longer exactly h2.
 
 ### 1b. Alternatively: simulate on a real SNP panel
 
@@ -180,17 +249,39 @@ first 5000 SNPs, for a quick run):
 ```r
 geno <- new.env()
 load(here::here("data", "A-Datasets", "Genotyping_matrix_Negro_et_al_2019.Rdata"), envir = geno)
-snps <- geno$mat2[, 1:5000]   # lines x SNPs, dosages 0/1/2; geno$mat2 for all 978 134 SNPs
+snps <- geno$mat2[, 1:5000]   # lines x SNPs, dosages 0/1/2; geno$mat2 for all 978134 SNPs
 rm(geno)
 
 dir <- here::here("output", "populations", "maize_panel_test")
-simulate_population_from_snps(sim_config(h2 = 0.8, Mc = 5), snps, dir)   # -> data/, variance/
+simulate_population_from_snps(sim_config(h2 = 0.4, Mc = 10), snps, dir)   # -> data/, variance/
 res <- sample_resolution(dir, 6)                                          # -> n_6/data/
 compute_population_ppis(res, "mean_before")                               # -> n_6/mean_before/ppis/
 ```
 
 The GWAS follows as in step 4. With many SNPs it takes long: run it from the terminal on
 several cores (see *Large populations* in step 4).
+
+**Fewer SNPs: tag SNPs.** The full maize panel (978 134 SNPs) needs more memory than a
+laptop has. `prune_snps()` reduces it to a subset of practically independent SNPs (tag
+SNPs): along each chromosome, a SNP is kept only if its r² with every SNP already kept
+among the preceding `window` SNPs (default 50) is below `r2` (default 0.1); otherwise a
+kept SNP stands for it. `chrom` gives the chromosome of every SNP (default: all on one). The
+causal SNPs are then drawn among the tag SNPs. Allele frequencies and relatedness of the
+lines stay real; the LD between the markers is largely removed, so a causal SNP is found
+by itself rather than together with its neighbours. The SNPs must be in genomic order:
+
+```r
+geno <- new.env()
+load(here::here("data", "A-Datasets", "Genotyping_matrix_Negro_et_al_2019.Rdata"), envir = geno)
+map <- readRDS(here::here("data", "A-Datasets", "SNPs_DL_windows_Negro_et_al_2019.rds"))
+map <- map[map$SNP.name %in% colnames(geno$mat2), ]
+map <- map[order(map$Chromosome, map$Position), ]            # genomic order
+snps <- prune_snps(geno$mat2[, map$SNP.name], r2 = 0.1, window = 50, chrom = map$Chromosome)
+rm(geno, map)
+ncol(snps)                                                  # number of tag SNPs
+```
+
+`snps` then goes into `simulate_population_from_snps()` as above.
 
 ### 2. Measure it at a resolution
 
@@ -199,7 +290,7 @@ RESOLUTION_DIR <- sample_resolution(POPULATION_DIR, 6)    # -> n_6/
 ```
 
 The true norms are measured at 6 equidistant environments (1 to 10), and the
-measurement error is added (5 % of the trait variance at these points). The same plants
+measurement error is added (2 % of the trait variance at these points). The same plants
 are measured at every resolution; measuring the same resolution again gives exactly the
 same values.
 
@@ -280,7 +371,8 @@ run_population_gwas(dir, "mean_before", n_cores = 8)    # -> n_6/mean_before/gwa
   not compete for the cores.
 - `--vanilla`: R starts without `.Rprofile` and saved workspace; the packages are taken
   from the normal R library.
-- `n_cores`: at most the number of cores of the machine, minus one or two for the system.
+- `n_cores` (default 1): at most the number of cores of the machine, minus one or two for
+  the system.
 
 ### Figures and analyses of one resolution
 
@@ -327,7 +419,7 @@ source(here::here("R", "analysis", "plotting_resolution.R"))            # ... an
 ### Heritability scenarios (GWAS power)
 
 The nine drivers in `R/gwas/scenarios/` simulate the grid h² ∈ {0.2, 0.4, 0.6} ×
-Mc ∈ {5, 10, 20} and run steps 1–4 at 6 points each:
+Mc ∈ {5, 10, 20} (narrow-sense heritability, `q` = 0.5) and run steps 1–4 at 6 points each:
 
 ```bash
 Rscript --vanilla R/gwas/scenarios/scenario_20_5.R        # -> output/populations/scenario_20_5/

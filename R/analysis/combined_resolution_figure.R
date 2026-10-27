@@ -97,6 +97,14 @@ combined <- p_left + p_right +
   plot_layout(ncol = 2, widths = c(1, 1)) +
   plot_annotation(tag_levels = "A")
 
+combined <- with_caption(combined,
+  paste(resolutions_setup(POPULATION_DIR, RESOLUTIONS), "All shapes pooled.",
+        "(A) For every PPI and summary statistic: slope of the linear regression of their Pearson correlation (over genotypes) on n; * p < 0.05, ** p < 0.01, *** p < 0.001.",
+        "(B) For every PPI: effect of n in the mixed model PPI ~ n + nine summary statistics + (1 | genotype) over all resolutions, with 95 % CI; sample-size-sensitive (red): BH-adjusted p < 0.05 and |estimate| >= 0.001, otherwise robust (blue)."),
+  paste("(A) Non-zero slopes: the relation between the PPI and that property of the reaction norm changes with the sampling density.",
+        "(B) Sensitive PPIs change their values with the number of points even after accounting for the reaction norm statistics; the estimate is in the units of each PPI, so the 0.001 threshold is not comparable between PPIs, and PPIs computed on the index of the measurement point change with n by construction."),
+  width = 110)
+
 out_path <- population_subdir(POPULATION_DIR, "plots")
 ggsave(
   filename = file.path(out_path, "combined_resolution_figure.pdf"),

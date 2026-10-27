@@ -15,6 +15,8 @@
 #     data/causal_tags.csv; a GWAS hit on a tag SNP finds the causal SNP (evaluate_power.R)
 # From data/ on, the population folder is the same as for a simulated population, and
 # sample_resolution(), compute_population_ppis() and run_population_gwas() run unchanged.
+# prune_snps() reduces a panel beforehand to practically independent tag SNPs (fewer SNPs,
+# a much faster GWAS); the causal SNPs are then drawn among the tag SNPs.
 # =============================================================================
 
 # SNP panel from a matrix or a file (.rds with the matrix, or .csv with the column
@@ -35,6 +37,42 @@ read_snp_panel <- function(snps) {
   }
   if (!is_dosage_matrix(X)) stop("the SNP panel must contain dosages 0, 1, 2 without missing values")
   X
+}
+
+# Tag SNPs (LD pruning): a subset of SNPs that are practically independent of each other,
+# to lower the number of SNPs before simulate_population_from_snps(). The columns of X must
+# be in genomic order. Along the SNPs, a SNP is kept if its r^2 with every SNP already kept
+# among the preceding `window` SNPs is below r2; otherwise it is dropped (a kept SNP tags
+# it). SNPs further apart than `window` are not compared, as LD decays with distance.
+# chrom: the chromosome of every SNP, so that only SNPs on the same chromosome are compared
+# (NULL: one chromosome). Monomorphic SNPs are dropped. Returns X with the kept SNPs only.
+prune_snps <- function(X, r2 = 0.1, window = 50, chrom = NULL) {
+  if (is.null(chrom)) chrom <- rep(1L, ncol(X))
+  if (length(chrom) != ncol(X)) stop("chrom needs one value per SNP")
+  n1 <- nrow(X) - 1
+  keep <- logical(ncol(X))
+  Zk <- matrix(0, nrow(X), 0)   # standardised dosages of the kept SNPs within the window
+  pos_k <- integer(0)           # their column numbers
+  for (j in seq_len(ncol(X))) {
+    if (j > 1 && chrom[j] != chrom[j - 1]) {   # new chromosome: nothing to compare with
+      Zk <- Zk[, 0, drop = FALSE]
+      pos_k <- integer(0)
+    }
+    x <- X[, j]
+    s <- sd(x)
+    if (s == 0) next
+    inside <- pos_k > j - window
+    if (!all(inside)) {
+      Zk <- Zk[, inside, drop = FALSE]
+      pos_k <- pos_k[inside]
+    }
+    z <- (x - mean(x)) / s
+    if (length(pos_k) && any((crossprod(Zk, z) / n1)^2 >= r2)) next
+    Zk <- cbind(Zk, z)
+    pos_k <- c(pos_k, j)
+    keep[j] <- TRUE
+  }
+  X[, keep, drop = FALSE]
 }
 
 # r^2 between the dosages of SNP j and the SNPs `cols`, in column blocks

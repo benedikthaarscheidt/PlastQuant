@@ -80,6 +80,18 @@ center_curves <- function(shape, ids) {
   mutate(as.data.frame(out), ReactionNorm = factor(labels[[shape]], levels = unname(labels)))
 }
 
+# Setup sentence for the captions
+setup <- paste(resolution_setup(RESOLUTION_DIR),
+               if (simulated) paste0("Simulated: ", cfg$n_rep, " replicate plants per genotype, measurement error included.")
+               else "Own data.")
+line_shown <- paste0(
+  if (simulated) "Solid: genotypic (mother) reaction norm, drawn as a smooth curve from its parameters; "
+  else "Solid: genotype mean over the replicates; ",
+  "dashed: measured replicates; ribbon: range of the replicates. Genotypes shown: ",
+  if (simulated) "those at the 10, 50 and 90 % quantile of the relative amplitude a of each shape."
+  else "those at the 10, 50 and 90 % quantile of the genotype mean of each trait.")
+hist_reading <- "Shows the range and skew of the measured trait values from which every PPI is computed; differences between panels come from the different responses of the shapes or traits."
+
 ############## histograms of the measured trait values
 
 make_hist = function(subdf, title, show_axes = TRUE) {
@@ -104,9 +116,13 @@ make_hist = function(subdf, title, show_axes = TRUE) {
 
 grid_plot = wrap_plots(lapply(panels, function(s) make_hist(filter(measured, ReactionNorm == labels[[s]]), labels[[s]])),
                        ncol = 2)
-print(grid_plot)
+print(with_caption(grid_plot,
+  paste(setup, "Distribution of the measured trait values (all genotypes, replicates and measurement points) per shape or trait."),
+  hist_reading))
 
-p_combined = make_hist(measured, "All shapes/traits", show_axes = TRUE)
+p_combined = with_caption(make_hist(measured, "All shapes/traits", show_axes = TRUE),
+  paste(setup, "Distribution of the measured trait values over all shapes or traits, genotypes, replicates and measurement points."),
+  hist_reading)
 print(p_combined)
 
 ############## reaction-norm panels
@@ -157,7 +173,8 @@ create_plot4 = function(ids, show_ribbon = TRUE, show_dashed = TRUE) {
 }
 
 p4 = create_plot4(PLOT_GENOTYPES)
-print(p4)
+p4_reading <- "Contrasts the shapes: same environmental gradient, different patterns of response; the scatter of the replicates shows the within-genotype variation."
+print(with_caption(p4, paste(setup, "One genotype per shape or trait (the first selected).", line_shown), p4_reading))
 
 # one panel per shape/trait with its selected genotypes
 create_multi_panel_plot = function(ids, show_ribbon = TRUE, show_dashed = FALSE) {
@@ -171,7 +188,8 @@ create_multi_panel_plot = function(ids, show_ribbon = TRUE, show_dashed = FALSE)
 }
 
 p = create_multi_panel_plot(PLOT_GENOTYPES, show_ribbon = TRUE, show_dashed = TRUE)
-print(p)
+panels_reading <- "Within a panel, genotypes differ in amplitude and pattern of their response; the width of the ribbons compared with these differences shows how well single replicates represent their genotype."
+print(with_caption(p, paste(setup, "Selected genotypes per shape or trait.", line_shown), panels_reading))
 
 ################### combined
 
@@ -194,6 +212,10 @@ final_fig2 <- wrap_plots(
     theme      = theme(plot.tag = element_text(size = 8, face = "bold"))
   ) &
   theme(plot.tag.position = c(0, 1))
+final_fig2 <- with_caption(final_fig2,
+  paste(setup, "(A) Selected genotypes per shape or trait.", line_shown,
+        "(B) Distribution of the measured trait values per shape or trait."),
+  paste(panels_reading, hist_reading))
 print(final_fig2)
 
 final_fig3 <- wrap_plots(
@@ -206,6 +228,10 @@ final_fig3 <- wrap_plots(
     theme      = theme(plot.tag = element_text(size = 8, face = "bold"))
   ) &
   theme(plot.tag.position = c(0, 1))
+final_fig3 <- with_caption(final_fig3,
+  paste(setup, "(A) One genotype per shape or trait.", line_shown,
+        "(B) Distribution of the measured trait values per shape or trait."),
+  paste(p4_reading, hist_reading))
 print(final_fig3)
 
 plots_dir <- population_subdir(RESOLUTION_DIR, "plots")

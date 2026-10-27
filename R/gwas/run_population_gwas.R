@@ -40,7 +40,8 @@ run_population_gwas <- function(dir, replicate_handling = c("mean_before", "repl
     write.csv(power, file.path(gwas_dir, "gwas_power.csv"), row.names = FALSE)
     cfg <- pop$config
     subtitle <- paste0(
-      if (!is.null(cfg)) paste0("h2 = ", cfg$h2, ", ", cfg$Mc, " causal SNPs per parameter, ",
+      if (!is.null(cfg)) paste0("h2 = ", cfg$h2, if (!is.null(cfg$q)) paste0(", q = ", cfg$q), ", ",
+                                cfg$Mc, " causal SNPs per parameter, ",
                                 cfg$n_per_shape, " genotypes per shape, "),
       n_snps, " SNPs, ", if (window > 0) paste0("LD window ", window, " SNPs, "),
       if (!is.null(pop$causal_tags)) "SNP panel (hits on tag SNPs), ",

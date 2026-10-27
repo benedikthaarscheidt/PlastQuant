@@ -96,9 +96,20 @@ heat <- function(col, title) {
                   x = "True parameter", y = "PPI", fill = col) +
     ggplot2::theme_minimal(base_size = 9)
 }
+setup <- paste(resolution_setup(RESOLUTION_DIR, REPLICATE_HANDLING),
+               if (REPLICATE_HANDLING == "replicates")
+                 "One point per replicate plant: its own true parameters against the PPI of its reaction norm (population-level PPIs such as FW: one point per genotype, against the genotype's parameters)."
+               else "One point per genotype: its true (mother) parameters against the PPI of its replicate-averaged reaction norm.",
+               "Per shape; empty cells: parameter not part of the shape.")
+param_reading <- "Shows which true parameter each PPI actually measures: a high correlation with a (relative amplitude) means the PPI tracks the magnitude of plasticity, with L the level, with the shape parameters (c, w, k, psi) the pattern of the response. A PPI that correlates with no parameter cannot find its SNPs in a GWAS."
 grDevices::pdf(file.path(plots_dir, "parameter_ppi_correlation.pdf"), width = 14, height = 10)
-print(heat("r", "Pearson correlation of the true parameters with the PPIs"))
-print(heat("rho_s", "Spearman correlation of the true parameters with the PPIs"))
-if (any(is.finite(res$r_within))) print(heat("r_within", "Within-genotype correlation (replicate deviations only)"))
+print(with_caption(heat("r", "Pearson correlation of the true parameters with the PPIs"),
+  paste(setup, "Pearson r between each true parameter and each PPI."), param_reading, width = 180))
+print(with_caption(heat("rho_s", "Spearman correlation of the true parameters with the PPIs"),
+  paste(setup, "Spearman rank correlation between each true parameter and each PPI."),
+  paste(param_reading, "Differences from Pearson r point to monotone but non-linear relations."), width = 180))
+if (any(is.finite(res$r_within))) print(with_caption(heat("r_within", "Within-genotype correlation (replicate deviations only)"),
+  paste(setup, "Pearson r after centring parameter and PPI within each genotype: only the replicate-to-replicate deviations."),
+  "Shows whether a PPI also follows the non-genetic differences between replicates of the same genotype; together with r it separates genetic from within-genotype signal.", width = 180))
 invisible(grDevices::dev.off())
 message("Parameter-PPI correlations written to ", out_dir, " and ", plots_dir)
