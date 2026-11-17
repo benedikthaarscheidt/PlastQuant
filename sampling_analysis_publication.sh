@@ -33,8 +33,8 @@ snps <- readRDS('$SNPS')
 set.seed($LINE_SEED)
 lines <- sort(sample(rownames(snps), $N_LINES))
 snps <- snps[lines, ]
-simulate_population_from_snps(sim_config(h2 = 0.4, Mc = 5, q = 0.5, stability_sd = 0.2, n_rep = 3,
-                                         error_share = 0.02, sigma_L = 0.1, seed = 1),
+simulate_population_from_snps(sim_config(h2 = 0.4, Mc = 5, stability_sd = 0.2, n_rep = 3,
+                                         error_share = 0.02, seed = 1),
                               snps, '$POP')
 writeLines(lines, file.path('$POP', 'data', 'maize_lines.txt'))
 " > "$LOG/01_simulate.log" 2>&1 || { say "simulation FAILED (see $LOG/01_simulate.log)"; exit 1; }

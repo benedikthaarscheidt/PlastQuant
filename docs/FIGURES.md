@@ -4,7 +4,7 @@ What the main figures of the PPI comparison show, how they are computed and whic
 produces them. All figures are produced by `sampling_analysis_publication.sh` (repository
 root) for the population `output/populations/ppi_comparison_maize200`: 200 maize lines per
 reaction norm shape (linear, Gaussian, sinusoidal, wave), 3 replicates, simulated with
-h² = 0.4, M_c = 5, q = 0.5 (see the README for the simulation). Unless stated otherwise,
+h² = 0.4, M_c = 5, q = 1, σ_L = 0.3 (see the README for the simulation). Unless stated otherwise,
 the PPIs are those of the replicate-averaged reaction norms measured at 6 points
 (`n_6/mean_before/`).
 
@@ -54,6 +54,18 @@ the slope of the least-squares regression on the environment values (direction).
 and Benjamini–Hochberg adjusted significance stars only; rows in the order of the pooled
 dendrogram, labels in its cluster colours. It shows which property of the reaction norms
 each cluster follows.
+
+## True parameters in the PPIs, any form of dependence
+
+`n_6/mean_before/plots/parameter_ppi_gam.pdf` (`R/analysis/parameter_ppi_correlation.R`; table
+`analyses/parameter_ppi_gam.csv`). The correlation of a PPI with a true parameter sees only a
+straight-line relation and is dominated by the amplitude a. Here, per shape and PPI, a GAM
+(one smooth curve per parameter) of the PPI's normal scores on all true parameters of the
+shape; each cell is the share of the PPI's variation that a parameter explains beyond all
+other parameters (deviance explained with it minus without it), "all" the share of all
+parameters together. A PPI that depends on a shape parameter in an up-and-down way, e.g. on
+the peak position c symmetrically around the middle, shows it here even when its
+correlation with that parameter is near zero.
 
 ## PPIs grouped by their correlation profiles
 

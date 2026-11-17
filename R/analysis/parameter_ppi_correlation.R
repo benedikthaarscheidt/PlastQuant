@@ -13,10 +13,17 @@
 #   correlated with the mother parameters (Level = "genotype").
 #   Columns: r (Pearson), rho_s (Spearman), r_within (Pearson after centring parameter and
 #   PPI per genotype: the replicate-to-replicate part only; "replicates" only), n.
+#   A correlation sees only straight-line relations and is dominated by a. So, in addition,
+#   per shape and PPI a GAM (mgcv; one smooth curve per parameter, any form) of the PPI's
+#   normal scores on all true parameters of the shape: the unique share of each parameter
+#   is the part of the variation it explains beyond all the others (deviance explained
+#   with it minus without it); "all" is the share of all parameters together.
 # REQUIRES:     the PPIs of the resolution and replicate handling (compute_population_ppis())
 #               of a simulated population (it needs the true parameters).
 # PRODUCES:     RESOLUTION_DIR/<REPLICATE_HANDLING>/analyses/parameter_ppi_correlation.csv
 #               RESOLUTION_DIR/<REPLICATE_HANDLING>/plots/parameter_ppi_correlation.pdf
+#               RESOLUTION_DIR/<REPLICATE_HANDLING>/analyses/parameter_ppi_gam.csv
+#               RESOLUTION_DIR/<REPLICATE_HANDLING>/plots/parameter_ppi_gam.pdf
 # HOW TO RUN:   setwd("~/PlastQuant")
 #               RESOLUTION_DIR <- here::here("output", "populations", "Eve", "n_6")
 #               REPLICATE_HANDLING <- "replicates"
@@ -111,6 +118,65 @@ print(with_caption(heat("rho_s", "Spearman correlation of the true parameters wi
 if (any(is.finite(res$r_within))) print(with_caption(heat("r_within", "Within-genotype correlation (replicate deviations only)"),
   paste(setup, "Pearson r after centring parameter and PPI within each genotype: only the replicate-to-replicate deviations."),
   "Shows whether a PPI also follows the non-genetic differences between replicates of the same genotype; together with r it separates genetic from within-genotype signal.", width = 180))
+invisible(grDevices::dev.off())
+
+# --- Unique share of every parameter in the PPI, any form of dependence (GAM) ---
+# The PPI is replaced by its normal scores (ranks), so sign, skew and outliers do not
+# matter. Full model: one smooth (mgcv::s, REML) per parameter of the shape; the unique
+# share of a parameter is the deviance explained by the full model minus that of the model
+# without it. Same points as the correlations (genotype or replicate level).
+normal_scores <- function(y) qnorm((rank(y) - 0.5) / length(y))
+gam_shares <- function(d, shape, ppi, level) {
+  ok <- is.finite(d$Score)
+  pars <- Filter(function(p) all(is.finite(d[[p]][ok])) && sd(d[[p]][ok]) > 0, parameter_names)
+  if (sum(ok) < 30 || !length(pars) || sd(d$Score[ok]) == 0) return(NULL)
+  dd <- data.frame(y = normal_scores(d$Score[ok]), d[ok, pars, drop = FALSE])
+  term <- function(p) {   # smooth curve; a straight line for a parameter with few distinct values
+    u <- length(unique(dd[[p]]))
+    if (u < 5) p else sprintf("s(%s, k = %d)", p, min(10, u - 1))
+  }
+  dev <- function(ps) {
+    f <- if (length(ps)) paste("y ~", paste(vapply(ps, term, ""), collapse = " + ")) else "y ~ 1"
+    summary(mgcv::gam(as.formula(f), data = dd, method = "REML"))$dev.expl
+  }
+  full <- dev(pars)
+  data.frame(Shape = shape, PPI = ppi, Level = level, n = nrow(dd),
+             Parameter = c(pars, "all"),
+             Share = c(vapply(pars, function(p) max(0, full - dev(setdiff(pars, p))), numeric(1)), full),
+             stringsAsFactors = FALSE)
+}
+gam_res <- do.call(rbind, lapply(names(traits), function(ppi) {
+  tab <- traits[[ppi]]
+  do.call(rbind, lapply(unique(tab$Type), function(shape) {
+    t <- tab[tab$Type == shape, ]
+    if (all(is.na(t$Replicate))) {
+      d <- merge(data.frame(Genotype = t$Genotype_ID, Score = t$Score, stringsAsFactors = FALSE),
+                 mothers[mothers$Shape == shape, ], by = "Genotype")
+      gam_shares(d, shape, ppi, "genotype")
+    } else {
+      d <- merge(data.frame(Genotype = t$Genotype_ID, Replicate = t$Replicate, Score = t$Score, stringsAsFactors = FALSE),
+                 plants[plants$Shape == shape, ], by = c("Genotype", "Replicate"))
+      gam_shares(d, shape, ppi, "replicate")
+    }
+  }))
+}))
+rownames(gam_res) <- NULL
+write.csv(gam_res, file.path(out_dir, "parameter_ppi_gam.csv"), row.names = FALSE)
+gam_res$Parameter <- factor(gam_res$Parameter, levels = c(sort(setdiff(unique(gam_res$Parameter), "all")), "all"))
+p_gam <- ggplot2::ggplot(gam_res, ggplot2::aes(x = Parameter, y = PPI, fill = Share)) +
+  ggplot2::geom_tile(colour = "white") +
+  ggplot2::geom_text(ggplot2::aes(label = sprintf("%.0f", 100 * Share)), size = 2.3) +
+  ggplot2::scale_fill_gradient(low = "white", high = "#D73027", limits = c(0, 1), labels = scales::percent) +
+  ggplot2::facet_grid(. ~ Shape, scales = "free_x", space = "free_x") +
+  ggplot2::labs(title = "Unique share of each true parameter in the PPI (GAM, any form of dependence)",
+                subtitle = paste0(basename(population_dir), ", ", basename(RESOLUTION_DIR), ", ", REPLICATE_HANDLING,
+                                  "; in % of the variation of the PPI (normal scores); all: all parameters together"),
+                x = "True parameter", y = "PPI", fill = "Share") +
+  ggplot2::theme_minimal(base_size = 9)
+grDevices::pdf(file.path(plots_dir, "parameter_ppi_gam.pdf"), width = 14, height = 10)
+print(with_caption(p_gam,
+  paste(setup, "GAM of the PPI's normal scores on all true parameters of the shape, one smooth curve per parameter. Cell: the share of the PPI's variation a parameter explains beyond all other parameters (deviance explained with it minus without it); all: all parameters together."),
+  "Unlike a correlation, this also sees curved and up-and-down dependences (e.g. on the peak position c, symmetric around the middle) and is not swamped by a: a PPI that depends on a shape parameter shows it here even when its correlation with that parameter is near zero.", width = 180))
 invisible(grDevices::dev.off())
 
 # --- Groups of PPIs by their correlation profiles, compared with the Kendall clustering ---
