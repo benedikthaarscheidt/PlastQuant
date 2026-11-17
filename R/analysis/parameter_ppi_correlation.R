@@ -112,4 +112,59 @@ if (any(is.finite(res$r_within))) print(with_caption(heat("r_within", "Within-ge
   paste(setup, "Pearson r after centring parameter and PPI within each genotype: only the replicate-to-replicate deviations."),
   "Shows whether a PPI also follows the non-genetic differences between replicates of the same genotype; together with r it separates genetic from within-genotype signal.", width = 180))
 invisible(grDevices::dev.off())
+
+# --- Groups of PPIs by their correlation profiles, compared with the Kendall clustering ---
+# Two profiles of every PPI (ppi_profiles.R), each a vector of signed Spearman correlations:
+#   parameters          with the true parameters of the reaction norm (L, a and the shape
+#                       parameters, one value per shape and parameter; not the replicate
+#                       stability rho)
+#   summary statistics  with five summary statistics of the reaction norm (mean, min, max,
+#                       range, slope), over all genotypes pooled (as Supplementary figure S2)
+# Both are clustered and compared with each other and with the Kendall clustering of the
+# PPIs (Mantel test between the distance matrices, adjusted Rand index between the groups).
+# Only for the PPIs of the replicate-averaged reaction norms.
+if (REPLICATE_HANDLING == "mean_before") {
+  wide <- ppi_wide_table(traits, shapes = unique(res$Shape))
+  df_k <- wide[, setdiff(names(wide), c("Shape", "Genotype")), drop = FALSE]
+  df_k <- df_k[, colSums(is.na(df_k)) == 0, drop = FALSE]
+  kend <- kendall_ppi_clustering(df_k, split(seq_len(nrow(wide)), wide$Shape))
+  kend_col <- group_colours(kend$hc, kend$groups)
+
+  pr <- res[res$Parameter != "rho" & is.finite(res$rho_s), ]
+  pr$Property <- paste(pr$Shape, pr$Parameter, sep = ": ")
+  P_par <- with(pr, tapply(rho_s, list(PPI, Property), identity))
+  ppis <- intersect(rownames(P_par), names(df_k))
+  prof_par <- profile_clustering(P_par[ppis, , drop = FALSE])
+  prof_stat <- profile_clustering(summary_stat_profile(population_score_table(RESOLUTION_DIR), ppis))
+
+  cmp <- list(parameters_vs_kendall = compare_ppi_clusterings(prof_par, kend),
+              statistics_vs_kendall = compare_ppi_clusterings(prof_stat, kend),
+              parameters_vs_statistics = compare_ppi_clusterings(prof_par, prof_stat))
+  cmp_tab <- data.frame(comparison = names(cmp),
+                        mantel_r = vapply(cmp, `[[`, numeric(1), "mantel_r"),
+                        mantel_p = vapply(cmp, `[[`, numeric(1), "mantel_p"),
+                        ARI = vapply(cmp, `[[`, numeric(1), "ari"))
+  write.csv(cmp_tab, file.path(out_dir, "ppi_profile_comparison.csv"), row.names = FALSE)
+  write.csv(data.frame(PPI = ppis, parameter_group = prof_par$groups[ppis],
+                       statistic_group = prof_stat$groups[ppis], kendall_group = kend$groups[ppis]),
+            file.path(out_dir, "ppi_profile_groups.csv"), row.names = FALSE)
+
+  p_prof <- patchwork::wrap_plots(
+    plot_profile_clustering(prof_par, kend_col, cmp$parameters_vs_kendall, "(a) Correlation with the true parameters"),
+    plot_profile_clustering(prof_stat, kend_col, cmp$statistics_vs_kendall, "(b) Correlation with summary statistics"),
+    nrow = 1) +
+    patchwork::plot_annotation(
+      title = "PPIs grouped by their correlation profiles",
+      subtitle = sprintf("(a) vs (b): Mantel r = %.2f, p = %.3f; adjusted Rand index = %.2f. Mantel tests: rank correlation of the distances, 999 permutations.",
+                         cmp$parameters_vs_statistics$mantel_r, cmp$parameters_vs_statistics$mantel_p,
+                         cmp$parameters_vs_statistics$ari),
+      theme = ggplot2::theme(plot.title = ggplot2::element_text(size = 11),
+                             plot.subtitle = ggplot2::element_text(size = 8)))
+  p_prof <- with_caption(p_prof,
+    paste(setup, "Clustering of the PPIs on their signed Spearman correlations (Euclidean distance, average linkage, number of groups by silhouette width) with (a) the true parameters of every shape and (b) five summary statistics of the reaction norms. Name colours: profile groups; squares: groups of the Kendall clustering of the PPIs (all shapes pooled)."),
+    "PPIs in one profile group measure the same properties of the reaction norm; agreement with the Kendall groups shows that PPIs rank genotypes alike because of that.")
+  grDevices::pdf(file.path(plots_dir, "ppi_profile_clustering.pdf"), width = 9, height = 6)
+  print(p_prof)
+  invisible(grDevices::dev.off())
+}
 message("Parameter-PPI correlations written to ", out_dir, " and ", plots_dir)

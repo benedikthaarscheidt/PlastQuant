@@ -4,10 +4,10 @@
 # Every figure gets a short caption in two parts: what is shown (the setup) and what
 # can be read from it. The captions are added only where a figure is printed or saved,
 # so composite figures built from the same panels get one caption, not one per panel.
-# options(plastquant.captions = FALSE) switches them off (e.g. for the paper figures,
-# whose legends are in the manuscript).
+# They are off by default: the figures then have exactly their layout without captions
+# (the legends are in the manuscript). options(plastquant.captions = TRUE) switches them on.
 
-captions_on <- function() isTRUE(getOption("plastquant.captions", TRUE))
+captions_on <- function() isTRUE(getOption("plastquant.captions", FALSE))
 
 # Caption text: "<shown> <reading>", wrapped to `width` characters
 caption_text <- function(shown, reading, width = 120) {
@@ -79,15 +79,22 @@ resolutions_setup <- function(population_dir, n_points) {
 }
 
 # Setup sentence of a resolution folder: population, measurement points, replicate
-# handling of the PPIs and, if given, the genotypes per shape (named counts)
+# handling of the PPIs and, if given, the genotypes per shape (named counts), e.g.
+# "pop: linear, gaussian, sinusoidal and wave reaction norms of 200 genotypes each,
+# measured at 6 points; PPIs of the replicate-averaged reaction norms."
 resolution_setup <- function(resolution_dir, handling = NULL, genotypes = NULL) {
   pop <- basename(dirname(normalizePath(resolution_dir)))
   n <- sub("^n_", "", basename(resolution_dir))
+  norms <- if (is.null(genotypes)) "reaction norms" else {
+    nm <- names(genotypes)
+    groups <- if (length(nm) > 1) paste(paste(nm[-length(nm)], collapse = ", "), "and", nm[length(nm)]) else nm
+    if (length(unique(genotypes)) == 1) paste0(groups, " reaction norms of ", genotypes[1], " genotypes each")
+    else paste0("reaction norms of ", paste(genotypes, nm, collapse = ", "), " genotypes")
+  }
   paste0(
-    "Population ", pop, ", reaction norms measured at ", n, " points",
-    if (!is.null(handling)) paste0(", PPIs computed from ",
-      if (handling == "mean_before") "the replicate-averaged reaction norm of each genotype" else "each replicate plant"),
-    if (!is.null(genotypes)) paste0("; genotypes: ", paste(genotypes, names(genotypes), collapse = ", ")),
+    pop, ": ", norms, ", measured at ", n, " points",
+    if (!is.null(handling)) paste0("; PPIs of ",
+      if (handling == "mean_before") "the replicate-averaged reaction norms" else "every replicate plant"),
     "."
   )
 }

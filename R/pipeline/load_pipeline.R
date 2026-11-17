@@ -16,7 +16,7 @@ pipeline_function_files <- c(
   # GWAS and its evaluation
   "gwas/gwas.R", "gwas/evaluate_power.R", "gwas/plot_gwas_power.R", "gwas/run_population_gwas.R", "gwas/combine_scenario_runs.R",
   # comparison of the PPIs
-  "analysis/similarity.R", "analysis/resolution_stability.R"
+  "analysis/similarity.R", "analysis/resolution_stability.R", "analysis/ppi_profiles.R"
 )
 for (f in pipeline_function_files) source(here::here("R", f))
 rm(f)

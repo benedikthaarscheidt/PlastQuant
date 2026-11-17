@@ -70,7 +70,7 @@ output_dir <- file.path(PPI_SET_DIR, "plots", "plasticity_comprehensive_analysis
 dir.create(output_dir, recursive = TRUE, showWarnings = FALSE)
 
 tau_threshold <- 0.8
-topk_values <- c(3, 5, 10, 15, 20)
+topk_values <- c(3, 5, 10, 15, 20, 30, 50, 75, 100, 150)   # numbers of top genotypes compared
 AGREE_THR_FULL <- 1.00
 
 # ======================================================
@@ -262,7 +262,35 @@ plot_consistent_corr_heatmap <- function(M, tag = "", title = "", fill_label = "
     theme(axis.text.x = element_text(angle = 60, hjust = 1))
 }
 
-plot_topk_overlap_heatmap_matrix <- function(Om, tag, k) {
+# Colour classes of the top-k overlap. The overlaps are bimodal (near 0 between groups of
+# PPIs, 60-100 % within them), so a continuous scale shows little more than dark and
+# bright; classes with finer steps in the upper range, each with its own colour, make the
+# differences within the groups visible. 100 % (identical sets) is a class of its own.
+overlap_breaks <- c(0, 0.05, 0.15, 0.3, 0.5, 0.6, 0.7, 0.8, 0.9, 1)
+overlap_labels <- c("0-5%", "5-15%", "15-30%", "30-50%", "50-60%", "60-70%", "70-80%", "80-90%", "90-<100%", "100%")
+overlap_class <- function(x) {
+  cl <- as.character(cut(x, overlap_breaks, labels = overlap_labels[-10], right = FALSE))
+  cl[!is.na(x) & x >= 1] <- "100%"
+  factor(cl, levels = overlap_labels)
+}
+# Compact legend: the classes as one continuous colour strip, labelled only 0 % and 100 %;
+# overlap_legend_theme() puts it small above the top right corner of the plot
+scale_fill_overlap <- function(name = "overlap") {
+  scale_fill_manual(values = setNames(viridis::viridis(length(overlap_labels)), overlap_labels),
+                    drop = FALSE, name = name,
+                    labels = c("0%", rep("", length(overlap_labels) - 2), "100%"),
+                    guide = guide_legend(nrow = 1, title.position = "top", label.position = "bottom",
+                                         keywidth = unit(2.5, "mm"), keyheight = unit(2, "mm")))
+}
+overlap_legend_theme <- function() {
+  theme(legend.position = "top", legend.justification = "right",
+        legend.key.spacing.x = unit(0, "pt"),
+        legend.title = element_text(size = 7), legend.text = element_text(size = 6),
+        legend.margin = margin(0, 0, 0, 0))
+}
+
+# n: number of genotypes ranked (for the title)
+plot_topk_overlap_heatmap_matrix <- function(Om, tag, k, n = NULL) {
   m <- Om; diag(m) <- 1; m[is.na(m)] <- 0
   d <- as.dist(1 - m); hc <- hclust(d, method = "average"); ord <- rownames(m)[hc$order]
   df <- as.data.frame(m) |>
@@ -270,11 +298,131 @@ plot_topk_overlap_heatmap_matrix <- function(Om, tag, k) {
     tidyr::pivot_longer(-method_i, names_to = "method_j", values_to = "overlap") |>
     mutate(method_i = factor(method_i, levels = ord),
            method_j = factor(method_j, levels = ord))
-  ggplot(df, aes(method_j, method_i, fill = overlap)) +
-    geom_tile() + coord_fixed() +
-    scale_fill_viridis_c(limits = c(0,1), labels = percent) +
-    labs(x = NULL, y = NULL, fill = "overlap") +
-    theme_pub() + theme(axis.text.x = element_text(angle = 60, hjust = 1))
+  ggplot(df, aes(method_j, method_i, fill = overlap_class(overlap))) +
+    geom_tile(show.legend = TRUE) + coord_fixed() +   # show.legend: keys also for classes absent at this k
+    scale_fill_overlap() +
+    labs(x = NULL, y = NULL, fill = "overlap",
+         title = paste0("Top-", k, " overlap (k = ", k, if (!is.null(n)) paste0(" of ", n, " genotypes"), ")")) +
+    theme_pub() + theme(axis.text.x = element_text(angle = 60, hjust = 1)) +
+    overlap_legend_theme()
+}
+
+# Groups of PPIs that agree over all k: average-linkage clustering of 1 - the top-k
+# overlap averaged over the k; the tree is cut into the number of groups (2 ... 8) with
+# the largest average silhouette width. Returns the PPI order of the tree and the group
+# of every PPI (named by PPI).
+topk_overlap_groups <- function(Om_list) {
+  clean <- lapply(Om_list, function(m) { diag(m) <- 1; m[is.na(m)] <- 0; m })
+  M <- Reduce(`+`, clean) / length(clean)
+  d <- as.dist(1 - M)
+  hc <- hclust(d, method = "average")
+  n_groups <- 2:min(8, nrow(M) - 1)
+  sil <- vapply(n_groups, function(g) mean(cluster::silhouette(cutree(hc, g), d)[, "sil_width"]), numeric(1))
+  list(order = rownames(M)[hc$order], group = cutree(hc, n_groups[which.max(sil)]))
+}
+
+# Distribution of the top-k overlaps of all PPI pairs at every k, split into pairs within
+# one group of topk_overlap_groups() and pairs from different groups; dashed line: the
+# overlap expected by chance, k / n_genotypes.
+plot_topk_overlap_distribution <- function(Om_list, ks, n_genotypes) {
+  grp <- topk_overlap_groups(Om_list)$group
+  df <- do.call(rbind, lapply(seq_along(Om_list), function(L) {
+    m <- Om_list[[L]]
+    ij <- which(upper.tri(m), arr.ind = TRUE)
+    a <- rownames(m)[ij[, 1]]; b <- colnames(m)[ij[, 2]]
+    data.frame(k = ks[L], overlap = m[ij],
+               pair = ifelse(grp[a] == grp[b], "within a group", "between groups"))
+  }))
+  df$k <- factor(df$k, levels = ks)
+  df$pair <- factor(df$pair, levels = c("within a group", "between groups"))
+  chance <- data.frame(k = factor(ks, levels = ks), overlap = pmin(ks / n_genotypes, 1))
+  ggplot(df, aes(k, overlap)) +
+    geom_boxplot(aes(fill = pair), outlier.size = 0.4, linewidth = 0.3, width = 0.7,
+                 position = position_dodge(width = 0.8)) +
+    geom_line(data = chance, aes(group = 1), linetype = "dashed", colour = "grey30") +
+    scale_fill_manual(values = c("within a group" = "#FDE725", "between groups" = "#3B528B"), name = NULL) +
+    scale_y_continuous(labels = percent, limits = c(0, 1)) +
+    labs(x = "k (number of top genotypes)", y = "overlap",
+         title = paste0("Top-k overlap of all PPI pairs (", length(unique(grp)), " groups; dashed: chance, k / ",
+                        n_genotypes, ")")) +
+    theme_pub() + theme(legend.position = "bottom")
+}
+
+# Mean top-k overlap of every PPI with all other PPIs, per k (rows in the order of
+# topk_overlap_groups(), values in the cells in %)
+plot_topk_overlap_by_ppi <- function(Om_list, ks) {
+  ord <- topk_overlap_groups(Om_list)$order
+  df <- do.call(rbind, lapply(seq_along(Om_list), function(L) {
+    m <- Om_list[[L]]; diag(m) <- NA
+    data.frame(PPI = rownames(m), k = ks[L], overlap = rowMeans(m, na.rm = TRUE))
+  }))
+  df$PPI <- factor(df$PPI, levels = rev(ord))
+  df$k <- factor(df$k, levels = ks)
+  ggplot(df, aes(k, PPI, fill = overlap_class(overlap))) +
+    geom_tile(colour = "white", linewidth = 0.2, show.legend = TRUE) +
+    geom_text(aes(label = round(100 * overlap), colour = overlap > 0.6), size = 2) +
+    scale_colour_manual(values = c(`TRUE` = "black", `FALSE` = "white"), guide = "none") +
+    scale_fill_overlap("mean overlap") +
+    labs(x = "k (number of top genotypes)", y = NULL,
+         title = "Mean top-k overlap of each PPI with all other PPIs") +
+    theme_pub() + overlap_legend_theme()
+}
+
+# Top-k overlap matrices of all k stacked as layers (smallest k at the bottom), drawn in
+# an oblique projection. All layers share one PPI order: average-linkage clustering of
+# 1 - the overlap averaged over the k, so groups of PPIs that agree at every k form blocks
+# in the same place in every layer. The PPI names are written along the front edge and
+# along the right (depth) edge of the bottom layer. depth = 1 gives both edges the same
+# label spacing; the angle sets how flat the layers are. The cells have no borders: on the
+# flat layers, white borders would cover a large share of every cell and pale the colours.
+# Om_list: overlap matrices (one per k), ks: their k, ord: the PPI order (default: from
+# the matrices given).
+plot_topk_overlap_stack <- function(Om_list, ks, ord = topk_overlap_groups(Om_list)$order,
+                                    angle = 25, depth = 1, gap = 1.1) {
+  clean <- lapply(Om_list, function(m) { diag(m) <- 1; m[is.na(m)] <- 0; m })
+  n <- length(ord)
+  front <- ord                          # PPIs along the front edge, left to right
+  dx <- depth * cos(angle * pi / 180)   # screen offset per unit of depth
+  dy <- depth * sin(angle * pi / 180)
+  H <- n * dy * gap                     # vertical distance between the layers
+  cells <- expand.grid(j = seq_len(n), i = seq_len(n))   # j: along the front, i: into the depth
+  corner_x <- c(0, 1, 1, 0); corner_d <- c(0, 0, 1, 1)
+  poly <- do.call(rbind, lapply(seq_along(clean), function(L) {
+    m <- clean[[L]][ord, front]         # rows: depth, columns: front edge
+    x <- rep(cells$j - 1, each = 4) + corner_x
+    d <- rep(cells$i - 1, each = 4) + corner_d
+    data.frame(id = rep(seq_len(nrow(cells)), each = 4) + (L - 1) * nrow(cells),
+               X = x + d * dx, Y = (L - 1) * H + d * dy,
+               overlap = rep(m[cbind(cells$i, cells$j)], each = 4))
+  }))
+  top <- (length(clean) - 1) * H   # base of the top layer
+  pos <- seq_len(n) - 0.5
+  ggplot() +
+    geom_polygon(data = poly, aes(X, Y, group = id, fill = overlap_class(overlap)), colour = NA, show.legend = TRUE) +
+    # front edge: names below the columns
+    geom_text(data = data.frame(X = pos, Y = -0.4, lab = front), aes(X, Y, label = lab),
+              angle = 90, hjust = 1, size = 2.2) +
+    # right edge: names perpendicular to the depth edge, pointing away from the layer
+    geom_text(data = data.frame(X = n + 0.4 * sin(angle * pi / 180) + pos * dx,
+                                Y = -0.4 * cos(angle * pi / 180) + pos * dy, lab = ord),
+              aes(X, Y, label = lab), angle = angle - 90, hjust = 0, size = 2.2) +
+    # k of each layer in the empty corner left of the layer's slanted edge
+    geom_text(data = data.frame(X = 0.3, Y = (seq_along(ks) - 1) * H + 0.45 * n * dy, lab = paste0("k = ", ks)),
+              aes(X, Y, label = lab), hjust = 0, size = 2.5) +
+    # compact legend (colour strip 0-100 %) in the empty corner above the left part of the top layer
+    scale_fill_overlap() +
+    # the drawing area is cut to the stack and its labels, so the stack fills the page
+    coord_equal(xlim = c(-0.5, n + n * dx + 3.5), ylim = c(-4.5, top + n * dy + 0.5),
+                expand = FALSE, clip = "off") +
+    theme_void() +
+    theme(plot.margin = margin(2, 2, 2, 2),
+          plot.background = element_rect(fill = "white", colour = NA),
+          legend.position = "inside",
+          legend.position.inside = c(0, 1),
+          legend.justification = c(0, 1),
+          legend.key.spacing.x = unit(0, "pt"),
+          legend.title = element_text(size = 7),
+          legend.text = element_text(size = 6))
 }
 
 # PCA Biplot using ranks
@@ -528,13 +676,34 @@ main <- function() {
   
   # 5. Top-k Overlap Heatmaps
   cat("  Creating top-k overlap heatmaps...\n")
+  Om_list <- list()
   for (k in topk_values) {
     Om <- topk_overlap_matrix(ranks_df, colnames(plasticity_scores), k)
-    p_topk <- plot_topk_overlap_heatmap_matrix(Om, paste0("Plasticity Analysis (k=", k, ")"), k)
+    Om_list[[length(Om_list) + 1]] <- Om
+    p_topk <- plot_topk_overlap_heatmap_matrix(Om, paste0("Plasticity Analysis (k=", k, ")"), k, n = nrow(ranks_df))
     print(with_caption(p_topk,
       paste(setup, "Overlap of the", k, "most plastic genotypes (highest values) between every pair of PPIs, as share of", k, "; PPIs ordered by average-linkage clustering of the overlap."),
       "High overlap: the two PPIs select the same genotypes as most plastic; low overlap: choosing between them changes which genotypes are selected. For stability indices (high value = low plasticity) the top set is the least plastic genotypes."))
   }
+
+  # The overlap matrices of a selection of k stacked on one page, in the PPI order of the
+  # groups over all k (the same order as on the following pages)
+  stack_k <- c(5, 15, 30, 75, 150)
+  in_stack <- match(stack_k, topk_values)
+  p_stack <- with_caption(plot_topk_overlap_stack(Om_list[in_stack], stack_k,
+                                                  ord = topk_overlap_groups(Om_list)$order),
+    paste(setup, "Top-k overlap between every pair of PPIs, one layer per k (", paste(stack_k, collapse = ", "),
+          "); all layers in the same PPI order, from average-linkage clustering of the overlap averaged over all k."),
+    "Blocks present in every layer are groups of PPIs that select the same genotypes whatever the number selected.")
+  print(p_stack)
+
+  # Distribution of the overlaps over the PPI pairs per k, and per PPI
+  print(with_caption(plot_topk_overlap_distribution(Om_list, topk_values, nrow(ranks_df)),
+    paste(setup, "Top-k overlap of all pairs of PPIs at every k; pairs within one group and between groups, groups from average-linkage clustering of the overlap averaged over k (number of groups by silhouette width); dashed line: overlap expected by chance."),
+    "Groups agree at every k if their within-group boxes stay high; between-group boxes rising towards the chance line mean the groups only differ in the very top genotypes."))
+  print(with_caption(plot_topk_overlap_by_ppi(Om_list, topk_values),
+    paste(setup, "Mean top-k overlap of each PPI with the other PPIs, per k; rows in the order of the clustering of the overlap averaged over k."),
+    "Dark rows: PPIs that select other genotypes than the rest at every k."))
   
   # 6. PCA Biplot (using ranks)
   cat("  Creating PCA biplot...\n")

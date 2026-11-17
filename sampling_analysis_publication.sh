@@ -17,7 +17,7 @@ N_LINES=200                        # number of lines drawn at random from the pa
 LINE_SEED=2026                     # seed of the random draw of the lines
 NCORE=6                            # parallel R processes
 MAIZE_POP="output/populations/maize_traits_figure"   # own folder for the real maize PPIs
-CAPTIONS=TRUE                      # FALSE for the figures of the paper
+CAPTIONS=FALSE                     # TRUE: short captions under the figures
 # ------------------------------------------------------------------------------
 
 export OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1

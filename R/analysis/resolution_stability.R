@@ -120,8 +120,10 @@ correlation_regression <- function(cors) {
 }
 
 # For every PPI: linear mixed model PPI ~ N_points + summary statistics + (1 | genotype)
-# over all resolutions. The N_points estimate is the change of the PPI per additional
-# sampling point after the summary statistics; p values BH-adjusted over the PPIs.
+# over all resolutions. The PPI is z-standardised over all genotypes and resolutions
+# (mean 0, SD 1), so the N_points estimate - the conditional slope - is the change of the
+# PPI in standard deviations per additional sampling point after the summary statistics,
+# comparable between PPIs on different scales. p values BH-adjusted over the PPIs.
 # A PPI is "robust" if |estimate| < 0.001 or p.adj >= 0.05, else "sample-size-sensitive".
 sample_size_mixed_model <- function(tables) {
   all <- do.call(rbind, tables)
@@ -132,7 +134,8 @@ sample_size_mixed_model <- function(tables) {
     d <- all[is.finite(all[[p]]), c(p, "N_points", summary_stat_names, "GenotypeKey")]
     names(d)[1] <- "value"
     est <- c(estimate = NA_real_, std.error = NA_real_, t.value = NA_real_, p.value = NA_real_)
-    if (length(unique(d$N_points)) >= 2) {
+    if (nrow(d) > 1 && sd(d$value) > 0) d$value <- (d$value - mean(d$value)) / sd(d$value)
+    if (length(unique(d$N_points)) >= 2 && sd(d$value) > 0) {
       fit <- tryCatch(suppressMessages(suppressWarnings(lmerTest::lmer(as.formula(paste("value ~", fm_rhs)), data = d))),
                       error = function(e) NULL)
       if (!is.null(fit)) {
