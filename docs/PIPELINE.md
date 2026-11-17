@@ -97,8 +97,9 @@ shape is a false positive.
 | `R/sim/simulate_population.R` | `simulate_population()`: true norms of a population -> `data/`, `variance/` |
 | `R/pipeline/sample_resolution.R` | `sample_resolution()`: the population measured at n points -> `n_<n>/data/`, `n_<n>/variance/` |
 | `R/ppi/compute_population_ppis.R` | `compute_population_ppis()`: PPIs of a resolution -> `n_<n>/<replicate handling>/ppis/` |
-| `R/gwas/run_population_gwas.R` | `run_population_gwas()`: GWAS of the PPIs of a resolution and, with a truth table, the power per shape and its heatmaps -> `n_<n>/<replicate handling>/gwas/`, `plots/` |
+| `R/gwas/run_population_gwas.R` | `run_population_gwas()`: GWAS of the PPIs (optionally also of the true parameters, and on a larger SNP set of the same lines, or on the causal SNPs plus a random draw of the others up to `n_gwas_snps`; SNPs with MAF < `min_maf` not tested) of a resolution and, with a truth table, the power per shape and its heatmaps; MAF of the hits -> `n_<n>/<replicate handling>/gwas/`, `plots/` |
 | `R/gwas/plot_gwas_power.R` | `plot_gwas_power()`: heatmaps of the power per shape (used by `run_population_gwas()`) |
+| `R/gwas/hit_maf.R` | `true_parameter_traits()`: true parameters as GWAS traits; `hit_maf_tables()`, `plot_hit_maf()`: MAF of the hits and of the causal SNPs (used by `run_population_gwas()`) |
 | `R/sim/plot_norms.R` | `plot_true_norms()`: the true norms, drawn into `data/reaction_norms.pdf` |
 | `R/gwas/gwas.R` | kinship matrix; `run_gwas()` per PPI and shape (rrBLUP mixed model) |
 | `R/gwas/evaluate_power.R` | power per shape against that shape's causal SNPs |

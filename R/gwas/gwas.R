@@ -12,14 +12,16 @@ kinship_matrix <- function(snp_matrix) rrBLUP::A.mat(snp_matrix - 1)
 # not counted as separate lines. rrBLUP fits every trait on its own rows with a value
 # (lines and kinship subset to them), as a call with that trait alone would.
 # n_cores > 1 splits the SNP tests over that many forked processes (same results).
-gwas_traits <- function(pheno, snp_matrix, kinship, n_cores = 1) {
+# min_maf: SNPs whose minor allele frequency over the lines with a value is below it are
+# not tested (rrBLUP gives them -log10 p = 0).
+gwas_traits <- function(pheno, snp_matrix, kinship, n_cores = 1, min_maf = 0.05) {
   lines <- unique(pheno[[1]])
   geno <- data.frame(name = colnames(snp_matrix), chrom = 1, pos = seq_len(ncol(snp_matrix)),
                      t(snp_matrix[lines, , drop = FALSE] - 1), check.names = FALSE)
   # rrBLUP prints progress lines; they are captured to keep the console readable
   utils::capture.output(
     res <- rrBLUP::GWAS(pheno, geno, K = kinship[lines, lines],
-                        min.MAF = 0, n.PC = 0, n.core = n_cores, P3D = TRUE, plot = FALSE)
+                        min.MAF = min_maf, n.PC = 0, n.core = n_cores, P3D = TRUE, plot = FALSE)
   )
   lapply(setNames(names(pheno)[-1], names(pheno)[-1]), function(tr) {
     data.frame(SNP = res$name, LogP = res[[tr]], P_Value = 10^(-res[[tr]]), stringsAsFactors = FALSE)
@@ -29,8 +31,8 @@ gwas_traits <- function(pheno, snp_matrix, kinship, n_cores = 1) {
 # traits: the PPI values used as GWAS traits (output of compute_ppis());
 # returns one table with the columns SNP, LogP, P_Value, Score (PPI) and Type (shape).
 # Per shape, the PPIs with the same rows (genotype and replicate) share one rrBLUP call.
-# n_cores: processes for the SNP tests (see gwas_traits())
-run_gwas <- function(traits, snp_matrix, kinship = kinship_matrix(snp_matrix), n_cores = 1) {
+# n_cores: processes for the SNP tests; min_maf: minimum minor allele frequency (see gwas_traits())
+run_gwas <- function(traits, snp_matrix, kinship = kinship_matrix(snp_matrix), n_cores = 1, min_maf = 0.05) {
   res <- list()   # res[[score]][[shape]]
   shapes <- unique(unlist(lapply(traits, function(sc) unique(sc$Type))))
   for (shape in shapes) {
@@ -51,7 +53,7 @@ run_gwas <- function(traits, snp_matrix, kinship = kinship_matrix(snp_matrix), n
     for (g in groups) {
       ids <- paste0("trait_", seq_along(g$scores))   # syntactic column names for rrBLUP
       pheno <- data.frame(line = g$line, setNames(g$scores, ids), stringsAsFactors = FALSE)
-      r <- gwas_traits(pheno, snp_matrix, kinship, n_cores)
+      r <- gwas_traits(pheno, snp_matrix, kinship, n_cores, min_maf)
       for (k in seq_along(ids)) res[[names(g$scores)[k]]][[shape]] <- r[[ids[k]]]
     }
   }
