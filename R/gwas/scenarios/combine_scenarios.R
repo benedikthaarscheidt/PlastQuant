@@ -23,7 +23,7 @@ source(here::here("R", "pipeline", "load_pipeline.R"))
 
 if (!exists("SCENARIO_ROOT")) SCENARIO_ROOT <- here::here("output", "populations")
 if (!exists("SCENARIOS")) {
-  SCENARIOS <- grep("^scenario_[0-9]+_[0-9]+$", list.files(SCENARIO_ROOT), value = TRUE)
+  SCENARIOS <- grep("^scenario_[0-9]+_[0-9]+_?[0-9]*$", list.files(SCENARIO_ROOT), value = TRUE)
 }
 if (!exists("P_THRESHOLD")) P_THRESHOLD <- 1e-3
 if (!exists("N_POINTS")) N_POINTS <- 6
