@@ -21,7 +21,7 @@ snps <- prune_snps(geno$mat2[, map$SNP.name], r2 = 0.1, window = 50, chrom = map
 #snps <- snps[1:200,]
 rm(geno, map)
 POPULATION_DIR <- here::here("output", "populations", "scenario_20_10")
-simulate_population(sim_config(h2 = 0.2, Mc = 10), POPULATION_DIR)   # true reaction norms -> data/, variance/
+#simulate_population(sim_config(h2 = 0.2, Mc = 10), POPULATION_DIR)   # true reaction norms -> data/, variance/
 simulate_population_from_snps(sim_config(h2 = 0.2, Mc = 10), snps, POPULATION_DIR)   # -> data/, variance/RESOLUTION_DIR <- sample_resolution(POPULATION_DIR, 6)    # measured at 6 points -> n_6/data/
 RESOLUTION_DIR <- sample_resolution(POPULATION_DIR, 6)    # measured at 6 points -> n_6/data/
 compute_population_ppis(RESOLUTION_DIR)                   # PPIs -> n_6/mean_before/ppis/
