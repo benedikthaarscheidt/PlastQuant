@@ -46,7 +46,7 @@ read_snp_panel <- function(snps) {
 # it). SNPs further apart than `window` are not compared, as LD decays with distance.
 # chrom: the chromosome of every SNP, so that only SNPs on the same chromosome are compared
 # (NULL: one chromosome). Monomorphic SNPs are dropped. Returns X with the kept SNPs only.
-prune_snps <- function(X, r2 = 0.1, window = 50, chrom = NULL) {
+prune_snps <- function(X, r2 = 0.1, window = 50, chrom = NULL, MAF = 0.05) {
   if (is.null(chrom)) chrom <- rep(1L, ncol(X))
   if (length(chrom) != ncol(X)) stop("chrom needs one value per SNP")
   n1 <- nrow(X) - 1
@@ -68,6 +68,9 @@ prune_snps <- function(X, r2 = 0.1, window = 50, chrom = NULL) {
     }
     z <- (x - mean(x)) / s
     if (length(pos_k) && any((crossprod(Zk, z) / n1)^2 >= r2)) next
+    # checking MAF
+    A_sum = sum(X[,j]);
+    if ((A_sum<2*n1*MAF) || (A_sum>(1-MAF)*2*n1)) next
     Zk <- cbind(Zk, z)
     pos_k <- c(pos_k, j)
     keep[j] <- TRUE
