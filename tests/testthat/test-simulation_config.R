@@ -18,7 +18,7 @@ test_that("study space matches the table of the model", {
 
 test_that("defaults of the variance components", {
   cfg <- sim_config(h2 = 0.2, Mc = 10)
-  expect_equal(cfg$sigma_L, 0.1)
+  expect_equal(cfg$sigma_L, 0.3)
   expect_equal(cfg$repeatability_beta, c(18, 2))
   expect_equal(cfg$error_share, 0.05)
 })

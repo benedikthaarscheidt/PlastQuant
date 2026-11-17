@@ -47,7 +47,7 @@ default_study_space <- function() {
 #   cfg <- sim_config(
 #     h2           = 0.5,                    # narrow-sense heritability (required)
 #     Mc           = 5,                      # causal SNPs per parameter (required)
-#     q            = 0.5,
+#     q            = 1,
 #     stability_sd = 0.2,
 #     n_per_shape  = 200,
 #     n_rep        = 3,
@@ -56,13 +56,13 @@ default_study_space <- function() {
 #     ld_r2        = 0.1,
 #     n_points     = 6,
 #     seed         = 1,
-#     sigma_L      = 0.1,
+#     sigma_L      = 0.3,
 #     error_share  = 0.02,
 #     study_space  = default_study_space()
 #   )
 sim_config <- function(h2,                                  # narrow-sense heritability on the latent scale (0..1)
                        Mc,                                  # causal SNPs per parameter (and for V) of every shape
-                       q = 0.5,                             # share of the additive variance from the causal SNPs (0..1)
+                       q = 1,                               # share of the additive variance from the causal SNPs (0..1)
                        stability_sd = 0.2,                  # SD of ln sigma_i^2: differences in replicate stability between genotypes (0 = none)
                        n_per_shape = 200,                   # genotypes (lines) per shape
                        n_rep = 3,                           # replicate plants per genotype
@@ -71,7 +71,7 @@ sim_config <- function(h2,                                  # narrow-sense herit
                        ld_r2 = 0.1,                         # r^2 that bounds the LD window (SNPs within it of a causal SNP count as finding it)
                        n_points = 6,                        # measurement points per reaction norm; environments 1 + 9 t
                        seed = 1,                            # seed for the genetics; seed + 1 for all other normal draws
-                       sigma_L = 0.1,                       # SD of ln(L) over the plants, L = exp(sigma_L * ell)
+                       sigma_L = 0.3,                       # SD of ln(L) over the plants, L = exp(sigma_L * ell)
                        error_share = 0.02,                  # measurement error as share of the trait variance
                        study_space = default_study_space()  # range and distribution of every bounded parameter
                        ) {

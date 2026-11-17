@@ -139,7 +139,7 @@ Every argument with its default, to copy and adapt:
 cfg <- sim_config(
   h2           = 0.5,                    
   Mc           = 5,                      
-  q            = 0.5,
+  q            = 1,
   stability_sd = 0.2,
   n_per_shape  = 200,
   n_rep        = 3,
@@ -148,7 +148,7 @@ cfg <- sim_config(
   ld_r2        = 0.1,
   n_points     = 6,
   seed         = 1,
-  sigma_L      = 0.1,
+  sigma_L      = 0.3,
   error_share  = 0.02,
   study_space  = default_study_space()
 )
@@ -164,7 +164,7 @@ Required:
 
 With defaults:
 
-- `q` (default 0.5): share of the additive genetic variance that comes from the causal
+- `q` (default 1): share of the additive genetic variance that comes from the causal
   SNPs; the rest is polygenic background. Each causal SNP explains `q · h2 / Mc` of the
   variance
 - `stability_sd` (default 0.2): how much the genotypes differ in the spread of their
@@ -183,7 +183,7 @@ With defaults:
 - `n_points` (default 6): measurement points used by `simulate_reaction_norms()` when
   working in memory; `sample_resolution()` takes its own number of points
 - `seed` (default 1): the same seed gives the same genetics for every `h2`
-- `sigma_L` (default 0.1): SD of ln L over the plants
+- `sigma_L` (default 0.3): SD of ln L over the plants
 - `error_share` (default 0.02): measurement error as share of the trait variance
 - `study_space` (default `default_study_space()`): range and distribution of every
   bounded parameter
@@ -419,7 +419,7 @@ source(here::here("R", "analysis", "plotting_resolution.R"))            # ... an
 ### Heritability scenarios (GWAS power)
 
 The nine drivers in `R/gwas/scenarios/` simulate the grid h² ∈ {0.2, 0.4, 0.6} ×
-Mc ∈ {5, 10, 20} (narrow-sense heritability, `q` = 0.5) and run steps 1–4 at 6 points each:
+Mc ∈ {5, 10, 20} (narrow-sense heritability, `q` = 1) and run steps 1–4 at 6 points each:
 
 ```bash
 Rscript --vanilla R/gwas/scenarios/scenario_20_5.R        # -> output/populations/scenario_20_5/
